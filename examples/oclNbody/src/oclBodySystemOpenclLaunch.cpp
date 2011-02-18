@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <iostream>
 #include <sstream>
+#include "timeRec.h"
 // var to hold path to executable
 extern const char* cExecutablePath;
 
@@ -35,14 +36,23 @@ extern "C"
 		{
 			memSize = sizeof( double) * 4 * numBodies;
 		}
+
+		timerStart();
 		vel[0] = clCreateBuffer(cxGPUContext, CL_MEM_READ_WRITE, memSize, NULL, NULL);
 		vel[1] = clCreateBuffer(cxGPUContext, CL_MEM_READ_WRITE, memSize, NULL, NULL);
+		timerEnd();
+		strTime.createBuffer += elapsedTime();
+		strTime.numCreateBuffer += 2;
     }
 
     void DeleteNBodyArrays(cl_mem vel[2])
     {
+		timerStart();
         clReleaseMemObject(vel[0]);
         clReleaseMemObject(vel[1]);
+		timerEnd();
+		strTime.releaseMemObj += elapsedTime();
+		strTime.numReleaseMemObj += 2;
     }
 
     void CopyArrayFromDevice(cl_command_queue cqCommandQueue, float *host, cl_mem device, cl_mem pboCL, int numBodies, bool bDouble)
@@ -54,7 +64,11 @@ extern "C"
 		{
 			size = numBodies * 4 * sizeof(double);
 			double *dHost = (double *)malloc(size);
+			timerStart();
 			ciErrNum = clEnqueueReadBuffer(cqCommandQueue, device, CL_TRUE, 0, size, dHost, 0, NULL, NULL);
+			timerEnd();
+			strTime.enqueueReadBuffer += elapsedTime();
+			strTime.numEnqueueReadBuffer ++;
 			for (int i = 0; i < numBodies * 4; i++)
 			{
 				host[i] = (float)(dHost[i]);
@@ -64,7 +78,11 @@ extern "C"
 		else
 		{
         	size = numBodies * 4 * sizeof(float);
+			timerStart();
         	ciErrNum = clEnqueueReadBuffer(cqCommandQueue, device, CL_TRUE, 0, size, host, 0, NULL, NULL);
+			timerEnd();
+			strTime.enqueueReadBuffer += elapsedTime();
+			strTime.numEnqueueReadBuffer ++;
         }
 		oclCheckError(ciErrNum, CL_SUCCESS);
 		
@@ -82,13 +100,21 @@ extern "C"
 			{
 				cdHost[i] = (double)host[i];
 			}
+			timerStart();
 			ciErrNum = clEnqueueWriteBuffer(cqCommandQueue, device, CL_TRUE, 0, size, cdHost, 0, NULL, NULL);
+			timerEnd();
+			strTime.enqueueWriteBuffer += elapsedTime();
+			strTime.numEnqueueWriteBuffer ++;
 			free(cdHost);
 		}
 		else
 		{
         	size = numBodies*4*sizeof(float);
+			timerStart();
         	ciErrNum = clEnqueueWriteBuffer(cqCommandQueue, device, CL_TRUE, 0, size, host, 0, NULL, NULL);
+			timerEnd();
+			strTime.enqueueWriteBuffer += elapsedTime();
+			strTime.numEnqueueWriteBuffer ++;
         }
 		oclCheckError(ciErrNum, CL_SUCCESS);
     }
@@ -146,6 +172,7 @@ extern "C"
             kernel = noMT_kernel;
         }
 
+		timerStart();
 	    ciErrNum |= clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&newPos);
         ciErrNum |= clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&newVel);
         ciErrNum |= clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *)&oldPos);
@@ -167,6 +194,10 @@ extern "C"
 		}
         ciErrNum |= clSetKernelArg(kernel, 7, sizeof(cl_int), (void *)&numBodies);
         ciErrNum |= clSetKernelArg(kernel, 8, sharedMemSize, NULL);
+		timerEnd();
+		strTime.setKernelArg += elapsedTime();
+		strTime.numSetKernelArg += 9;
+
         oclCheckError(ciErrNum, CL_SUCCESS);
 
         // set work-item dimensions
@@ -176,7 +207,12 @@ extern "C"
         global_work_size[1]= q;
 
         // execute the kernel:
+		timerStart();
         ciErrNum = clEnqueueNDRangeKernel(cqCommandQueue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL);
+		clFinish(cqCommandQueue);
+		timerEnd();
+		strTime.kernelExecution += elapsedTime();
+		strTime.numKernelExecution++;
         oclCheckError(ciErrNum, CL_SUCCESS);
 
     }
@@ -203,7 +239,7 @@ extern "C"
 		int iVec3Length = 3;
 		if( strncmp("OpenCL 1.0", cOCLVersion, 10) == 0 ) {
 			iVec3Length = 4;
-	}
+		}
 
 
 		//for double precision
@@ -242,7 +278,11 @@ extern "C"
 #endif
 
         // create the program 
+		timerStart();
         cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char **)&pcSourceForDouble, &szSourceLen, &ciErrNum);
+		timerEnd();
+		strTime.createProgramWithSource += elapsedTime();
+		strTime.numCreateProgramWithSource++;
         oclCheckError(ciErrNum, CL_SUCCESS);
         shrLog("clCreateProgramWithSource\n"); 
 
@@ -252,7 +292,11 @@ extern "C"
 #else
 	char *flags = "-cl-fast-relaxed-math";
 #endif
+		timerStart();
         ciErrNum = clBuildProgram(cpProgram, 0, NULL, flags, NULL, NULL);
+		timerEnd();
+		strTime.buildProgram += elapsedTime();
+		strTime.numBuildProgram++;
         if (ciErrNum != CL_SUCCESS)
         {
             // write out standard error, Build Log and PTX, then cleanup and exit
@@ -264,17 +308,21 @@ extern "C"
         shrLog("clBuildProgram\n"); 
 
         // create the kernel
+		timerStart();
         *kernel = clCreateKernel(cpProgram, kernel_name, &ciErrNum);
+		timerEnd();
+		strTime.createKernel += elapsedTime();
+		strTime.numCreateKernel++;
         oclCheckError(ciErrNum, CL_SUCCESS); 
         shrLog("clCreateKernel\n"); 
 
-		size_t wgSize;
-		ciErrNum = clGetKernelWorkGroupInfo(*kernel, cdDevices[0], CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &wgSize, NULL);
-		if (wgSize == 64) {
-		  shrLog(
-			 "ERROR: Minimum work-group size 256 required by this application is not supported on this device.\n");
-		  exit(0);
-		}
+//		size_t wgSize;
+//		ciErrNum = clGetKernelWorkGroupInfo(*kernel, cdDevices[0], CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &wgSize, NULL);
+//		if (wgSize == 64) {
+//		  shrLog(
+//			 "ERROR: Minimum work-group size 256 required by this application is not supported on this device.\n");
+//		  exit(0);
+//		}
 	
 		free(pcSourceForDouble);
 
