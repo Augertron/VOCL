@@ -1,6 +1,6 @@
 // standard utility and system includes
 /*****************************************************
- * 1.  Remove all ocl.. functions
+ * 1.  Each time with a different kernel called
  *****************************************************/
 #include <oclUtils.h>
 #include "timeRec.h"
@@ -58,6 +58,7 @@ double transposeGPU(const char* kernelName, bool useLocalMem,  cl_uint ciDeviceC
     cl_mem d_odata[MAX_GPU_COUNT];
     cl_mem d_idata[MAX_GPU_COUNT];
     cl_kernel ckKernel[MAX_GPU_COUNT];
+	double time;
 
     size_t szGlobalWorkSize[2];
     size_t szLocalWorkSize[2];
@@ -70,118 +71,125 @@ double transposeGPU(const char* kernelName, bool useLocalMem,  cl_uint ciDeviceC
     // size of memory required to store the matrix
     const size_t mem_size = sizeof(float) * size_x * size_y;
 
-    for(unsigned int i = 0; i < ciDeviceCount; ++i){
-        // allocate device memory and copy host to device memory
-		timerStart();
-        d_idata[i] = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                    mem_size, h_idata, &ciErrNum);
-		timerEnd();
-		strTime.createBuffer += elapsedTime();
-		strTime.numCreateBuffer++;
-        oclCheckError(ciErrNum, CL_SUCCESS);
-
-        // create buffer to store output
-		timerStart();
-        d_odata[i] = clCreateBuffer(cxGPUContext, CL_MEM_WRITE_ONLY ,
-                                    sizePerGPU*size_y*sizeof(float), NULL, &ciErrNum);
-		timerEnd();
-		strTime.createBuffer += elapsedTime();
-		strTime.numCreateBuffer++;
-        oclCheckError(ciErrNum, CL_SUCCESS);
-
-        // create the naive transpose kernel
-		timerStart();
-        ckKernel[i] = clCreateKernel(cpProgram, kernelName, &ciErrNum);
-		timerEnd();
-		strTime.createKernel += elapsedTime();
-		strTime.numCreateKernel++;
-        oclCheckError(ciErrNum, CL_SUCCESS);
-        
-        // set the args values for the naive kernel
-        size_t offset = i * sizePerGPU;
-		timerStart();
-        ciErrNum  = clSetKernelArg(ckKernel[i], 0, sizeof(cl_mem), (void *) &d_odata[i]);
-        ciErrNum |= clSetKernelArg(ckKernel[i], 1, sizeof(cl_mem), (void *) &d_idata[0]);
-        ciErrNum |= clSetKernelArg(ckKernel[i], 2, sizeof(int), &offset);
-        ciErrNum |= clSetKernelArg(ckKernel[i], 3, sizeof(int), &size_x);
-        ciErrNum |= clSetKernelArg(ckKernel[i], 4, sizeof(int), &size_y);
-        if(useLocalMem)
-        {
-            ciErrNum |= clSetKernelArg(ckKernel[i], 5, (BLOCK_DIM + 1) * BLOCK_DIM * sizeof(float), 0 );
-			strTime.numSetKernelArg++;
-        }
-		timerEnd();
-		strTime.setKernelArg += elapsedTime();
-		strTime.numSetKernelArg += 4;
-    }
-    oclCheckError(ciErrNum, CL_SUCCESS);
-
-    // set up execution configuration
-    szLocalWorkSize[0] = BLOCK_DIM;
-    szLocalWorkSize[1] = BLOCK_DIM;
-    szGlobalWorkSize[0] = sizePerGPU;
-    szGlobalWorkSize[1] = shrRoundUp(BLOCK_DIM, size_y);
-    
     // execute the kernel numIterations times
     int numIterations = 100;
     shrLog("\nProcessing a %d by %d matrix of floats...\n\n", size_x, size_y);
-	timerStart();
-    for (int i = -1; i < numIterations; ++i)
+    for (int k = 0; k < numIterations; ++k)
     {
-        // Start time measurement after warmup
-        if( i == 0 ) shrDeltaT(0);
+
+		for(unsigned int i = 0; i < ciDeviceCount; ++i)
+		{
+			// create the naive transpose kernel
+			timerStart();
+			ckKernel[i] = clCreateKernel(cpProgram, kernelName, &ciErrNum);
+			timerEnd();
+			strTime.createKernel += elapsedTime();
+			strTime.numCreateKernel++;
+			oclCheckError(ciErrNum, CL_SUCCESS);
+	
+			// allocate device memory and copy host to device memory
+			timerStart();
+			//d_idata[i] = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+			//                            mem_size, h_idata, &ciErrNum);
+			d_idata[i] = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, mem_size, NULL, &ciErrNum);
+			oclCheckError(ciErrNum, CL_SUCCESS);
+
+			d_odata[i] = clCreateBuffer(cxGPUContext, CL_MEM_WRITE_ONLY ,
+										sizePerGPU*size_y*sizeof(float), NULL, &ciErrNum);
+			oclCheckError(ciErrNum, CL_SUCCESS);
+			timerEnd();
+			strTime.createBuffer += elapsedTime();
+			strTime.numCreateBuffer += 2;
+		}
+
+		for(unsigned int i = 0; i < ciDeviceCount; ++i)
+		{
+			timerStart();
+			ciErrNum = clEnqueueWriteBuffer(commandQueue[i], d_idata[i], CL_TRUE, 0,
+									mem_size, h_idata, 0, NULL, NULL);
+			timerEnd();
+			strTime.enqueueWriteBuffer += elapsedTime();
+			strTime.numEnqueueWriteBuffer++;
 		
-        for(unsigned int k=0; k < ciDeviceCount; ++k){
-            ciErrNum |= clEnqueueNDRangeKernel(commandQueue[k], ckKernel[k], 2, NULL,                                           
+			// set the args values for the naive kernel
+			size_t offset = i * sizePerGPU;
+			timerStart();
+			ciErrNum  = clSetKernelArg(ckKernel[i], 0, sizeof(cl_mem), (void *) &d_odata[i]);
+			ciErrNum |= clSetKernelArg(ckKernel[i], 1, sizeof(cl_mem), (void *) &d_idata[0]);
+			ciErrNum |= clSetKernelArg(ckKernel[i], 2, sizeof(int), &offset);
+			ciErrNum |= clSetKernelArg(ckKernel[i], 3, sizeof(int), &size_x);
+			ciErrNum |= clSetKernelArg(ckKernel[i], 4, sizeof(int), &size_y);
+			if(useLocalMem)
+			{
+				ciErrNum |= clSetKernelArg(ckKernel[i], 5, (BLOCK_DIM + 1) * BLOCK_DIM * sizeof(float), 0 );
+				strTime.numSetKernelArg++;
+			}
+			timerEnd();
+			strTime.setKernelArg += elapsedTime();
+			strTime.numSetKernelArg += 4;
+    		oclCheckError(ciErrNum, CL_SUCCESS);
+		}
+
+		// set up execution configuration
+		szLocalWorkSize[0] = BLOCK_DIM;
+		szLocalWorkSize[1] = BLOCK_DIM;
+		szGlobalWorkSize[0] = sizePerGPU;
+		szGlobalWorkSize[1] = shrRoundUp(BLOCK_DIM, size_y);
+    
+       // Start time measurement after warmup
+        if( k == 0 ) shrDeltaT(0);
+		
+		timerStart();
+        for(unsigned int i=0; i < ciDeviceCount; ++i){
+            ciErrNum |= clEnqueueNDRangeKernel(commandQueue[i], ckKernel[i], 2, NULL,                                           
                                 szGlobalWorkSize, szLocalWorkSize, 0, NULL, NULL);
-			strTime.numKernelExecution++;
         }
         oclCheckError(ciErrNum, CL_SUCCESS);
-    }    
 
-    // Block CPU till GPU is done
-    for(unsigned int k=0; k < ciDeviceCount; ++k){ 
-        ciErrNum |= clFinish(commandQueue[k]);
-    }
-	timerEnd();
-	strTime.kernelExecution += elapsedTime();
-    double time = shrDeltaT(0)/(double)numIterations;
-    oclCheckError(ciErrNum, CL_SUCCESS);
+		// Block CPU till GPU is done
+		for(unsigned int i=0; i < ciDeviceCount; ++i){ 
+			ciErrNum |= clFinish(commandQueue[i]);
+		}
+		timerEnd();
+		strTime.kernelExecution += elapsedTime();
+		strTime.numKernelExecution += ciDeviceCount;
+		time = shrDeltaT(0)/(double)numIterations;
+		oclCheckError(ciErrNum, CL_SUCCESS);
 
-    // Copy back to host
-	timerStart();
-    for(unsigned int i = 0; i < ciDeviceCount; ++i){
-        size_t offset = i * sizePerGPU;
-        size_t size = MIN(size_x - i * sizePerGPU, sizePerGPU);
+		// Copy back to host
+		timerStart();
+		for(unsigned int i = 0; i < ciDeviceCount; ++i){
+			size_t offset = i * sizePerGPU;
+			size_t size = MIN(size_x - i * sizePerGPU, sizePerGPU);
 
-        ciErrNum |= clEnqueueReadBuffer(commandQueue[i], d_odata[i], CL_TRUE, 0,
-                                size * size_y * sizeof(float), &h_odata[offset * size_y], 
-                                0, NULL, NULL);
-    }
-	timerEnd();
-	strTime.enqueueReadBuffer += elapsedTime();
-	strTime.numEnqueueReadBuffer += ciDeviceCount;
-    oclCheckError(ciErrNum, CL_SUCCESS);
+			ciErrNum |= clEnqueueReadBuffer(commandQueue[i], d_odata[i], CL_TRUE, 0,
+									size * size_y * sizeof(float), &h_odata[offset * size_y], 
+									0, NULL, NULL);
+		}
+		timerEnd();
+		strTime.enqueueReadBuffer += elapsedTime();
+		strTime.numEnqueueReadBuffer += ciDeviceCount;
+		oclCheckError(ciErrNum, CL_SUCCESS);
 
-	timerStart();
-    for(unsigned int i = 0; i < ciDeviceCount; ++i){
-        ciErrNum |= clReleaseMemObject(d_idata[i]);
-        ciErrNum |= clReleaseMemObject(d_odata[i]);
-        //ciErrNum |= clReleaseKernel(ckKernel[i]);
-    }
-	timerEnd();
-	strTime.releaseMemObj += elapsedTime();
-	strTime.numReleaseMemObj += 2 * ciDeviceCount;
-	
-	//release kernel
-	timerStart();
-    for(unsigned int i = 0; i < ciDeviceCount; ++i){
-        ciErrNum |= clReleaseKernel(ckKernel[i]);
-    }
-	timerEnd();
-	strTime.releaseKernel += elapsedTime();
-	strTime.numReleaseKernel += ciDeviceCount;
-
+		timerStart();
+		for(unsigned int i = 0; i < ciDeviceCount; ++i){
+			ciErrNum |= clReleaseMemObject(d_idata[i]);
+			ciErrNum |= clReleaseMemObject(d_odata[i]);
+			//ciErrNum |= clReleaseKernel(ckKernel[i]);
+		}
+		timerEnd();
+		strTime.releaseMemObj += elapsedTime();
+		strTime.numReleaseMemObj += 2 * ciDeviceCount;
+		
+		//release kernel
+		timerStart();
+		for(unsigned int i = 0; i < ciDeviceCount; ++i){
+			ciErrNum |= clReleaseKernel(ckKernel[i]);
+		}
+		timerEnd();
+		strTime.releaseKernel += elapsedTime();
+		strTime.numReleaseKernel += ciDeviceCount;
+	}
 
     return time;
 }
