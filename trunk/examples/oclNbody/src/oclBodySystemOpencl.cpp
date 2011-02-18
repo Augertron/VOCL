@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include "oclBodySystemOpenclLaunch.h"
+#include "timeRec.h"
 
 BodySystemOpenCL::BodySystemOpenCL(int numBodies, cl_device_id dev, cl_context ctx, cl_command_queue cmdq, 
                                    unsigned int p, unsigned int q, bool usePBO, bool bDouble)
@@ -112,8 +113,18 @@ void BodySystemOpenCL::_finalize()
     delete [] m_hPos;
     delete [] m_hVel;
 
+	timerStart();
 	clReleaseKernel(MT_kernel);
 	clReleaseKernel(noMT_kernel);
+	timerEnd();
+	strTime.releaseKernel += elapsedTime();
+	strTime.numReleaseKernel += 2;
+
+//	timerStart();
+//	clReleaseProgram(cpProgram);
+//	timerEnd();
+//	strTime.releaseProgram += elapsedTime();
+//	strTime.numReleaseProgram++;
 
     DeleteNBodyArrays(m_dVel);
 //    if (m_bUsePBO)

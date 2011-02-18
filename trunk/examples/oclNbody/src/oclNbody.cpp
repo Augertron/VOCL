@@ -13,7 +13,7 @@
 #include "oclUtils.h"
 #include <paramgl.h>
 #include <algorithm>
-
+#include "timeRec.h"
 // Project includes
 #include "oclBodySystemOpencl.h"
 #include "oclBodySystemCpu.h"
@@ -73,6 +73,7 @@ NBodyParams demoParams[] =
 
 // Basic simulation parameters
 int numBodies = 7680;               // default # of bodies in sim (can be overridden by command line switch --n=<N>)
+int numIterations = 100;
 bool bDouble = false;               //false: sp float, true: dp 
 int numDemos = sizeof(demoParams) / sizeof(NBodyParams);
 int activeDemo = 0;
@@ -157,6 +158,7 @@ int main(int argc, char** argv)
 	shrLog("  --double\t\tUse double precision floating point values for simulation\n");
 	shrLog("  --p=<workgroup X dim>\tSpecify X dimension of workgroup (default = %d)\n", p);
 	shrLog("  --q=<workgroup Y dim>\tSpecify Y dimension of workgroup (default = %d)\n\n", q);
+	shrLog("  --iter=<numIterations>\tSpecify the number of iterations (default = %d)\n\n", numIterations);
 
 	// Get command line arguments if there are any and set vars accordingly
     if (argc > 0)
@@ -164,14 +166,23 @@ int main(int argc, char** argv)
         shrGetCmdLineArgumenti(argc, (const char**)argv, "p", &p);
         shrGetCmdLineArgumenti(argc, (const char**)argv, "q", &q);
         shrGetCmdLineArgumenti(argc, (const char**)argv, "n", &numBodies);
+        shrGetCmdLineArgumenti(argc, (const char**)argv, "iter", &numIterations);
 	    bDouble = (shrTRUE == shrCheckCmdLineFlag(argc, (const char**)argv, "double"));
         bNoPrompt = shrCheckCmdLineFlag(argc, (const char**)argv, "noprompt");
         bQATest = shrCheckCmdLineFlag(argc, (const char**)argv, "qatest");
     }
 	bQATest = shrTRUE;
 
+	shrLog("Initialize timer...\n\n");
+	memset(&strTime, sizeof(STRUCT_TIME), 0);
+
     //Get the NVIDIA platform
-    cl_int ciErrNum = oclGetPlatformID(&cpPlatform);
+	timerStart();
+    //cl_int ciErrNum = oclGetPlatformID(&cpPlatform);
+	cl_int ciErrNum = clGetPlatformIDs(1, &cpPlatform, NULL);
+	timerEnd();
+	strTime.getPlatform += elapsedTime();
+	strTime.numGetPlatform++;
     oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
     shrLog("clGetPlatformID...\n\n"); 
 	
@@ -188,10 +199,14 @@ int main(int argc, char** argv)
     
 	//Get all the devices
     shrLog("Get the Device info and select Device...\n");
+	timerStart();
     ciErrNum = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, 0, NULL, &uiNumDevices);
     oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
     cdDevices = (cl_device_id *)malloc(uiNumDevices * sizeof(cl_device_id) );
     ciErrNum = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, uiNumDevices, cdDevices, NULL);
+	timerEnd();
+	strTime.getDeviceID += elapsedTime();
+	strTime.numGetDeviceID += 2;
     oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
 
     // Set target device and Query number of compute units on uiTargetDevice
@@ -208,12 +223,20 @@ int main(int argc, char** argv)
 
     //Create the context
     shrLog("clCreateContext...\n"); 
+	timerStart();
     cxContext = clCreateContext(0, uiNumDevsUsed, &cdDevices[uiTargetDevice], NULL, NULL, &ciErrNum);
+	timerEnd();
+	strTime.createContext += elapsedTime();
+	strTime.numCreateContext++;
     oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
 
     // Create a command-queue 
     shrLog("clCreateCommandQueue...\n\n"); 
+	timerStart();
     cqCommandQueue = clCreateCommandQueue(cxContext, cdDevices[uiTargetDevice], CL_QUEUE_PROFILING_ENABLE, &ciErrNum);
+	timerEnd();
+	strTime.createCommandQueue += elapsedTime();
+	strTime.numCreateCommandQueue++;
     oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
 
     // Log and config for number of bodies
@@ -277,14 +300,20 @@ int main(int argc, char** argv)
     if (bQATest == shrTRUE) 
     {
         shrLog("Running oclNbody Results Comparison...\n\n"); 
-        //CompareResults(numBodies);
+        CompareResults(numBodies);
 
         shrLog("Profiling oclNbody...\n\n"); 
-        RunProfiling(100, (unsigned int)(p * q));  // 100 iterations
+        RunProfiling(numIterations, (unsigned int)(p * q));  // 100 iterations
     }
 
     // Cleanup/exit 
     Cleanup(EXIT_SUCCESS);
+
+	printTime_toStandardOutput();
+	printTime_toFile();
+
+	exit(EXIT_SUCCESS);
+
 }
 
 //*****************************************************************************
@@ -425,8 +454,17 @@ void Cleanup(int iExitCode)
 
     // Cleanup allocated objects
     if(nbodyGPU)delete nbodyGPU;
+	timerStart();
     if(cqCommandQueue)clReleaseCommandQueue(cqCommandQueue);
+	timerEnd();
+	strTime.releaseCmdQueue += elapsedTime();
+	strTime.numReleaseCmdQueue++;
+
+	timerStart();
     if(cxContext)clReleaseContext(cxContext);
+	timerEnd();
+	strTime.releaseContext += elapsedTime();
+	strTime.numReleaseContext++;
     if(hPos)delete [] hPos;
     if(hVel)delete [] hVel;
     if(hColor)delete [] hColor;
@@ -443,5 +481,5 @@ void Cleanup(int iExitCode)
             getchar();
         #endif
     }
-    exit (iExitCode);
+    //exit (iExitCode);
 }
