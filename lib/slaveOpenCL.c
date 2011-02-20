@@ -1339,7 +1339,7 @@ int main(int argc, char *argv[])
 			mpiOpenCLEnqueueWriteBuffer(&tmpEnqueueWriteBuffer, host_ptr, event_wait_list);
 			MPI_Send(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0,
 					 ENQUEUE_WRITE_BUFFER, parentComm);
-			//free(host_ptr);
+			free(host_ptr);
 			if (num_events_in_wait_list > 0)
 			{
 				free(event_wait_list);
@@ -1462,7 +1462,7 @@ int main(int argc, char *argv[])
 			{
 				free(event_wait_list);
 			}
-			//free(host_ptr);
+			free(host_ptr);
 		}
 
 		if (status.MPI_TAG == RELEASE_MEM_OBJ)
