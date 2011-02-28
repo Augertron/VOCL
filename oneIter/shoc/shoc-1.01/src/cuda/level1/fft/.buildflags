@@ -1,0 +1,12 @@
+CXX=g++
+CC=g++
+NVCC=/usr/local/cuda/bin//nvcc
+AR=/usr/bin/ar
+LD=g++
+CPPFLAGS=-I../../../../src/common -I../../../../config -I/usr/local/cuda/include -I/usr/local/cuda/include -I../../include
+CFLAGS=-m64 -g -O2
+CXXFLAGS=-m64 -g -O2
+LDFLAGS= 
+ARFLAGS=rcv
+LIBS=-L../../../../lib  -lrt -lSHOCCommon -lcufft
+uname= Linux gpu0031 2.6.18-194.el5 #1 SMP Fri Apr 2 14:58:14 EDT 2010 x86_64 x86_64 x86_64 GNU/Linux
