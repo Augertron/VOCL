@@ -1,0 +1,24 @@
+# === Basics ===
+CC       = @CC@
+CXX      = @CXX@
+LD       = @CXX@
+AR       = @AR@
+RANLIB   = @RANLIB@
+
+CPPFLAGS += -I$(SHOC_ROOT)/src/common -I${SHOC_ROOT}/config @CPPFLAGS@
+CFLAGS   += @CFLAGS@
+CXXFLAGS += @CXXFLAGS@
+ARFLAGS  = rcv
+LDFLAGS  = @LDFLAGS@
+LIBS     = -L$(SHOC_ROOT)/lib @LIBS@
+
+USE_MPI         = @USE_MPI@
+
+OCL_CPPFLAGS    += -I${SHOC_ROOT}/src/opencl/common
+OCL_LIBS        = @OPENCL_LIBS@
+
+NVCC            = @NVCC@
+CUDA_CXX        = @NVCC@
+CUDA_INC        = -I@CUDA_INCDIR@
+CUDA_CPPFLAGS   += @CUDA_CPPFLAGS@ -I${SHOC_ROOT}/src/cuda/include
+
