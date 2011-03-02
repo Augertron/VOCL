@@ -174,7 +174,7 @@ int main(int argc, char** argv)
 	bQATest = shrTRUE;
 
 	shrLog("Initialize timer...\n\n");
-	memset(&strTime, sizeof(STRUCT_TIME), 0);
+	memset(&strTime, 0, sizeof(STRUCT_TIME));
 
 	shrLog("Iteration num = %d\n", numIterations);
 
