@@ -19,7 +19,7 @@ void checkSlaveProc()
 	if (slaveCreated == 0)
 	{
 		MPI_Init(NULL, NULL);
-		MPI_Comm_spawn("/home/scxiao/workplace/anl/gpuvirtualization/slave_process", MPI_ARGV_NULL, np, MPI_INFO_NULL, 0, MPI_COMM_WORLD, &slaveComm, errCodes);
+		MPI_Comm_spawn("/home/scxiao/workplace/trunk/lib/slave_process", MPI_ARGV_NULL, np, MPI_INFO_NULL, 0, MPI_COMM_WORLD, &slaveComm, errCodes);
 		slaveCreated = 1;
 		char hostName[200];
 		int  len;
