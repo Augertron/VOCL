@@ -13,7 +13,8 @@ OBJFILES=$(OBJ)/alignments.o $(OBJ)/prints.o $(OBJ)/sequences.o $(OBJ)/swat.o \
 		 $(OBJ)/param.o $(OBJ)/timeRec.o
 CCFLAGS= -O3 -c -I$(INC) -I/usr/local/cuda/include
 #LIB=-L/home/scxiao/workplace/anl/gpuvirtualization
-LIB=-L/home/balaji/software/cuda/vgpu/trunk/lib
+#LIB=-L/home/balaji/software/cuda/vgpu/trunk/lib
+LIB=-L/home/scxiao/workplace/vgpu/trunk/lib
 
 swatV: $(OBJFILES)
 	$(CCPLUS) $(LIB) -lGPUv -o swatV $(OBJFILES)
