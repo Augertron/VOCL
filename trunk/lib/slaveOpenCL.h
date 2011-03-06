@@ -352,6 +352,13 @@ void processEvents(cl_event *event_list, cl_uint num_events)
 
 void processCommandQueue(cl_command_queue command_queue)
 {
+	MPI_Request *request;
+	MPI_Status  *status;
+	int maxRequestNum = 100;
+	int requestNo = 0;
+	request = (MPI_Request *)malloc(maxRequestNum * sizeof(MPI_Request));
+	status  = (MPI_Status *)malloc(maxRequestNum * sizeof(MPI_Status));
+
 	CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
 	MPI_Status status;
 	DATA_TRANSFER *dataTransferPtr = cmdQueue->dataTransferPtr;
@@ -361,20 +368,21 @@ void processCommandQueue(cl_command_queue command_queue)
 		if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
 		{
 			MPI_Isend(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
-					 0, dataTransferPtr->tag, dataTransferPtr->comm, &dataTransferPtr->request);
+					 0, dataTransferPtr->tag, dataTransferPtr->comm, request+(requestNo++));
+		}
+		if (requestNo >= maxRequestNum)
+		{
+			maxRequestNum *= 2;
+			request = (MPI_Request *)realloc(request, maxRequestNum * sizeof(MPI_Request));
+			status  = (MPI_Status *)realloc(status, maxRequestNum * sizeof(MPI_Status));
 		}
 		dataTransferPtr = dataTransferPtr->next;
 	}
-
+	MPI_Wait(requestNo, request, status);
 	dataTransferPtr = cmdQueue->dataTransferPtr;
 	while (dataTransferPtr != NULL)
 	{
-		if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
-		{
-			MPI_Wait(&dataTransferPtr->request, &status);
-		}
 		free(dataTransferPtr->host_ptr);
-
 		nextDataTransferPtr = dataTransferPtr->next;
 		free(dataTransferPtr);
 		dataTransferPtr = nextDataTransferPtr;
@@ -383,6 +391,8 @@ void processCommandQueue(cl_command_queue command_queue)
 	cmdQueue->dataTransferPtr = NULL;
 	cmdQueue->dataTransferPtrTail = NULL;
 
+	free(request);
+	free(status);
 	return;
 }
 

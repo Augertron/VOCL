@@ -10,79 +10,86 @@
  *8. Enqueue read/write buffer is modified and other API functions are added.
  *9. change the way of set arguments to save data communication time
  *10.support asynchronous data transfer
+ *12.all are non-blocking message send and receive
  **************************************************************************/
+#define OFFSET 10
+#define MAX_CMSG_SIZE 256
 
-#define GET_PLATFORM_ID_FUNC        10001
+#define GET_PLATFORM_ID_FUNC        10
+#define GET_DEVICE_ID_FUNC          11
+#define CREATE_CONTEXT_FUNC         12
+#define LOAD_SOURCE_FUNC            13
+#define CREATE_PROGRMA_WITH_SOURCE  14
+#define CREATE_COMMAND_QUEUE_FUNC   15
+#define BUILD_PROGRAM               16
+#define CREATE_KERNEL               17
+#define CREATE_BUFFER_FUNC          18
+#define ENQUEUE_WRITE_BUFFER        19
+#define SET_KERNEL_ARG              20
+#define ENQUEUE_ND_RANGE_KERNEL     21
+#define ENQUEUE_READ_BUFFER         22
+#define RELEASE_MEM_OBJ             23
+#define FINISH_FUNC                 24
+#define GET_CONTEXT_INFO_FUNC	    25
+#define CL_RELEASE_KERNEL_FUNC      26
+#define GET_BUILD_INFO_FUNC         27
+#define GET_PROGRAM_INFO_FUNC       28
+#define REL_PROGRAM_FUNC            29
+#define REL_COMMAND_QUEUE_FUNC      30
+#define REL_CONTEXT_FUNC            31
+#define GET_DEVICE_INFO_FUNC        32
+#define GET_PLATFORM_INFO_FUNC      33
+#define FLUSH_FUNC				    34
+#define WAIT_FOR_EVENT_FUNC         35
+#define GET_CMD_QUEUE_INFO_FUNC     36
+#define CREATE_SAMPLER_FUNC         37
+#define ENQUEUE_MAP_BUFF_FUNC       38
+#define RELEASE_EVENT_FUNC          39
+#define RELEASE_SAMPLER_FUNC        40
+#define GET_EVENT_PROF_INFO_FUNC    41
+#define GET_KERNEL_WGP_INFO_FUNC    42
+#define CREATE_IMAGE_2D_FUNC        43
+#define ENQ_COPY_BUFF_FUNC          44
+#define RETAIN_EVENT_FUNC           45
+#define RETAIN_MEMOBJ_FUNC          46
+#define RETAIN_KERNEL_FUNC          47
+#define RETAIN_CMDQUE_FUNC          48
+#define ENQ_UNMAP_MEMOBJ_FUNC       49
+#define PROGRAM_END                 50
+#define CMSG_NUM                    (PROGRAM_END-OFFSET)
+#define DATAMSG_NUM					100
+#define TOTAL_MSG_NUM				(CMSG_NUM + DATAMSG_NUM)
+
 #define GET_PLATFORM_ID_FUNC1	    10002
-#define GET_DEVICE_ID_FUNC          10003
 #define GET_DEVICE_ID_FUNC1         10004
-#define CREATE_CONTEXT_FUNC         10005
 #define CREATE_CONTEXT_FUNC1        10006
-#define CREATE_COMMAND_QUEUE_FUNC   10007
-#define LOAD_SOURCE_FUNC            10008
 #define LOAD_SOURCE_FUNC1           10009
-#define CREATE_PROGRMA_WITH_SOURCE  10010
 #define CREATE_PROGRMA_WITH_SOURCE1 10011
 #define CREATE_PROGRMA_WITH_SOURCE2 10070
-#define BUILD_PROGRAM               10012
 #define BUILD_PROGRAM1              10013
-#define CREATE_KERNEL               10014
 #define CREATE_KERNEL1              10015
-#define CREATE_BUFFER_FUNC          10016
 #define CREATE_BUFFER_FUNC1         10017
-#define ENQUEUE_WRITE_BUFFER        10018
 #define ENQUEUE_WRITE_BUFFER1       10019
 #define ENQUEUE_WRITE_BUFFER2       10020
-#define SET_KERNEL_ARG              10021
 #define SET_KERNEL_ARG1             10022
-#define ENQUEUE_ND_RANGE_KERNEL     10023
 #define ENQUEUE_ND_RANGE_KERNEL1    10024
 #define ENQUEUE_ND_RANGE_KERNEL2    10025
 #define ENQUEUE_ND_RANGE_KERNEL3    10026
 #define ENQUEUE_ND_RANGE_KERNEL4    10069
-#define ENQUEUE_READ_BUFFER         10027
 #define ENQUEUE_READ_BUFFER1        10028
-#define RELEASE_MEM_OBJ             10029
-#define FINISH_FUNC                 10030
-#define CL_RELEASE_KERNEL_FUNC      10031
-#define GET_CONTEXT_INFO_FUNC	    10032
 #define GET_CONTEXT_INFO_FUNC1	    10033
-#define GET_BUILD_INFO_FUNC         10034
 #define GET_BUILD_INFO_FUNC1        10035
-#define GET_PROGRAM_INFO_FUNC       10036
 #define GET_PROGRAM_INFO_FUNC1      10037
-#define REL_PROGRAM_FUNC            10038
-#define REL_COMMAND_QUEUE_FUNC      10039
-#define REL_CONTEXT_FUNC            10040
-#define GET_DEVICE_INFO_FUNC        10041
 #define GET_DEVICE_INFO_FUNC1       10042
-#define GET_PLATFORM_INFO_FUNC      10043
 #define GET_PLATFORM_INFO_FUNC1     10044
-#define FLUSH_FUNC				    10045
-#define WAIT_FOR_EVENT_FUNC         10046
 #define WAIT_FOR_EVENT_FUNC1        10047
-#define CREATE_SAMPLER_FUNC         10048
-#define GET_CMD_QUEUE_INFO_FUNC 	10049
 #define GET_CMD_QUEUE_INFO_FUNC1 	10050
-#define ENQUEUE_MAP_BUFF_FUNC       10051
 #define ENQUEUE_MAP_BUFF_FUNC1      10052
-#define RELEASE_EVENT_FUNC          10053
-#define GET_EVENT_PROF_INFO_FUNC    10054
 #define GET_EVENT_PROF_INFO_FUNC1   10055
-#define RELEASE_SAMPLER_FUNC        10056
-#define GET_KERNEL_WGP_INFO_FUNC    10057
 #define GET_KERNEL_WGP_INFO_FUNC1   10058
-#define CREATE_IMAGE_2D_FUNC        10059
 #define CREATE_IMAGE_2D_FUNC1       10060
-#define ENQ_COPY_BUFF_FUNC          10061
 #define ENQ_COPY_BUFF_FUNC1         10062
-#define RETAIN_EVENT_FUNC           10063
-#define RETAIN_MEMOBJ_FUNC          10064
-#define RETAIN_KERNEL_FUNC          10065
-#define RETAIN_CMDQUE_FUNC          10066
-#define ENQ_UNMAP_MEMOBJ_FUNC       10067
 #define ENQ_UNMAP_MEMOBJ_FUNC1      10068
-#define PROGRAM_END                 11111
 
 
 
@@ -1145,6 +1152,14 @@ void mpiOpenCLEnqueueUnmapMemObject(struct strEnqueueUnmapMemObject *tmpEnqueueU
 	tmpEnqueueUnmapMemObject->res = errcode;
 }
 
+struct strDataInfo {
+	void *host_ptr;
+	cl_event *event_list;
+	struct strEnqueueWriteBuffer writeBuffInfo;
+};
+
+struct strDataInfo dataInfo[100];
+
 //=========================================================================
 int main(int argc, char *argv[])
 {
@@ -1162,38 +1177,66 @@ int main(int argc, char *argv[])
 	hostName[len] = '\0';
 	printf("slaveHostName = %s\n", hostName);
 
+	//issue non-blocking receive for all control message
+	MPI_Status  curStatus[TOTAL_MSG_NUM], status;
+	MPI_Request conMsgRequest[TOTAL_MSG_NUM];
+	MPI_Request curRequest[20];
+	int requestNo, dataReqNum = 0, totalReqNum;
+
+	void *conMsgBuffer[CMSG_NUM];
+
+	for (i = 0; i < CMSG_NUM; i++)
+	{
+		//allocate buffer for each contral message
+		conMsgBuffer[i] = (char *)malloc(MAX_CMSG_SIZE);
+		MPI_Irecv(conMsgBuffer[i], MAX_CMSG_SIZE, MPI_BYTE, 0, i+OFFSET,
+				  parentComm, conMsgRequest+i);
+	}
+
+	totalReqNum = CMSG_NUM;
 	while (1)
 	{
-		//MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, parentComm, &status);
-		MPI_Probe(0, MPI_ANY_TAG, parentComm, &status);
+		//wait for any msg from the master process
+		MPI_Waitany(totalReqNum, conMsgRequest, index, &status);
+
+		//if any message is received
 		if (status.MPI_TAG == GET_PLATFORM_ID_FUNC)
 		{
-			MPI_Recv(&getPlatformIDStr, sizeof(getPlatformIDStr), MPI_BYTE, 0,
-					 GET_PLATFORM_ID_FUNC, parentComm, &status);
-			//printf("In slave process, in function mpiOpenCLGetPlatformIDs!\n");
+			memcpy(&getPlatformIDStr, conMsgBuffer[index], sizeof(getPlatformIDStr));
+			
+			//MPI_Recv(&getPlatformIDStr, sizeof(getPlatformIDStr), MPI_BYTE, 0,
+			//		 GET_PLATFORM_ID_FUNC, parentComm, &status);
 			cl_platform_id *platforms = NULL;
-			if (getPlatformIDStr.platforms != NULL)
+			if (getPlatformIDStr->platforms != NULL)
 			{
-				platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * getPlatformIDStr.num_entries);
+				platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * getPlatformIDStr->num_entries);
 			}
 
-			mpiOpenCLGetPlatformIDs(&getPlatformIDStr, platforms);
-			MPI_Send(&getPlatformIDStr, sizeof(getPlatformIDStr), MPI_BYTE, 0,
-					 GET_PLATFORM_ID_FUNC, parentComm);
+			mpiOpenCLGetPlatformIDs(getPlatformIDStr, platforms);
+			requestNo = 0;
+			MPI_Isend(&getPlatformIDStr, sizeof(getPlatformIDStr), MPI_BYTE, 0,
+					 GET_PLATFORM_ID_FUNC, parentComm, curRequest + (requestNo++));
 			if (getPlatformIDStr.platforms != NULL && getPlatformIDStr.num_entries > 0)
 			{
-				MPI_Send((void *)platforms, sizeof(cl_platform_id) * getPlatformIDStr.num_entries, MPI_BYTE, 0,
-						 GET_PLATFORM_ID_FUNC1, parentComm);
+				MPI_Isend((void *)platforms, sizeof(cl_platform_id) * getPlatformIDStr.num_entries, MPI_BYTE, 0,
+						 GET_PLATFORM_ID_FUNC1, parentComm, curRequest + (requestNo++));
+			}
+			//issue it for later processing
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, GET_PLATFORM_ID_FUNC,
+					  parentComm, conMsgRequest + index);
+			MPI_Waitall(requestNo, curRequest, curStatus);
+			if (getPlatformIDStr.platforms != NULL && getPlatformIDStr.num_entries > 0)
+			{
 				free(platforms);
 			}
-
 		}
 
 		if (status.MPI_TAG == GET_DEVICE_ID_FUNC)
 		{
 			//printf("In slave process, before GET_DEVICE_ID_FUNC received!\n");
-			MPI_Recv(&tmpGetDeviceIDs, sizeof(tmpGetDeviceIDs), MPI_BYTE, 0,
-					GET_DEVICE_ID_FUNC, parentComm, &status);
+			memcpy(&tmpGetDeviceIDs, conMsgBuffer[index], sizeof(tmpGetDeviceIDs));
+			//MPI_Recv(&tmpGetDeviceIDs, sizeof(tmpGetDeviceIDs), MPI_BYTE, 0,
+			//		GET_DEVICE_ID_FUNC, parentComm, &status);
 			cl_device_id *devices = NULL;
 			cl_uint num_entries = tmpGetDeviceIDs.num_entries;
 			if (num_entries > 0 && tmpGetDeviceIDs.devices != NULL)
@@ -1201,32 +1244,50 @@ int main(int argc, char *argv[])
 				devices = (cl_device_id *)malloc(num_entries * sizeof(cl_device_id));
 			}
 			mpiOpenCLGetDeviceIDs(&tmpGetDeviceIDs, devices);
-			MPI_Send(&tmpGetDeviceIDs, sizeof(tmpGetDeviceIDs), MPI_BYTE, 0,
-					GET_DEVICE_ID_FUNC, parentComm);
+			requestNo = 0;
 			if (num_entries > 0 && tmpGetDeviceIDs.devices != NULL)
 			{
-				MPI_Send(devices, sizeof(cl_device_id) * num_entries, MPI_BYTE, 0,
-					GET_DEVICE_ID_FUNC1, parentComm);
+				MPI_Isend(devices, sizeof(cl_device_id) * num_entries, MPI_BYTE, 0,
+					GET_DEVICE_ID_FUNC1, parentComm, curRequest + (requestNo++));
+			}
+			MPI_Isend(&tmpGetDeviceIDs, sizeof(tmpGetDeviceIDs), MPI_BYTE, 0,
+					GET_DEVICE_ID_FUNC, parentComm, curRequest + (requestNo++));
+
+			//issue it for later processing
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, GET_DEVICE_ID_FUNC,
+					  parentComm, conMsgRequest + index);
+			MPI_Waitall(requestNo, curRequest, curStatus);
+			if (num_entries > 0 && tmpGetDeviceIDs.devices != NULL)
+			{
 				free(devices);
 			}
+
 		}
 
 		if (status.MPI_TAG == CREATE_CONTEXT_FUNC)
 		{
 			//printf("In slave process, before CREATE_CONTEXT_FUNC received!\n");
-			MPI_Recv(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, 0,
-					CREATE_CONTEXT_FUNC, parentComm, &status);
+			memcpy(&tmpCreateContext, conMsgBuff[index], sizeof(tmpCreateContext));
+			//MPI_Recv(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, 0,
+			//		CREATE_CONTEXT_FUNC, parentComm, &status);
 			cl_device_id *devices = NULL;
 			if (tmpCreateContext.devices != NULL)
 			{
 				devices = (cl_device_id *)malloc(sizeof(cl_device_id) * tmpCreateContext.num_devices);
-				MPI_Recv(devices, sizeof(cl_device_id) * tmpCreateContext.num_devices, MPI_BYTE, 0,
-						 CREATE_CONTEXT_FUNC1, parentComm, &status);
+				MPI_Irecv(devices, sizeof(cl_device_id) * tmpCreateContext.num_devices, MPI_BYTE, 0,
+						 CREATE_CONTEXT_FUNC1, parentComm, curRequest);
+				MPI_Wait(curRequest, curStatus);
 			}
 
 			mpiOpenCLCreateContext(&tmpCreateContext, devices);
-			MPI_Send(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, 0,
-					CREATE_CONTEXT_FUNC, parentComm);
+
+			MPI_Isend(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, 0,
+					CREATE_CONTEXT_FUNC, parentComm, curRequest);
+
+			//issue it for later processing
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, CREATE_CONTEXT_FUNC,
+					  parentComm, conMsgRequest + index);
+			MPI_Wait(curRequest, curStatus);
 			if (devices != NULL)
 			{
 				free(devices);
@@ -1236,48 +1297,64 @@ int main(int argc, char *argv[])
 		if (status.MPI_TAG == CREATE_COMMAND_QUEUE_FUNC)
 		{
 			//printf("In slave process, before CREATE_CMD_QUEUE received!\n");
-			MPI_Recv(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, 0,
-					 CREATE_COMMAND_QUEUE_FUNC, parentComm, &status);
+			memcpy(&tmpCreateCommandQueue, conMsgBuff[index], sizeof(tmpCreateCommandQueue));
+			//MPI_Irecv(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, 0,
+			//		 CREATE_COMMAND_QUEUE_FUNC, parentComm, status);
 			mpiOpenCLCreateCommandQueue(&tmpCreateCommandQueue);
 			//printf("In slave process, after CMD_QUEUE is created!\n");
 
-			MPI_Send(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, 0,
-					 CREATE_COMMAND_QUEUE_FUNC, parentComm);
+			MPI_Isend(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, 0,
+					 CREATE_COMMAND_QUEUE_FUNC, parentComm, curRequest);
 
+			//issue it for later processing
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, CREATE_COMMAND_QUEUE_FUNC,
+					  parentComm, conMsgRequest + index);
+			MPI_Wait(curRequest, curStatus);
 		}
 
 		if (status.MPI_TAG == CREATE_PROGRMA_WITH_SOURCE)
 		{
-			MPI_Recv(&tmpCreateProgramWithSource, sizeof(tmpCreateProgramWithSource), MPI_BYTE, 0,
-					 CREATE_PROGRMA_WITH_SOURCE, parentComm, &status);
+			memcpy(&tmpCreateProgramWithSource, conMsgBuffer[index], sizeof(tmpCreateProgramWithSource));
+			//MPI_Recv(&tmpCreateProgramWithSource, sizeof(tmpCreateProgramWithSource), MPI_BYTE, 0,
+			//		 CREATE_PROGRMA_WITH_SOURCE, parentComm, &status);
 			cl_uint count = tmpCreateProgramWithSource.count;
 			size_t *lengthsArray = (size_t *)malloc(count * sizeof(size_t));
 			
 			size_t fileSize = tmpCreateProgramWithSource.lengths;
 			char *fileBuffer = (char *)malloc(fileSize * sizeof(char));
 
-			MPI_Recv(lengthsArray, count * sizeof(size_t), MPI_BYTE, 0,
-					 CREATE_PROGRMA_WITH_SOURCE1, parentComm, &status);
-			MPI_Recv(fileBuffer, fileSize, MPI_BYTE, 0,
-					 CREATE_PROGRMA_WITH_SOURCE2, parentComm, &status);
+			requestNo = 0;
+			MPI_Irecv(lengthsArray, count * sizeof(size_t), MPI_BYTE, 0,
+					 CREATE_PROGRMA_WITH_SOURCE1, parentComm, curRequest+(requestNo++));
+			MPI_Irecv(fileBuffer, fileSize, MPI_BYTE, 0,
+					 CREATE_PROGRMA_WITH_SOURCE2, parentComm, curRequest+(requestNo++));
+			MPI_Waitall(requestNo, curRequest, curStatus);
 
 			mpiOpenCLCreateProgramWithSource(&tmpCreateProgramWithSource, fileBuffer, lengthsArray);
-			MPI_Send(&tmpCreateProgramWithSource, sizeof(tmpCreateProgramWithSource), MPI_BYTE, 0,
-					 CREATE_PROGRMA_WITH_SOURCE, parentComm);
+			MPI_Isend(&tmpCreateProgramWithSource, sizeof(tmpCreateProgramWithSource), MPI_BYTE, 0,
+					 CREATE_PROGRMA_WITH_SOURCE, parentComm, curRequest);
+
+			//issue it for later use
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, CREATE_PROGRMA_WITH_SOURCE,
+					  parentComm, conMsgRequest + index);
+			//no need to wait, the buffer can be deleted
 			free(fileBuffer);
 			free(lengthsArray);
+			MPI_Wait(curRequest, curStatus);
 		}
 
 		if (status.MPI_TAG == BUILD_PROGRAM)
 		{
-			MPI_Recv(&tmpBuildProgram, sizeof(tmpBuildProgram), MPI_BYTE, 0,
-					 BUILD_PROGRAM, parentComm, &status);
+			memcpy(&tmpBuildProgram, conMsgBuffer[index], sizeof(tmpBuildProgram));
+			//MPI_Recv(&tmpBuildProgram, sizeof(tmpBuildProgram), MPI_BYTE, 0,
+			//		 BUILD_PROGRAM, parentComm, &status);
 			char *tmpBuf = NULL;
+			requestNo = 0;
 			if (tmpBuildProgram.optionLen > 0)
 			{
 				tmpBuf = (char *)malloc((tmpBuildProgram.optionLen + 1) * sizeof(char));
-				MPI_Recv(tmpBuf, tmpBuildProgram.optionLen, MPI_BYTE, 0,
-					     BUILD_PROGRAM1, parentComm, &status);
+				MPI_Irecv(tmpBuf, tmpBuildProgram.optionLen, MPI_BYTE, 0,
+					     BUILD_PROGRAM1, parentComm, curRequest + (requestNo++));
 				tmpBuf[tmpBuildProgram.optionLen] = '\0';
 			}
 
@@ -1286,12 +1363,20 @@ int main(int argc, char *argv[])
 			{
 				device_list = (cl_device_id *)malloc(sizeof(cl_device_id) * tmpBuildProgram.num_devices);
 				MPI_Recv(device_list, sizeof(cl_device_id) * tmpBuildProgram.num_devices, MPI_BYTE, 0,
-						 BUILD_PROGRAM, parentComm, &status);
+						 BUILD_PROGRAM, parentComm, curRequest + (requestNo++));
+			}
+			if (requestNo > 0)
+			{
+				MPI_Waitall(requestNo, curRequest, curStatus);
 			}
 
 			mpiOpenCLBuildProgram(&tmpBuildProgram, tmpBuf, device_list);
-			MPI_Send(&tmpBuildProgram, sizeof(tmpBuildProgram), MPI_BYTE, 0,
-					 BUILD_PROGRAM, parentComm);
+			MPI_Isend(&tmpBuildProgram, sizeof(tmpBuildProgram), MPI_BYTE, 0,
+					 BUILD_PROGRAM, parentComm, curRequest);
+			
+			//issue it for later use
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, BUILD_PROGRAM,
+					  parentComm, conMsgRequest + index);
 			if (tmpBuildProgram.optionLen > 0)
 			{
 				free(tmpBuf);
@@ -1300,107 +1385,160 @@ int main(int argc, char *argv[])
 			{
 				free(device_list);
 			}
+			MPI_Wait(curRequest, curStatus);
 		}
 
 		if (status.MPI_TAG == CREATE_KERNEL)
 		{
-			MPI_Recv(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, 0,
-					 CREATE_KERNEL, parentComm, &status);
+			memcpy(&tmpCreateKernel, conMsgBuffer[index], sizeof(tmpCreateKernel));
+			//MPI_Recv(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, 0,
+			//		 CREATE_KERNEL, parentComm, &status);
 			char *kernelName = (char *)malloc((tmpCreateKernel.kernelNameSize + 1)* sizeof(char));
 			MPI_Recv(kernelName, tmpCreateKernel.kernelNameSize, MPI_CHAR, 0,
-					 CREATE_KERNEL1, parentComm, &status);
+					 CREATE_KERNEL1, parentComm, curRequest);
 			kernelName[tmpCreateKernel.kernelNameSize] = '\0';
+			MPI_Wait(curRequest, curStatus);
 			mpiOpenCLCreateKernel(&tmpCreateKernel, kernelName);
-			MPI_Send(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, 0,
-					 CREATE_KERNEL, parentComm);
+			MPI_Isend(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, 0,
+					 CREATE_KERNEL, parentComm, curRequest);
+			//issue it for later use
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, CREATE_KERNEL,
+					  parentComm, conMsgRequest + index);
 			free(kernelName);
+			MPI_Wait(curRequest, curStatus);
 		}
 
 		if (status.MPI_TAG == CREATE_BUFFER_FUNC)
 		{
-			MPI_Recv(&tmpCreateBuffer, sizeof(tmpCreateBuffer), MPI_BYTE, 0,
-					 CREATE_BUFFER_FUNC, parentComm, &status);
+			memcpy(&tmpCreateBuffer, conMsgBuffer[index], sizeof(tmpCreateBuffer));
+			//MPI_Recv(&tmpCreateBuffer, sizeof(tmpCreateBuffer), MPI_BYTE, 0,
+			//		 CREATE_BUFFER_FUNC, parentComm, &status);
 			void *host_ptr = NULL;
 			if (tmpCreateBuffer.host_ptr_flag == 1)
 			{
 				host_ptr = malloc(tmpCreateBuffer.size);
-				MPI_Recv(host_ptr, tmpCreateBuffer.size, MPI_BYTE, 0, 
-						 CREATE_BUFFER_FUNC1, parentComm, &status);
+				MPI_Irecv(host_ptr, tmpCreateBuffer.size, MPI_BYTE, 0, 
+						 CREATE_BUFFER_FUNC1, parentComm, &curRequest);
+				MPI_Wait(curRequest, curStatus);
 			}
 			mpiOpenCLCreateBuffer(&tmpCreateBuffer, host_ptr);
-			MPI_Send(&tmpCreateBuffer, sizeof(tmpCreateBuffer), MPI_BYTE, 0,
-					 CREATE_BUFFER_FUNC, parentComm);
+			MPI_Isend(&tmpCreateBuffer, sizeof(tmpCreateBuffer), MPI_BYTE, 0,
+					 CREATE_BUFFER_FUNC, parentComm, curRequest);
+			//issue it for later use
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, CREATE_BUFFER_FUNC,
+					  parentComm, conMsgRequest + index);
 			if (tmpCreateBuffer.host_ptr_flag == 1)
 			{
 				free(host_ptr);
 			}
+			MPI_Wait(curRequest, curStatus);
 		}
 
 		if (status.MPI_TAG == ENQUEUE_WRITE_BUFFER)
 		{
-			MPI_Recv(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0,
-					 ENQUEUE_WRITE_BUFFER, parentComm, &status);
-			char *host_ptr = (char *)malloc(tmpEnqueueWriteBuffer.cb * sizeof(char));
-			MPI_Recv(host_ptr, tmpEnqueueWriteBuffer.cb, MPI_BYTE, 0,
-					 ENQUEUE_WRITE_BUFFER1, parentComm, &status);
+			memcpy(&tmpEnqueueWriteBuffer, conMsgBuffer[index], sizeof(tmpEnqueueWriteBuffer));
+			//MPI_Recv(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0,
+			//		 ENQUEUE_WRITE_BUFFER, parentComm, &status);
+			requestNo = 0;
 			cl_event *event_wait_list = NULL;
 			cl_uint num_events_in_wait_list = tmpEnqueueWriteBuffer.num_events_in_wait_list;
 			if (num_events_in_wait_list > 0)
 			{
 				event_wait_list = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
-				MPI_Recv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
-						 ENQUEUE_WRITE_BUFFER2, parentComm, &status);
+				MPI_Irecv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
+						 tmpEnqueueWriteBuffer.tag, parentComm, curRequest+(requestNo++));
 			}
-
-			mpiOpenCLEnqueueWriteBuffer(&tmpEnqueueWriteBuffer, host_ptr, event_wait_list);
-			MPI_Send(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0,
-					 ENQUEUE_WRITE_BUFFER, parentComm);
-			if (num_events_in_wait_list > 0)
+			char *host_ptr = (char *)malloc(tmpEnqueueWriteBuffer.cb * sizeof(char));
+			
+			if (tmpEnqueueWriteBuffer.blocking_write == CL_TRUE)
 			{
-				free(event_wait_list);
+				MPI_Irecv(host_ptr, tmpEnqueueWriteBuffer.cb, MPI_BYTE, 0,
+						  tmpEnqueueWriteBuffer.tag, parentComm, curRequest+(requestNo++));
+				MPI_Waitall(requestNo, curRequest, curStatus);
+				mpiOpenCLEnqueueWriteBuffer(&tmpEnqueueWriteBuffer, host_ptr, event_wait_list);
+				if (num_events_in_wait_list > 0)
+				{
+					free(event_wait_list);
+				}
+				free(host_ptr);
+				//process all the events in the command queue
+				processCommandQueue(tmpEnqueueWriteBuffer.command_queue);
 			}
-
-			//store the host pointer for later release
-			if (tmpEnqueueWriteBuffer.blocking_write == CL_FALSE)
+			else if (tmpEnqueueWriteBuffer.event_null_flag == 0)
 			{
+				MPI_Irecv(host_ptr, tmpEnqueueWriteBuffer.cb, MPI_BYTE, 0,
+						  tmpEnqueueWriteBuffer.tag, parentComm, curRequest+(requestNo++));
+				MPI_Waitall(requestNo, curRequest, curStatus);
+				mpiOpenCLEnqueueWriteBuffer(&tmpEnqueueWriteBuffer, host_ptr, event_wait_list);
+				//just store the pointer for later release
 				DATA_TRANSFER *dataTransferPtr = createDataTransfer(tmpEnqueueWriteBuffer.command_queue,
 																	tmpEnqueueWriteBuffer.event);
 				dataTransferPtr->host_ptr = host_ptr;
 				dataTransferPtr->readOrWrite = CL_GPUV_WRITE;
-			}
-			else //if it is blocking write, write is complete.
-			{
-				free(host_ptr);
 
-				//process all the events in the command queue
-				processCommandQueue(tmpEnqueueWriteBuffer.command_queue);
 			}
+			else //store the data info for later use
+			{
+				MPI_Irecv(host_ptr, tmpEnqueueWriteBuffer.cb, MPI_BYTE, 0,
+						  tmpEnqueueWriteBuffer.tag, parentComm, conMsgRequest+(CMSG_NUM + dataReqNum++));
+				totalReqNum += dataReqNum;
+				//maximum number of data buffers that can be processed
+				if (dataReqNum >= 100)
+				{
+					dataReqNum = 0;
+				}
+
+				dataInfo[dataReqNum].host_ptr = host_ptr;
+				memcpy(&dataInfo[dataReqNum].writeBuffInfo, &tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer));
+				dataInfo[dataReqNum].event_list = event_wait_list;
+			}
+			MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0,
+					  ENQUEUE_WRITE_BUFFER, parentComm, curRequest);
+			//issue it for later use
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, ENQUEUE_WRITE_BUFFER,
+					  parentComm, conMsgRequest + index);
+			MPI_Wait(curRequest, curStatus);
+		}
+
+		if (status.MPI_TAG >= ENQUEUE_WRITE_BUFFER + MIN_WRITE_TAG ||
+			status.MPI_TAG <= ENQUEUE_WRITE_BUFFER + MAX_WRITE_TAG)
+		{
+			int dataIndex = index - CMSG_NUM;
+			mpiOpenCLEnqueueWriteBuffer(&dataInfo[dataIndex].writeBuffInfo, 
+					dataInfo[dataIndex].host_ptr, dataInfo[dataIndex].event_wait_list);
+					//just store the pointer for later release
+			DATA_TRANSFER *dataTransferPtr = createDataTransfer(tmpEnqueueWriteBuffer.command_queue,
+																tmpEnqueueWriteBuffer.event);
+			dataTransferPtr->host_ptr = host_ptr;
+			dataTransferPtr->readOrWrite = CL_GPUV_WRITE;
 		}
 		
-		if (status.MPI_TAG == SET_KERNEL_ARG)
-		{
-			MPI_Recv(&tmpSetKernelArg, sizeof(tmpSetKernelArg), MPI_BYTE, 0,
-					 SET_KERNEL_ARG, parentComm, &status);
-			void *arg_value = NULL;
-			if (tmpSetKernelArg.arg_value != NULL)
-			{
-				arg_value = (char *)malloc(tmpSetKernelArg.arg_size);
-				MPI_Recv(arg_value, tmpSetKernelArg.arg_size, MPI_BYTE, 0,
-						 SET_KERNEL_ARG1, parentComm, &status);
-			}
-			mpiOpenCLSetKernelArg(&tmpSetKernelArg, arg_value);
-			MPI_Send(&tmpSetKernelArg, sizeof(tmpSetKernelArg), MPI_BYTE, 0,
-					 SET_KERNEL_ARG, parentComm);
-			if (tmpSetKernelArg.arg_value != NULL)
-			{
-				free(arg_value);
-			}
-		}
+//		if (status.MPI_TAG == SET_KERNEL_ARG)
+//		{
+//			MPI_Recv(&tmpSetKernelArg, sizeof(tmpSetKernelArg), MPI_BYTE, 0,
+//					 SET_KERNEL_ARG, parentComm, &status);
+//			void *arg_value = NULL;
+//			if (tmpSetKernelArg.arg_value != NULL)
+//			{
+//				arg_value = (char *)malloc(tmpSetKernelArg.arg_size);
+//				MPI_Recv(arg_value, tmpSetKernelArg.arg_size, MPI_BYTE, 0,
+//						 SET_KERNEL_ARG1, parentComm, &status);
+//			}
+//			mpiOpenCLSetKernelArg(&tmpSetKernelArg, arg_value);
+//			MPI_Send(&tmpSetKernelArg, sizeof(tmpSetKernelArg), MPI_BYTE, 0,
+//					 SET_KERNEL_ARG, parentComm);
+//			if (tmpSetKernelArg.arg_value != NULL)
+//			{
+//				free(arg_value);
+//			}
+//		}
 
 		if (status.MPI_TAG == ENQUEUE_ND_RANGE_KERNEL)
 		{
-			MPI_Recv(&tmpEnqueueNDRangeKernel, sizeof(tmpEnqueueNDRangeKernel), MPI_BYTE, 0,
-					 ENQUEUE_ND_RANGE_KERNEL, parentComm, &status);
+			requestNo = 0;
+			memcpy(&tmpEnqueueNDRangeKernel, conMsgBuffer[index], sizeof(tmpEnqueueNDRangeKernel));
+			//MPI_Irecv(&tmpEnqueueNDRangeKernel, sizeof(tmpEnqueueNDRangeKernel), MPI_BYTE, 0,
+			//		 ENQUEUE_ND_RANGE_KERNEL, parentComm, curRequest+(requestNo++));
 			int work_dim = tmpEnqueueNDRangeKernel.work_dim;
 			size_t *global_work_offset, *global_work_size, *local_work_size;
 			kernel_args *args_ptr;
@@ -1413,32 +1551,33 @@ int main(int argc, char *argv[])
 			{
 				//printf("global work offset\n");
 				global_work_offset = (size_t *)malloc(work_dim * sizeof(size_t));
-				MPI_Recv(global_work_offset, work_dim * sizeof(size_t), MPI_BYTE, 0,
-						 ENQUEUE_ND_RANGE_KERNEL1, parentComm, &status);
+				MPI_Irecv(global_work_offset, work_dim * sizeof(size_t), MPI_BYTE, 0,
+						 ENQUEUE_ND_RANGE_KERNEL1, parentComm, curRequest+(requestNo++));
 			}
 
 			if (tmpEnqueueNDRangeKernel.global_work_size_flag == 1)
 			{
 				//printf("global work size\n");
 				global_work_size   = (size_t *)malloc(work_dim * sizeof(size_t));
-				MPI_Recv(global_work_size, work_dim * sizeof(size_t), MPI_BYTE, 0,
-						 ENQUEUE_ND_RANGE_KERNEL2, parentComm, &status);
+				MPI_Irecv(global_work_size, work_dim * sizeof(size_t), MPI_BYTE, 0,
+						 ENQUEUE_ND_RANGE_KERNEL2, parentComm, curRequest+(requestNo++));
 			}
 
 			if (tmpEnqueueNDRangeKernel.local_work_size_flag == 1)
 			{
 				//printf("local work size\n");
 				local_work_size    = (size_t *)malloc(work_dim * sizeof(size_t));
-				MPI_Recv(local_work_size, work_dim * sizeof(size_t), MPI_BYTE, 0,
-						 ENQUEUE_ND_RANGE_KERNEL3, parentComm, &status);
+				MPI_Irecv(local_work_size, work_dim * sizeof(size_t), MPI_BYTE, 0,
+						 ENQUEUE_ND_RANGE_KERNEL3, parentComm, curRequest+(requestNo++));
 			}
 
 			if (tmpEnqueueNDRangeKernel.args_num > 0)
 			{
 				args_ptr = (kernel_args *)malloc(tmpEnqueueNDRangeKernel.args_num * sizeof(kernel_args));
-				MPI_Recv(args_ptr, tmpEnqueueNDRangeKernel.args_num * sizeof(kernel_args), MPI_BYTE, 0,
-						 ENQUEUE_ND_RANGE_KERNEL4, parentComm, &status);
+				MPI_Irecv(args_ptr, tmpEnqueueNDRangeKernel.args_num * sizeof(kernel_args), MPI_BYTE, 0,
+						 ENQUEUE_ND_RANGE_KERNEL4, parentComm, curRequest+(requestNo++));
 			}
+			MPI_Waitall(requestNo, curRequest, curStatus);
 
 			mpiOpenCLEnqueueNDRangeKernel(&tmpEnqueueNDRangeKernel,
 										  global_work_offset,
@@ -1446,8 +1585,12 @@ int main(int argc, char *argv[])
 										  local_work_size,
 										  args_ptr);
 
-			MPI_Send(&tmpEnqueueNDRangeKernel, sizeof(tmpEnqueueNDRangeKernel), MPI_BYTE, 0,
-					 ENQUEUE_ND_RANGE_KERNEL, parentComm);
+			MPI_Isend(&tmpEnqueueNDRangeKernel, sizeof(tmpEnqueueNDRangeKernel), MPI_BYTE, 0,
+					 ENQUEUE_ND_RANGE_KERNEL, parentComm, curRequest);
+			//issue it for later use
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, ENQUEUE_ND_RANGE_KERNEL,
+					  parentComm, conMsgRequest + index);
+
 			if (tmpEnqueueNDRangeKernel.global_work_offset_flag == 1)
 			{
 				free(global_work_offset);
@@ -1467,30 +1610,43 @@ int main(int argc, char *argv[])
 			{
 				free(args_ptr);
 			}
+			MPI_Wait(curRequest, curStatus);
 		}
 
 		if (status.MPI_TAG == ENQUEUE_READ_BUFFER)
 		{
-			MPI_Recv(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0,
-					 ENQUEUE_READ_BUFFER, parentComm, &status);
+			memcpy(&tmpEnqueueReadBuffer, conMsgBuffer, sizeof(tmpEnqueueReadBuffer));
+			requestNo = 0;
+			//MPI_Recv(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0,
+			//		 ENQUEUE_READ_BUFFER, parentComm, &status);
 			int num_events_in_wait_list = tmpEnqueueReadBuffer.num_events_in_wait_list;
 			cl_event *event_wait_list = NULL;
 			if (num_events_in_wait_list > 0)
 			{
 				event_wait_list = (cl_event *)malloc(num_events_in_wait_list * sizeof(cl_event));
-				MPI_Recv(event_wait_list, num_events_in_wait_list * sizeof(cl_event), MPI_BYTE, 0,
-						 ENQUEUE_READ_BUFFER1, parentComm, &status);
+				MPI_Irecv(event_wait_list, num_events_in_wait_list * sizeof(cl_event), MPI_BYTE, 0,
+						 ENQUEUE_READ_BUFFER1, parentComm, curRequest+(requestNo++));
 			}
 
 			int bufSize = tmpEnqueueReadBuffer.cb;
 			char *host_ptr = (char *)malloc(bufSize);
+			if (requestNO > 0)
+			{
+				MPI_Waitall(requestNo, curRequest, curStatus);
+			}
+
 			mpiOpenCLEnqueueReadBuffer(&tmpEnqueueReadBuffer, host_ptr, event_wait_list);
-			MPI_Send(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0,
-					 ENQUEUE_READ_BUFFER, parentComm);
+			requestNo = 0;
+			MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0,
+					 ENQUEUE_READ_BUFFER, parentComm, curRequest+(requestNo++));
 			if (num_events_in_wait_list > 0)
 			{
 				free(event_wait_list);
 			}
+
+			//issue it for later use
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, ENQUEUE_READ_BUFFER,
+					  parentComm, conMsgRequest + index);
 
 			if (tmpEnqueueReadBuffer.blocking_read == CL_FALSE)
 			{
@@ -1501,11 +1657,13 @@ int main(int argc, char *argv[])
 				dataTransfer->msgSize = bufSize;
 				dataTransfer->readOrWrite = CL_GPUV_READ;
 				dataTransfer->comm = parentComm;
+				MPI_Waitall(requestNo, curRequest, curStatus);
 			}
 			else //blocking, reading is complete, send data to local node
 			{
-				MPI_Send(host_ptr, bufSize, MPI_BYTE, 0,
-						 ENQUEUE_READ_BUFFER1, parentComm);
+				MPI_Isend(host_ptr, bufSize, MPI_BYTE, 0,
+						 ENQUEUE_READ_BUFFER1, parentComm, curRequest+(requestNo++));
+				MPI_Waitall(requestNo, curRequest, curStatus);
 				free(host_ptr);
 				//process all the events in the command queue
 				processCommandQueue(tmpEnqueueReadBuffer.command_queue);
@@ -1514,417 +1672,435 @@ int main(int argc, char *argv[])
 
 		if (status.MPI_TAG == RELEASE_MEM_OBJ)
 		{
-			MPI_Recv(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE, 0,
-					 RELEASE_MEM_OBJ, parentComm, &status);
+			memcpy(&tmpReleaseMemObject, conMsgBuffer[index], sizeof(tmpReleaseMemObject));
+			//MPI_Recv(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE, 0,
+			//		 RELEASE_MEM_OBJ, parentComm, &status);
 			mpiOpenCLReleaseMemObject(&tmpReleaseMemObject);
-			MPI_Send(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE, 0,
-					 RELEASE_MEM_OBJ, parentComm);
+			MPI_ISend(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE, 0,
+					 RELEASE_MEM_OBJ, parentComm, curRequest);
+			//issue it for later use
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, RELEASE_MEM_OBJ,
+					  parentComm, conMsgRequest + index);
+			MPI_Wait(curRequest, curStatus);
 		}
 
 		if (status.MPI_TAG == CL_RELEASE_KERNEL_FUNC)
 		{
-			MPI_Recv(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE, 0,
-					 CL_RELEASE_KERNEL_FUNC, parentComm, &status);
+			memcpy(&tmpReleaseKernel, conMsgBuffer[index], sizeof(tmpReleaseKernel));
+			//MPI_Recv(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE, 0,
+			//		 CL_RELEASE_KERNEL_FUNC, parentComm, &status);
 			mpiOpenCLReleaseKernel(&tmpReleaseKernel);
-			MPI_Send(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE, 0,
-					 CL_RELEASE_KERNEL_FUNC, parentComm);
-		}
-
-		if (status.MPI_TAG == GET_CONTEXT_INFO_FUNC)
-		{
-			MPI_Recv(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
-					 GET_CONTEXT_INFO_FUNC, parentComm, &status);
-			size_t param_value_size = tmpGetContextInfo.param_value_size;
-			void *param_value = NULL;
-			if (param_value_size > 0 && tmpGetContextInfo.param_value != NULL)
-			{
-				param_value = malloc(param_value_size);
-			}
-			mpiOpenCLGetContextInfo(&tmpGetContextInfo, param_value);
-			MPI_Send(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
-					 GET_CONTEXT_INFO_FUNC, parentComm);
-
-			if (param_value_size > 0 && tmpGetContextInfo.param_value != NULL)
-			{
-				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
-						 GET_CONTEXT_INFO_FUNC1, parentComm);
-				free(param_value);
-			}
-		}
-
-		if (status.MPI_TAG == GET_BUILD_INFO_FUNC)
-		{
-			MPI_Recv(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, 0,
-					 GET_BUILD_INFO_FUNC, parentComm, &status);
-			size_t param_value_size = tmpGetProgramBuildInfo.param_value_size;
-			void *param_value = NULL;
-			if (param_value_size > 0 && tmpGetProgramBuildInfo.param_value != NULL)
-			{
-				param_value = malloc(param_value_size);
-			}
-			mpiOpenCLGetProgramBuildInfo(&tmpGetProgramBuildInfo, param_value);
-			MPI_Send(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, 0,
-					 GET_BUILD_INFO_FUNC, parentComm);
-
-			if (param_value_size > 0 && tmpGetProgramBuildInfo.param_value != NULL)
-			{
-				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
-						 GET_BUILD_INFO_FUNC1, parentComm);
-				free(param_value);
-			}
-		}
-
-		if (status.MPI_TAG == GET_PROGRAM_INFO_FUNC)
-		{
-			MPI_Recv(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, 0,
-					 GET_PROGRAM_INFO_FUNC, parentComm, &status);
-			size_t param_value_size = tmpGetProgramInfo.param_value_size;
-			void *param_value = NULL;
-			if (param_value_size > 0 && tmpGetProgramInfo.param_value != NULL)
-			{
-				param_value = malloc(param_value_size);
-			}
-			mpiOpenCLGetProgramInfo(&tmpGetProgramInfo, param_value);
-			MPI_Send(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, 0,
-					 GET_PROGRAM_INFO_FUNC, parentComm);
-
-			if (param_value_size > 0 && tmpGetProgramInfo.param_value != NULL)
-			{
-				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
-						 GET_PROGRAM_INFO_FUNC1, parentComm);
-				free(param_value);
-			}
-		}
-
-		if (status.MPI_TAG == REL_PROGRAM_FUNC)
-		{
-			MPI_Recv(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, 0,
-					 REL_PROGRAM_FUNC, parentComm, &status);
-			mpiOpenCLReleaseProgram(&tmpReleaseProgram);
-			MPI_Send(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, 0,
-					 REL_PROGRAM_FUNC, parentComm);
-		}
-
-		if (status.MPI_TAG == REL_COMMAND_QUEUE_FUNC)
-		{
-			MPI_Recv(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, 0,
-					 REL_COMMAND_QUEUE_FUNC, parentComm, &status);
-
-			mpiOpenCLReleaseCommandQueue(&tmpReleaseCommandQueue);
-			MPI_Send(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, 0,
-					 REL_COMMAND_QUEUE_FUNC, parentComm);
-		}
-
-		if (status.MPI_TAG == REL_CONTEXT_FUNC)
-		{
-			MPI_Recv(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, 0,
-					REL_CONTEXT_FUNC, parentComm, &status);
-			mpiOpenCLReleaseContext(&tmpReleaseContext);
-			MPI_Send(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, 0,
-					REL_CONTEXT_FUNC, parentComm);
-
-		}
-
-		if (status.MPI_TAG == GET_DEVICE_INFO_FUNC)
-		{
-			MPI_Recv(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, 0,
-					 GET_DEVICE_INFO_FUNC, parentComm, &status);
-			size_t param_value_size = tmpGetDeviceInfo.param_value_size;
-			void *param_value = NULL;
-			if (param_value_size > 0 && tmpGetDeviceInfo.param_value != NULL)
-			{
-				param_value = malloc(param_value_size);
-			}
-			mpiOpenCLGetDeviceInfo(&tmpGetDeviceInfo, param_value);
-			MPI_Send(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, 0,
-					 GET_DEVICE_INFO_FUNC, parentComm);
-
-			if (param_value_size > 0 && tmpGetDeviceInfo.param_value != NULL)
-			{
-				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
-						 GET_DEVICE_INFO_FUNC1, parentComm);
-				free(param_value);
-			}
-		}
-
-		if (status.MPI_TAG == GET_PLATFORM_INFO_FUNC)
-		{
-			MPI_Recv(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, 0,
-					 GET_PLATFORM_INFO_FUNC, parentComm, &status);
-			size_t param_value_size = tmpGetPlatformInfo.param_value_size;
-			void *param_value = NULL;
-			if (param_value_size > 0 && tmpGetPlatformInfo.param_value != NULL)
-			{
-				param_value = malloc(param_value_size);
-			}
-			mpiOpenCLGetPlatformInfo(&tmpGetPlatformInfo, param_value);
-			MPI_Send(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, 0,
-					 GET_PLATFORM_INFO_FUNC, parentComm);
-
-			if (param_value_size > 0 && tmpGetPlatformInfo.param_value != NULL)
-			{
-				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
-						 GET_PLATFORM_INFO_FUNC1, parentComm);
-				free(param_value);
-			}
+			MPI_Isend(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE, 0,
+					 CL_RELEASE_KERNEL_FUNC, parentComm, curRequest);
+			//issue it for later use
+			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, RELEASE_MEM_OBJ,
+					  parentComm, conMsgRequest + index);
+			MPI_Wait(curRequest, curStatus);
 		}
 
 		if (status.MPI_TAG == FINISH_FUNC)
 		{
-			MPI_Recv(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0,
-					 FINISH_FUNC, parentComm, &status);
+			memcpy(&tmpFinish, conMsgBuffer[index], sizeof(tmpFinish));
+			//MPI_Recv(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0,
+			//		 FINISH_FUNC, parentComm, &status);
 			mpiOpenCLFinish(&tmpFinish);
 
 			//process all the events in the command queue
 			processCommandQueue(tmpFinish.command_queue);
 			MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0,
-					 FINISH_FUNC, parentComm, &request);
+					 FINISH_FUNC, parentComm, curRequest);
+			MPI_Wait(curRequest, curStatus);
 		}
 
-		if (status.MPI_TAG == FLUSH_FUNC)
-		{
-			MPI_Recv(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, 0,
-					 FLUSH_FUNC, parentComm, &status);
-			mpiOpenCLFlush(&tmpFlush);
-			MPI_Send(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, 0,
-					 FLUSH_FUNC, parentComm);
-		}
-
-		if (status.MPI_TAG == WAIT_FOR_EVENT_FUNC)
-		{
-			struct strWaitForEvents tmpWaitForEvents;
-			MPI_Recv(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
-					 WAIT_FOR_EVENT_FUNC, parentComm, &status);
-			cl_uint num_events = tmpWaitForEvents.num_events;
-			cl_event *event_list = (cl_event *)malloc(sizeof(cl_event) * num_events);
-			MPI_Recv(event_list, sizeof(cl_event) * num_events, MPI_BYTE, 0,
-					 WAIT_FOR_EVENT_FUNC1, parentComm, &status);
-			mpiOpenCLWaitForEvents(&tmpWaitForEvents, event_list);
-			//get the pointer structures corresponding to the events
-			processEvents(event_list, num_events);
+//		if (status.MPI_TAG == GET_CONTEXT_INFO_FUNC)
+//		{
+//			memcpy(&tmpGetContextInfo, conMsgBuffer[index], sizeof(tmpGetContextInfo));
+//			//MPI_Recv(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
+//			//		 GET_CONTEXT_INFO_FUNC, parentComm, &status);
+//			size_t param_value_size = tmpGetContextInfo.param_value_size;
+//			void *param_value = NULL;
+//			if (param_value_size > 0 && tmpGetContextInfo.param_value != NULL)
+//			{
+//				param_value = malloc(param_value_size);
+//			}
+//			mpiOpenCLGetContextInfo(&tmpGetContextInfo, param_value);
+//			requestNo = 0;
+//			MPI_Isend(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
+//					 GET_CONTEXT_INFO_FUNC, parentComm, curRequest+(requestNo++));
+//
+//			if (param_value_size > 0 && tmpGetContextInfo.param_value != NULL)
+//			{
+//				MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
+//						 GET_CONTEXT_INFO_FUNC1, parentComm, curRequest+(requestNo++));
+//			}
+//			MPI_Waitall(requestNo, curRequest, curStatus);
+//			if (param_value_size > 0 && tmpGetContextInfo.param_value != NULL)
+//			{
+//				free(param_value);
+//			}
+//		}
+//
+//		if (status.MPI_TAG == GET_BUILD_INFO_FUNC)
+//		{
+//			MPI_Recv(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, 0,
+//					 GET_BUILD_INFO_FUNC, parentComm, &status);
+//			size_t param_value_size = tmpGetProgramBuildInfo.param_value_size;
+//			void *param_value = NULL;
+//			if (param_value_size > 0 && tmpGetProgramBuildInfo.param_value != NULL)
+//			{
+//				param_value = malloc(param_value_size);
+//			}
+//			mpiOpenCLGetProgramBuildInfo(&tmpGetProgramBuildInfo, param_value);
+//			MPI_Send(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, 0,
+//					 GET_BUILD_INFO_FUNC, parentComm);
+//
+//			if (param_value_size > 0 && tmpGetProgramBuildInfo.param_value != NULL)
+//			{
+//				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
+//						 GET_BUILD_INFO_FUNC1, parentComm);
+//				free(param_value);
+//			}
+//		}
+//
+//		if (status.MPI_TAG == GET_PROGRAM_INFO_FUNC)
+//		{
+//			MPI_Recv(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, 0,
+//					 GET_PROGRAM_INFO_FUNC, parentComm, &status);
+//			size_t param_value_size = tmpGetProgramInfo.param_value_size;
+//			void *param_value = NULL;
+//			if (param_value_size > 0 && tmpGetProgramInfo.param_value != NULL)
+//			{
+//				param_value = malloc(param_value_size);
+//			}
+//			mpiOpenCLGetProgramInfo(&tmpGetProgramInfo, param_value);
+//			MPI_Send(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, 0,
+//					 GET_PROGRAM_INFO_FUNC, parentComm);
+//
+//			if (param_value_size > 0 && tmpGetProgramInfo.param_value != NULL)
+//			{
+//				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
+//						 GET_PROGRAM_INFO_FUNC1, parentComm);
+//				free(param_value);
+//			}
+//		}
+//
+//		if (status.MPI_TAG == REL_PROGRAM_FUNC)
+//		{
+//			MPI_Recv(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, 0,
+//					 REL_PROGRAM_FUNC, parentComm, &status);
+//			mpiOpenCLReleaseProgram(&tmpReleaseProgram);
+//			MPI_Send(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, 0,
+//					 REL_PROGRAM_FUNC, parentComm);
+//		}
+//
+//		if (status.MPI_TAG == REL_COMMAND_QUEUE_FUNC)
+//		{
+//			MPI_Recv(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, 0,
+//					 REL_COMMAND_QUEUE_FUNC, parentComm, &status);
+//
+//			mpiOpenCLReleaseCommandQueue(&tmpReleaseCommandQueue);
+//			MPI_Send(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, 0,
+//					 REL_COMMAND_QUEUE_FUNC, parentComm);
+//		}
+//
+//		if (status.MPI_TAG == REL_CONTEXT_FUNC)
+//		{
+//			MPI_Recv(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, 0,
+//					REL_CONTEXT_FUNC, parentComm, &status);
+//			mpiOpenCLReleaseContext(&tmpReleaseContext);
+//			MPI_Send(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, 0,
+//					REL_CONTEXT_FUNC, parentComm);
+//
+//		}
+//
+//		if (status.MPI_TAG == GET_DEVICE_INFO_FUNC)
+//		{
+//			MPI_Recv(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, 0,
+//					 GET_DEVICE_INFO_FUNC, parentComm, &status);
+//			size_t param_value_size = tmpGetDeviceInfo.param_value_size;
+//			void *param_value = NULL;
+//			if (param_value_size > 0 && tmpGetDeviceInfo.param_value != NULL)
+//			{
+//				param_value = malloc(param_value_size);
+//			}
+//			mpiOpenCLGetDeviceInfo(&tmpGetDeviceInfo, param_value);
+//			MPI_Send(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, 0,
+//					 GET_DEVICE_INFO_FUNC, parentComm);
+//
+//			if (param_value_size > 0 && tmpGetDeviceInfo.param_value != NULL)
+//			{
+//				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
+//						 GET_DEVICE_INFO_FUNC1, parentComm);
+//				free(param_value);
+//			}
+//		}
+//
+//		if (status.MPI_TAG == GET_PLATFORM_INFO_FUNC)
+//		{
+//			MPI_Recv(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, 0,
+//					 GET_PLATFORM_INFO_FUNC, parentComm, &status);
+//			size_t param_value_size = tmpGetPlatformInfo.param_value_size;
+//			void *param_value = NULL;
+//			if (param_value_size > 0 && tmpGetPlatformInfo.param_value != NULL)
+//			{
+//				param_value = malloc(param_value_size);
+//			}
+//			mpiOpenCLGetPlatformInfo(&tmpGetPlatformInfo, param_value);
+//			MPI_Send(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, 0,
+//					 GET_PLATFORM_INFO_FUNC, parentComm);
+//
+//			if (param_value_size > 0 && tmpGetPlatformInfo.param_value != NULL)
+//			{
+//				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
+//						 GET_PLATFORM_INFO_FUNC1, parentComm);
+//				free(param_value);
+//			}
+//		}
+//
+//
+//		if (status.MPI_TAG == FLUSH_FUNC)
+//		{
+//			MPI_Recv(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, 0,
+//					 FLUSH_FUNC, parentComm, &status);
+//			mpiOpenCLFlush(&tmpFlush);
+//			MPI_Send(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, 0,
+//					 FLUSH_FUNC, parentComm);
+//		}
+//
+//		if (status.MPI_TAG == WAIT_FOR_EVENT_FUNC)
+//		{
+//			struct strWaitForEvents tmpWaitForEvents;
+//			MPI_Recv(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
+//					 WAIT_FOR_EVENT_FUNC, parentComm, &status);
+//			cl_uint num_events = tmpWaitForEvents.num_events;
+//			cl_event *event_list = (cl_event *)malloc(sizeof(cl_event) * num_events);
+//			MPI_Recv(event_list, sizeof(cl_event) * num_events, MPI_BYTE, 0,
+//					 WAIT_FOR_EVENT_FUNC1, parentComm, &status);
+//			mpiOpenCLWaitForEvents(&tmpWaitForEvents, event_list);
+//			//get the pointer structures corresponding to the events
 //			for (i = 0; i < num_events; i++)
 //			{
 //				processEvent(event_list[i]);
 //			}
-
-			MPI_Send(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
-					 WAIT_FOR_EVENT_FUNC, parentComm);
-			free(event_list);
-		}
-
-		if (status.MPI_TAG == CREATE_SAMPLER_FUNC)
-		{
-			MPI_Recv(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, 0,
-					 CREATE_SAMPLER_FUNC, parentComm, &status);
-			mpiOpenCLCreateSampler(&tmpCreateSampler);
-			MPI_Send(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, 0,
-					 CREATE_SAMPLER_FUNC, parentComm);
-		}
-
-		if (status.MPI_TAG == GET_CMD_QUEUE_INFO_FUNC)
-		{
-			MPI_Recv(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, 0,
-					 GET_CMD_QUEUE_INFO_FUNC, parentComm, &status);
-			size_t param_value_size = tmpGetCommandQueueInfo.param_value_size;
-			void *param_value = NULL;
-			if (param_value_size > 0 && tmpGetCommandQueueInfo.param_value != NULL)
-			{
-				param_value = malloc(param_value_size);
-			}
-
-			mpiOpenCLGetCommandQueueInfo(&tmpGetCommandQueueInfo, param_value);
-			MPI_Send(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, 0,
-					 GET_CMD_QUEUE_INFO_FUNC, parentComm);
-
-			if (param_value_size > 0 && tmpGetCommandQueueInfo.param_value != NULL)
-			{
-				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
-						 GET_CMD_QUEUE_INFO_FUNC1, parentComm);
-				free(param_value);
-			}
-		}
-
-		if (status.MPI_TAG == ENQUEUE_MAP_BUFF_FUNC)
-		{
-			MPI_Recv(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
-					 ENQUEUE_MAP_BUFF_FUNC, parentComm, &status);
-			cl_uint num_events_in_wait_list = tmpEnqueueMapBuffer.num_events_in_wait_list;
-			cl_event *event_wait_list = NULL;
-			if (num_events_in_wait_list > 0)
-			{
-				event_wait_list = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
-				MPI_Recv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
-						 ENQUEUE_MAP_BUFF_FUNC1, parentComm, &status);
-			}
-			mpiOpenCLEnqueueMapBuffer(&tmpEnqueueMapBuffer, event_wait_list);
-			MPI_Send(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
-					 ENQUEUE_MAP_BUFF_FUNC, parentComm);
-			if (num_events_in_wait_list > 0)
-			{
-				free(event_wait_list);
-			}
-		}
-
-		if (status.MPI_TAG == RELEASE_EVENT_FUNC)
-		{
-			MPI_Recv(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
-					 RELEASE_EVENT_FUNC, parentComm, &status);
-			mpiOpenCLReleaseEvent(&tmpReleaseEvent);
-			MPI_Send(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
-					 RELEASE_EVENT_FUNC, parentComm);
-		}
-
-		if (status.MPI_TAG == GET_EVENT_PROF_INFO_FUNC)
-		{
-			MPI_Recv(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, 0,
-					 GET_EVENT_PROF_INFO_FUNC, parentComm, &status);
-			size_t param_value_size = tmpGetEventProfilingInfo.param_value_size;
-			void *param_value = NULL;
-			if (param_value_size > 0 && tmpGetEventProfilingInfo.param_value != NULL)
-			{
-				param_value = malloc(param_value_size);
-			}
-			mpiOpenCLGetEventProfilingInfo(&tmpGetEventProfilingInfo, param_value);
-			MPI_Send(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, 0,
-					 GET_EVENT_PROF_INFO_FUNC, parentComm);
-
-			if (param_value_size > 0 && tmpGetEventProfilingInfo.param_value != NULL)
-			{
-				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
-						 GET_EVENT_PROF_INFO_FUNC1, parentComm);
-				free(param_value);
-			}
-		}
-
-		if (status.MPI_TAG == RELEASE_SAMPLER_FUNC)
-		{
-			MPI_Recv(&tmpReleaseSampler, sizeof(tmpReleaseSampler), MPI_BYTE, 0,
-					 RELEASE_SAMPLER_FUNC, parentComm, &status);
-			mpiOpenCLReleaseSampler(&tmpReleaseSampler);
-			MPI_Send(&tmpReleaseSampler, sizeof(tmpReleaseSampler), MPI_BYTE, 0,
-					 RELEASE_SAMPLER_FUNC, parentComm);
-		}
-
-		if (status.MPI_TAG == GET_KERNEL_WGP_INFO_FUNC)
-		{
-			MPI_Recv(&tmpGetKernelWorkGroupInfo, sizeof(tmpGetKernelWorkGroupInfo), MPI_BYTE, 0,
-					 GET_KERNEL_WGP_INFO_FUNC, parentComm, &status);
-			size_t param_value_size = tmpGetKernelWorkGroupInfo.param_value_size;
-			void *param_value = NULL;
-			if (param_value_size > 0 && tmpGetKernelWorkGroupInfo.param_value != NULL)
-			{
-				param_value = malloc(param_value_size);
-			}
-			mpiOpenCLGetKernelWorkGroupInfo(&tmpGetKernelWorkGroupInfo, param_value);
-			MPI_Send(&tmpGetKernelWorkGroupInfo, sizeof(tmpGetKernelWorkGroupInfo), MPI_BYTE, 0,
-					 GET_KERNEL_WGP_INFO_FUNC, parentComm);
-
-			if (param_value_size > 0 && tmpGetKernelWorkGroupInfo.param_value != NULL)
-			{
-				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
-						 GET_KERNEL_WGP_INFO_FUNC1, parentComm);
-				free(param_value);
-			}
-		}
-
-		if (status.MPI_TAG == CREATE_IMAGE_2D_FUNC)
-		{
-			MPI_Recv(&tmpCreateImage2D, sizeof(tmpCreateImage2D), MPI_BYTE, 0,
-					 CREATE_IMAGE_2D_FUNC, parentComm, &status);
-			size_t host_buff_size = tmpCreateImage2D.host_buff_size;
-			void *host_ptr = NULL;
-			if (host_buff_size > 0)
-			{
-				host_ptr = malloc(host_buff_size);
-				MPI_Recv(host_ptr, host_buff_size, MPI_BYTE, 0,
-						 CREATE_IMAGE_2D_FUNC1, parentComm, &status);
-			}
-			mpiOpenCLCreateImage2D(&tmpCreateImage2D, host_ptr);
-			MPI_Send(&tmpCreateImage2D, sizeof(tmpCreateImage2D), MPI_BYTE, 0,
-					 CREATE_IMAGE_2D_FUNC, parentComm);
-			if (host_buff_size > 0)
-			{
-				free(host_ptr);
-			}
-		}
-
-		if (status.MPI_TAG == ENQ_COPY_BUFF_FUNC)
-		{
-			MPI_Recv(&tmpEnqueueCopyBuffer, sizeof(tmpEnqueueCopyBuffer), MPI_BYTE, 0,
-					 ENQ_COPY_BUFF_FUNC, parentComm, &status);
-			cl_uint num_events_in_wait_list = tmpEnqueueCopyBuffer.num_events_in_wait_list;
-			cl_event *event_wait_list = NULL;
-			if (num_events_in_wait_list > 0)
-			{
-				event_wait_list = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
-				MPI_Recv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
-						 ENQ_COPY_BUFF_FUNC1, parentComm, &status);
-			}
-			mpiOpenCLEnqueueCopyBuffer(&tmpEnqueueCopyBuffer, event_wait_list);
-			MPI_Send(&tmpEnqueueCopyBuffer, sizeof(tmpEnqueueCopyBuffer), MPI_BYTE, 0,
-					 ENQ_COPY_BUFF_FUNC, parentComm);
-			if (num_events_in_wait_list > 0)
-			{
-				free(event_wait_list);
-			}
-		}
-
-		if (status.MPI_TAG == RETAIN_EVENT_FUNC)
-		{
-			MPI_Recv(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, 0,
-					 RETAIN_EVENT_FUNC, parentComm, &status);
-			mpiOpenCLRetainEvent(&tmpRetainEvent);
-			MPI_Send(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, 0,
-					 RETAIN_EVENT_FUNC, parentComm);
-		}
-
-		if (status.MPI_TAG == RETAIN_MEMOBJ_FUNC)
-		{
-			MPI_Recv(&tmpRetainMemObject, sizeof(tmpRetainMemObject), MPI_BYTE, 0,
-					 RETAIN_MEMOBJ_FUNC, parentComm, &status);
-			mpiOpenCLRetainMemObject(&tmpRetainMemObject);
-			MPI_Send(&tmpRetainMemObject, sizeof(tmpRetainMemObject), MPI_BYTE, 0,
-					 RETAIN_MEMOBJ_FUNC, parentComm);
-		}
-
-		if (status.MPI_TAG == RETAIN_KERNEL_FUNC)
-		{
-			MPI_Recv(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, 0,
-					 RETAIN_KERNEL_FUNC, parentComm, &status);
-			mpiOpenCLRetainKernel(&tmpRetainKernel);
-			MPI_Send(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, 0,
-					 RETAIN_KERNEL_FUNC, parentComm);
-		}
-
-		if (status.MPI_TAG == RETAIN_CMDQUE_FUNC)
-		{
-			MPI_Recv(&tmpRetainCommandQueue, sizeof(tmpRetainCommandQueue), MPI_BYTE, 0,
-					 RETAIN_CMDQUE_FUNC, parentComm, &status);
-			mpiOpenCLRetainCommandQueue(&tmpRetainCommandQueue);
-			MPI_Send(&tmpRetainCommandQueue, sizeof(tmpRetainCommandQueue), MPI_BYTE, 0,
-					 RETAIN_CMDQUE_FUNC, parentComm);
-		}
-
-		if (status.MPI_TAG == ENQ_UNMAP_MEMOBJ_FUNC)
-		{
-			MPI_Recv(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE, 0,
-					 ENQ_UNMAP_MEMOBJ_FUNC, parentComm, &status);
-			cl_uint num_events_in_wait_list = tmpEnqueueUnmapMemObject.num_events_in_wait_list;
-			cl_event *event_wait_list = NULL;
-			if (num_events_in_wait_list > 0)
-			{
-				event_wait_list = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
-				MPI_Recv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
-						 ENQ_UNMAP_MEMOBJ_FUNC1, parentComm, &status);
-			}
-			mpiOpenCLEnqueueUnmapMemObject(&tmpEnqueueUnmapMemObject, event_wait_list);
-			MPI_Send(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE, 0,
-					 ENQ_UNMAP_MEMOBJ_FUNC, parentComm);
-			if (num_events_in_wait_list > 0)
-			{
-				free(event_wait_list);
-			}
-		}
+//
+//			MPI_Send(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
+//					 WAIT_FOR_EVENT_FUNC, parentComm);
+//			free(event_list);
+//		}
+//
+//		if (status.MPI_TAG == CREATE_SAMPLER_FUNC)
+//		{
+//			MPI_Recv(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, 0,
+//					 CREATE_SAMPLER_FUNC, parentComm, &status);
+//			mpiOpenCLCreateSampler(&tmpCreateSampler);
+//			MPI_Send(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, 0,
+//					 CREATE_SAMPLER_FUNC, parentComm);
+//		}
+//
+//		if (status.MPI_TAG == GET_CMD_QUEUE_INFO_FUNC)
+//		{
+//			MPI_Recv(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, 0,
+//					 GET_CMD_QUEUE_INFO_FUNC, parentComm, &status);
+//			size_t param_value_size = tmpGetCommandQueueInfo.param_value_size;
+//			void *param_value = NULL;
+//			if (param_value_size > 0 && tmpGetCommandQueueInfo.param_value != NULL)
+//			{
+//				param_value = malloc(param_value_size);
+//			}
+//
+//			mpiOpenCLGetCommandQueueInfo(&tmpGetCommandQueueInfo, param_value);
+//			MPI_Send(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, 0,
+//					 GET_CMD_QUEUE_INFO_FUNC, parentComm);
+//
+//			if (param_value_size > 0 && tmpGetCommandQueueInfo.param_value != NULL)
+//			{
+//				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
+//						 GET_CMD_QUEUE_INFO_FUNC1, parentComm);
+//				free(param_value);
+//			}
+//		}
+//
+//		if (status.MPI_TAG == ENQUEUE_MAP_BUFF_FUNC)
+//		{
+//			MPI_Recv(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
+//					 ENQUEUE_MAP_BUFF_FUNC, parentComm, &status);
+//			cl_uint num_events_in_wait_list = tmpEnqueueMapBuffer.num_events_in_wait_list;
+//			cl_event *event_wait_list = NULL;
+//			if (num_events_in_wait_list > 0)
+//			{
+//				event_wait_list = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
+//				MPI_Recv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
+//						 ENQUEUE_MAP_BUFF_FUNC1, parentComm, &status);
+//			}
+//			mpiOpenCLEnqueueMapBuffer(&tmpEnqueueMapBuffer, event_wait_list);
+//			MPI_Send(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
+//					 ENQUEUE_MAP_BUFF_FUNC, parentComm);
+//			if (num_events_in_wait_list > 0)
+//			{
+//				free(event_wait_list);
+//			}
+//		}
+//
+//		if (status.MPI_TAG == RELEASE_EVENT_FUNC)
+//		{
+//			MPI_Recv(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
+//					 RELEASE_EVENT_FUNC, parentComm, &status);
+//			mpiOpenCLReleaseEvent(&tmpReleaseEvent);
+//			MPI_Send(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
+//					 RELEASE_EVENT_FUNC, parentComm);
+//		}
+//
+//		if (status.MPI_TAG == GET_EVENT_PROF_INFO_FUNC)
+//		{
+//			MPI_Recv(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, 0,
+//					 GET_EVENT_PROF_INFO_FUNC, parentComm, &status);
+//			size_t param_value_size = tmpGetEventProfilingInfo.param_value_size;
+//			void *param_value = NULL;
+//			if (param_value_size > 0 && tmpGetEventProfilingInfo.param_value != NULL)
+//			{
+//				param_value = malloc(param_value_size);
+//			}
+//			mpiOpenCLGetEventProfilingInfo(&tmpGetEventProfilingInfo, param_value);
+//			MPI_Send(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, 0,
+//					 GET_EVENT_PROF_INFO_FUNC, parentComm);
+//
+//			if (param_value_size > 0 && tmpGetEventProfilingInfo.param_value != NULL)
+//			{
+//				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
+//						 GET_EVENT_PROF_INFO_FUNC1, parentComm);
+//				free(param_value);
+//			}
+//		}
+//
+//		if (status.MPI_TAG == RELEASE_SAMPLER_FUNC)
+//		{
+//			MPI_Recv(&tmpReleaseSampler, sizeof(tmpReleaseSampler), MPI_BYTE, 0,
+//					 RELEASE_SAMPLER_FUNC, parentComm, &status);
+//			mpiOpenCLReleaseSampler(&tmpReleaseSampler);
+//			MPI_Send(&tmpReleaseSampler, sizeof(tmpReleaseSampler), MPI_BYTE, 0,
+//					 RELEASE_SAMPLER_FUNC, parentComm);
+//		}
+//
+//		if (status.MPI_TAG == GET_KERNEL_WGP_INFO_FUNC)
+//		{
+//			MPI_Recv(&tmpGetKernelWorkGroupInfo, sizeof(tmpGetKernelWorkGroupInfo), MPI_BYTE, 0,
+//					 GET_KERNEL_WGP_INFO_FUNC, parentComm, &status);
+//			size_t param_value_size = tmpGetKernelWorkGroupInfo.param_value_size;
+//			void *param_value = NULL;
+//			if (param_value_size > 0 && tmpGetKernelWorkGroupInfo.param_value != NULL)
+//			{
+//				param_value = malloc(param_value_size);
+//			}
+//			mpiOpenCLGetKernelWorkGroupInfo(&tmpGetKernelWorkGroupInfo, param_value);
+//			MPI_Send(&tmpGetKernelWorkGroupInfo, sizeof(tmpGetKernelWorkGroupInfo), MPI_BYTE, 0,
+//					 GET_KERNEL_WGP_INFO_FUNC, parentComm);
+//
+//			if (param_value_size > 0 && tmpGetKernelWorkGroupInfo.param_value != NULL)
+//			{
+//				MPI_Send(param_value, param_value_size, MPI_BYTE, 0,
+//						 GET_KERNEL_WGP_INFO_FUNC1, parentComm);
+//				free(param_value);
+//			}
+//		}
+//
+//		if (status.MPI_TAG == CREATE_IMAGE_2D_FUNC)
+//		{
+//			MPI_Recv(&tmpCreateImage2D, sizeof(tmpCreateImage2D), MPI_BYTE, 0,
+//					 CREATE_IMAGE_2D_FUNC, parentComm, &status);
+//			size_t host_buff_size = tmpCreateImage2D.host_buff_size;
+//			void *host_ptr = NULL;
+//			if (host_buff_size > 0)
+//			{
+//				host_ptr = malloc(host_buff_size);
+//				MPI_Recv(host_ptr, host_buff_size, MPI_BYTE, 0,
+//						 CREATE_IMAGE_2D_FUNC1, parentComm, &status);
+//			}
+//			mpiOpenCLCreateImage2D(&tmpCreateImage2D, host_ptr);
+//			MPI_Send(&tmpCreateImage2D, sizeof(tmpCreateImage2D), MPI_BYTE, 0,
+//					 CREATE_IMAGE_2D_FUNC, parentComm);
+//			if (host_buff_size > 0)
+//			{
+//				free(host_ptr);
+//			}
+//		}
+//
+//		if (status.MPI_TAG == ENQ_COPY_BUFF_FUNC)
+//		{
+//			MPI_Recv(&tmpEnqueueCopyBuffer, sizeof(tmpEnqueueCopyBuffer), MPI_BYTE, 0,
+//					 ENQ_COPY_BUFF_FUNC, parentComm, &status);
+//			cl_uint num_events_in_wait_list = tmpEnqueueCopyBuffer.num_events_in_wait_list;
+//			cl_event *event_wait_list = NULL;
+//			if (num_events_in_wait_list > 0)
+//			{
+//				event_wait_list = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
+//				MPI_Recv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
+//						 ENQ_COPY_BUFF_FUNC1, parentComm, &status);
+//			}
+//			mpiOpenCLEnqueueCopyBuffer(&tmpEnqueueCopyBuffer, event_wait_list);
+//			MPI_Send(&tmpEnqueueCopyBuffer, sizeof(tmpEnqueueCopyBuffer), MPI_BYTE, 0,
+//					 ENQ_COPY_BUFF_FUNC, parentComm);
+//			if (num_events_in_wait_list > 0)
+//			{
+//				free(event_wait_list);
+//			}
+//		}
+//
+//		if (status.MPI_TAG == RETAIN_EVENT_FUNC)
+//		{
+//			MPI_Recv(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, 0,
+//					 RETAIN_EVENT_FUNC, parentComm, &status);
+//			mpiOpenCLRetainEvent(&tmpRetainEvent);
+//			MPI_Send(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, 0,
+//					 RETAIN_EVENT_FUNC, parentComm);
+//		}
+//
+//		if (status.MPI_TAG == RETAIN_MEMOBJ_FUNC)
+//		{
+//			MPI_Recv(&tmpRetainMemObject, sizeof(tmpRetainMemObject), MPI_BYTE, 0,
+//					 RETAIN_MEMOBJ_FUNC, parentComm, &status);
+//			mpiOpenCLRetainMemObject(&tmpRetainMemObject);
+//			MPI_Send(&tmpRetainMemObject, sizeof(tmpRetainMemObject), MPI_BYTE, 0,
+//					 RETAIN_MEMOBJ_FUNC, parentComm);
+//		}
+//
+//		if (status.MPI_TAG == RETAIN_KERNEL_FUNC)
+//		{
+//			MPI_Recv(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, 0,
+//					 RETAIN_KERNEL_FUNC, parentComm, &status);
+//			mpiOpenCLRetainKernel(&tmpRetainKernel);
+//			MPI_Send(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, 0,
+//					 RETAIN_KERNEL_FUNC, parentComm);
+//		}
+//
+//		if (status.MPI_TAG == RETAIN_CMDQUE_FUNC)
+//		{
+//			MPI_Recv(&tmpRetainCommandQueue, sizeof(tmpRetainCommandQueue), MPI_BYTE, 0,
+//					 RETAIN_CMDQUE_FUNC, parentComm, &status);
+//			mpiOpenCLRetainCommandQueue(&tmpRetainCommandQueue);
+//			MPI_Send(&tmpRetainCommandQueue, sizeof(tmpRetainCommandQueue), MPI_BYTE, 0,
+//					 RETAIN_CMDQUE_FUNC, parentComm);
+//		}
+//
+//		if (status.MPI_TAG == ENQ_UNMAP_MEMOBJ_FUNC)
+//		{
+//			MPI_Recv(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE, 0,
+//					 ENQ_UNMAP_MEMOBJ_FUNC, parentComm, &status);
+//			cl_uint num_events_in_wait_list = tmpEnqueueUnmapMemObject.num_events_in_wait_list;
+//			cl_event *event_wait_list = NULL;
+//			if (num_events_in_wait_list > 0)
+//			{
+//				event_wait_list = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
+//				MPI_Recv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
+//						 ENQ_UNMAP_MEMOBJ_FUNC1, parentComm, &status);
+//			}
+//			mpiOpenCLEnqueueUnmapMemObject(&tmpEnqueueUnmapMemObject, event_wait_list);
+//			MPI_Send(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE, 0,
+//					 ENQ_UNMAP_MEMOBJ_FUNC, parentComm);
+//			if (num_events_in_wait_list > 0)
+//			{
+//				free(event_wait_list);
+//			}
+//		}
 
 		if (status.MPI_TAG == PROGRAM_END)
 		{
