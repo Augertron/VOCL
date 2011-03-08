@@ -10,7 +10,7 @@
  *      are added.
  * 9.   Change the way of setKernelArg processing to save argument transmission overhead
  * 10.  Process the asynchronous data transfer between the host and device memory
- * 12.  All are non-blocking memssage send and receive
+ * 11.  All are non-blocking memssage send and receive
  ****************************************************************************/
 //for slave process
 int slaveComm;
@@ -667,7 +667,7 @@ clCreateProgramWithSource(cl_context        context,
 			 sizeof(tmpCreateProgramWithSource), 
 			 MPI_BYTE, 0, CREATE_PROGRMA_WITH_SOURCE, 
 			 slaveComm, request+(requestNo++));
-	MPI_Wait(requestNo, request, status);
+	MPI_Waitall(requestNo, request, status);
 	if (errcode_ret != NULL)
 	{
 		*errcode_ret = tmpCreateProgramWithSource.errcode_ret;
@@ -721,9 +721,9 @@ clBuildProgram(cl_program           program,
 				 BUILD_PROGRAM, slaveComm, request+(requestNo++));
 	}
 
-	MPI_Recv(&tmpBuildProgram, sizeof(tmpBuildProgram), MPI_BYTE, 0, 
+	MPI_Irecv(&tmpBuildProgram, sizeof(tmpBuildProgram), MPI_BYTE, 0, 
 			 BUILD_PROGRAM, slaveComm, request+(requestNo++));
-	MPI_Waitany(requestNo, request, status);
+	MPI_Waitall(requestNo, request, status);
 	
 	return tmpBuildProgram.res;
 }
@@ -745,11 +745,11 @@ clCreateKernel(cl_program      program,
 	tmpCreateKernel.kernelNameSize = kernelNameSize;
 	
 	//send input parameters to remote node
-	MPI_Send(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, 0,
+	MPI_Isend(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, 0,
 			 CREATE_KERNEL, slaveComm, request+(requestNo++));
-	MPI_Send((void *)kernel_name, kernelNameSize, MPI_CHAR, 0, CREATE_KERNEL1, slaveComm,
+	MPI_Isend((void *)kernel_name, kernelNameSize, MPI_CHAR, 0, CREATE_KERNEL1, slaveComm,
 			 request+(requestNo++));
-	MPI_Recv(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, 0,
+	MPI_Irecv(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, 0,
 			 CREATE_KERNEL, slaveComm, request+(requestNo++));
 	MPI_Waitall(requestNo, request, status);
 	*errcode_ret = tmpCreateKernel.errcode_ret;
@@ -845,35 +845,47 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
 
 	//send parameters to remote node
 	MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0, 
-			 ENQUEUE_WRITE_BUFFER, slaveComm, request+(requestNo++));
-	if (num_events_in_wait_list > 0)
-	{
-		MPI_Isend((void *)event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
-				 ENQUEUE_WRITE_BUFFER+nbWriteNo, slaveComm, request+(requestNo++));
-	}
-
+			 ENQUEUE_WRITE_BUFFER, slaveComm, &request);
+	MPI_Request_free(&request);
 	MPI_Isend((void *)ptr, cb, MPI_BYTE, 0, ENQUEUE_WRITE_BUFFER+nbWriteNo, slaveComm,
 			  request+(requestNo++));
+	if (++nbWriteTag > MAX_WRITE_TAG)
+	{
+		MPI_Isend((void *)event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
+				 ENQUEUE_WRITE_BUFFER+nbWriteTag, slaveComm, &request);
+		MPI_Request_free(&request);
+	}
+
+	MPI_Isend((void *)ptr, cb, MPI_BYTE, 0, ENQUEUE_WRITE_BUFFER+nbWriteTag, slaveComm, &request);
+	MPI_Request_free(&request);
 	if (++nbWriteTag > MAX_WRITE_TAG)
 	{
 		nbWriteTag = MIN_WRITE_TAG;
 	}
 
-	MPI_Irecv(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0, 
-			 ENQUEUE_WRITE_BUFFER, slaveComm, request+(requestNo++));
-	MPI_Waitall(requestNo, request, status);
-	if (event != NULL)
-	{
-		*event = tmpEnqueueWriteBuffer.event;
-	}
-
 	if (blocking_write == CL_TRUE)
 	{
+		MPI_Irecv(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0, 
+				 ENQUEUE_WRITE_BUFFER, slaveComm, &request);
 		//for a blocking write, process all previous non-blocking ones
 		processCommandQueue(command_queue);
+		MPI_Wait(&request, &status);
+		if (event != NULL)
+		{
+			*event = tmpEnqueueWriteBuffer.event;
+		}
+		return tmpEnqueueWriteBuffer.res;
+	}
+	else if (event != NULL)
+	{
+		MPI_Irecv(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0, 
+				 ENQUEUE_WRITE_BUFFER, slaveComm, &request);
+		MPI_Wait(&request, &status);
+		*event = tmpEnqueueWriteBuffer.event;
+		return tmpEnqueueWriteBuffer.res;
 	}
 
-	return tmpEnqueueWriteBuffer.res;
+	return CL_SUCCESS;
 }
 
 //cl_int
@@ -1042,7 +1054,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 	kernelPtr->args_num = 0;
 
 	MPI_Irecv(&tmpEnqueueNDRangeKernel, sizeof(tmpEnqueueNDRangeKernel), MPI_BYTE, 0, 
-			 ENQUEUE_ND_RANGE_KERNEL, slaveComm, &status, request+(requestNo++));
+			 ENQUEUE_ND_RANGE_KERNEL, slaveComm, request+(requestNo++));
 	MPI_Waitall(requestNo, request, status);
 	if (event != NULL)
 	{
@@ -1092,23 +1104,36 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
 
 	//send parameters to remote node
 	MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0, 
-			 ENQUEUE_READ_BUFFER, slaveComm, request+(requestNo++));
+			 ENQUEUE_READ_BUFFER, slaveComm, request);
+	MPI_Request_free(&request);
 	if (num_events_in_wait_list > 0)
 	{
 		MPI_Isend((void *)event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
-				 ENQUEUE_READ_BUFFER1, slaveComm, request+(requestNo++));
+				 ENQUEUE_READ_BUFFER1, slaveComm, request);
+		MPI_Request_free(&request);
 	}
 
-	MPI_Irecv(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0, 
-			 ENQUEUE_READ_BUFFER, slaveComm, request+(requestNo++));
 	if (blocking_read == CL_TRUE)
 	{
+		MPI_Irecv(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0, 
+				 ENQUEUE_READ_BUFFER, slaveComm, request+(requestNo++));
 		MPI_Irecv(ptr, cb, MPI_CHAR, 0, ENQUEUE_READ_BUFFER1, slaveComm, request+(requestNo++));
 		//for a blocking read, process all previous non-blocking ones
 		processCommandQueue(command_queue);
+		MPI_Waitall(requestNo, request, status);
+		if (event != NULL)
+		{
+			*event = tmpEnqueueReadBuffer.event;
+		}
+		return tmpEnqueueReadBuffer.res;
 	}
 	else //non blocking read
 	{
+		if (event != NULL)
+		{
+			MPI_Irecv(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0, 
+					 ENQUEUE_READ_BUFFER, slaveComm, request);
+		}
 		MPI_Irecv(ptr, cb, MPI_CHAR, 0, readBufferTag, slaveComm, &dataRequest);
 		if (++readBufferTag > MAX_TAG)
 		{
@@ -1118,15 +1143,15 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
 		DATA_READ *dataReadPtr = createDataRead(command_queue,
 									tmpEnqueueReadBuffer.event);
 		dataReadPtr->request = dataRequest;
-	}
-	MPI_Wait(requestNo, request, status);
-
-	if (event != NULL)
-	{
-		*event = tmpEnqueueReadBuffer.event;
+		if (event != NULL)
+		{
+			MPI_Wait(request, status);
+			*event = tmpEnqueueReadBuffer.event;
+		}
+		return tmpEnqueueReadBuffer.res;
 	}
 	
-	return tmpEnqueueReadBuffer.res;
+	return CL_SUCCESS;
 }
 
 cl_int
@@ -1144,7 +1169,7 @@ clReleaseMemObject(cl_mem memobj)
 	requestNo = 0;
 	MPI_Isend(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE, 
 			 0, RELEASE_MEM_OBJ, slaveComm, request+(requestNo++));
-	MPI_Recv(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE, 
+	MPI_Irecv(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE, 
 			 0, RELEASE_MEM_OBJ, slaveComm, request+(requestNo++));
 	MPI_Waitall(requestNo, request, status);
 
@@ -1166,9 +1191,9 @@ clReleaseKernel(cl_kernel kernel)
 	//release kernel on the remote node
 	struct strReleaseKernel tmpReleaseKernel;
 	tmpReleaseKernel.kernel = kernel;
-	MPI_Send(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE,
+	MPI_Isend(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE,
 			 0, CL_RELEASE_KERNEL_FUNC, slaveComm, request+(requestNo++));
-	MPI_Recv(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE,
+	MPI_Irecv(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE,
 			 0, CL_RELEASE_KERNEL_FUNC, slaveComm, request+(requestNo++));
 	MPI_Waitall(requestNo, request, status);
 	return tmpReleaseKernel.res;
@@ -1185,11 +1210,10 @@ clFinish(cl_command_queue hInCmdQueue)
 	
 	struct strFinish tmpFinish;
 	tmpFinish.command_queue = hInCmdQueue;
-	MPI_Send(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0,
+	MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0,
 			 FINISH_FUNC, slaveComm, request+(requestNo++));
-	MPI_Recv(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0,
+	MPI_Irecv(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0,
 			 FINISH_FUNC, slaveComm, request+(requestNo++));
-
 	//preocess the local command queue
 	processCommandQueue(hInCmdQueue);
 	MPI_Waitall(requestNo, request, status);
@@ -1197,247 +1221,270 @@ clFinish(cl_command_queue hInCmdQueue)
 }
 
 //16
-//cl_int
-//clGetContextInfo(cl_context         context, 
-//                 cl_context_info    param_name, 
-//                 size_t             param_value_size, 
-//                 void *             param_value, 
-//                 size_t *           param_value_size_ret)
-//{
-//	MPI_Status status;
-//	struct strGetContextInfo tmpGetContextInfo;
-//	tmpGetContextInfo.context = context;
-//	tmpGetContextInfo.param_name = param_name;
-//	tmpGetContextInfo.param_value_size = param_value_size;
-//	tmpGetContextInfo.param_value = param_value;
-//	tmpGetContextInfo.param_value_size_ret = 1;
-//	if (param_value_size_ret == NULL)
-//	{
-//		tmpGetContextInfo.param_value_size_ret = 0;
-//	}
-//
-//	MPI_Send(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
-//			 GET_CONTEXT_INFO_FUNC, slaveComm);
-//	MPI_Recv(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
-//			 GET_CONTEXT_INFO_FUNC, slaveComm, &status);
-//
-//	if (param_value != NULL)
-//	{
-//		MPI_Recv(param_value, param_value_size, MPI_BYTE, 0,
-//				 GET_CONTEXT_INFO_FUNC1, slaveComm, &status);
-//	}
-//
-//	if (param_value_size_ret != NULL)
-//	{
-//		*param_value_size_ret = tmpGetContextInfo.param_value_size_ret;
-//	}
-//
-//	return tmpGetContextInfo.res;
-//}
-//
-////17
-//cl_int
-//clGetProgramBuildInfo(cl_program            program,
-//                      cl_device_id          device,
-//                      cl_program_build_info param_name,
-//                      size_t                param_value_size,
-//                      void *                param_value,
-//                      size_t *              param_value_size_ret)
-//{
-//	MPI_Status status;
-//	struct strGetProgramBuildInfo tmpGetProgramBuildInfo;
-//	tmpGetProgramBuildInfo.program = program;
-//	tmpGetProgramBuildInfo.device  = device;
-//	tmpGetProgramBuildInfo.param_name = param_name;
-//	tmpGetProgramBuildInfo.param_value_size = param_value_size;
-//	tmpGetProgramBuildInfo.param_value = param_value;
-//	tmpGetProgramBuildInfo.param_value_size_ret = 1;
-//	if (param_value_size_ret == NULL)
-//	{
-//		tmpGetProgramBuildInfo.param_value_size_ret = 0;
-//	}
-//
-//	MPI_Send(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, 0,
-//			 GET_BUILD_INFO_FUNC, slaveComm);
-//	MPI_Recv(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, 0,
-//			 GET_BUILD_INFO_FUNC, slaveComm, &status);
-//
-//	if (param_value != NULL)
-//	{
-//		MPI_Recv(param_value, param_value_size, MPI_BYTE, 0,
-//				 GET_BUILD_INFO_FUNC1, slaveComm, &status);
-//	}
-//
-//	if (param_value_size_ret != NULL)
-//	{
-//		*param_value_size_ret = tmpGetProgramBuildInfo.param_value_size_ret;
-//	}
-//	return tmpGetProgramBuildInfo.res;
-//}
-//
-////18
-//cl_int
-//clGetProgramInfo(cl_program         program,
-//                 cl_program_info    param_name,
-//                 size_t             param_value_size,
-//                 void *             param_value,
-//                 size_t *           param_value_size_ret)
-//{
-//	MPI_Status status;
-//	struct strGetProgramInfo tmpGetProgramInfo;
-//	tmpGetProgramInfo.program = program;
-//	tmpGetProgramInfo.param_name = param_name;
-//	tmpGetProgramInfo.param_value_size = param_value_size;
-//	tmpGetProgramInfo.param_value = param_value;
-//	tmpGetProgramInfo.param_value_size_ret = 1;
-//	if (param_value_size_ret == NULL)
-//	{
-//		tmpGetProgramInfo.param_value_size_ret = 0;
-//	}
-//
-//	MPI_Send(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, 0,
-//			 GET_PROGRAM_INFO_FUNC, slaveComm);
-//	MPI_Recv(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, 0,
-//			 GET_PROGRAM_INFO_FUNC, slaveComm, &status);
-//
-//	if (param_value != NULL)
-//	{
-//		MPI_Recv(param_value, param_value_size, MPI_BYTE, 0,
-//				 GET_PROGRAM_INFO_FUNC1, slaveComm, &status);
-//	}
-//
-//	if (param_value_size_ret != NULL)
-//	{
-//		*param_value_size_ret = tmpGetProgramInfo.param_value_size_ret;
-//	}
-//
-//	return tmpGetProgramInfo.res;
-//}
-//
-////19
-//cl_int
-//clReleaseProgram(cl_program program)
-//{
-//	MPI_Status status;
-//	struct strReleaseProgram tmpReleaseProgram;
-//	tmpReleaseProgram.program = program;
-//	MPI_Send(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, 0,
-//			 REL_PROGRAM_FUNC, slaveComm);
-//	MPI_Recv(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, 0,
-//			 REL_PROGRAM_FUNC, slaveComm, &status);
-//	return tmpReleaseProgram.res;
-//}
-//
-////20
-//cl_int
-//clReleaseCommandQueue(cl_command_queue command_queue)
-//{
-//	MPI_Status status;
-//	struct strReleaseCommandQueue tmpReleaseCommandQueue;
-//	tmpReleaseCommandQueue.command_queue = command_queue;
-//
-//	//release the local command queue
-//	releaseCommandQueue(command_queue);
-//
-//	MPI_Send(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, 0,
-//			 REL_COMMAND_QUEUE_FUNC, slaveComm);
-//	MPI_Recv(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, 0,
-//			 REL_COMMAND_QUEUE_FUNC, slaveComm, &status);
-//	return tmpReleaseCommandQueue.res;
-//}
-//
-////21
-//cl_int
-//clReleaseContext(cl_context context)
-//{
-//	MPI_Status status;
-//	struct strReleaseContext tmpReleaseContext;
-//	tmpReleaseContext.context = context;
-//	MPI_Send(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, 0,
-//			 REL_CONTEXT_FUNC, slaveComm);
-//	MPI_Recv(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, 0,
-//			 REL_CONTEXT_FUNC, slaveComm, &status);
-//	return tmpReleaseContext.res;
-//}
-//
-////22
-//cl_int
-//clGetDeviceInfo(cl_device_id    device,
-//                cl_device_info  param_name, 
-//                size_t          param_value_size, 
-//                void *          param_value,
-//                size_t *        param_value_size_ret)
-//{
-//	MPI_Status status;
-//	struct strGetDeviceInfo tmpGetDeviceInfo;
-//	tmpGetDeviceInfo.device = device;
-//	tmpGetDeviceInfo.param_name = param_name;
-//	tmpGetDeviceInfo.param_value_size = param_value_size;
-//	tmpGetDeviceInfo.param_value = param_value;
-//	tmpGetDeviceInfo.param_value_size_ret = 1;
-//	if (param_value_size_ret == NULL)
-//	{
-//		tmpGetDeviceInfo.param_value_size_ret = 0;
-//	}
-//
-//	MPI_Send(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, 0,
-//			 GET_DEVICE_INFO_FUNC, slaveComm);
-//	MPI_Recv(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, 0,
-//			 GET_DEVICE_INFO_FUNC, slaveComm, &status);
-//
-//	if (param_value != NULL)
-//	{
-//		MPI_Recv(param_value, param_value_size, MPI_BYTE, 0,
-//				 GET_DEVICE_INFO_FUNC1, slaveComm, &status);
-//	}
-//
-//	if (param_value_size_ret != NULL)
-//	{
-//		*param_value_size_ret = tmpGetDeviceInfo.param_value_size_ret;
-//	}
-//
-//	return tmpGetDeviceInfo.res;
-//}
-//
-////23
-//cl_int
-//clGetPlatformInfo(cl_platform_id    platform,
-//                  cl_platform_info  param_name, 
-//                  size_t            param_value_size, 
-//                  void *            param_value,
-//                  size_t *          param_value_size_ret)
-//{
-//	MPI_Status status;
-//	struct strGetPlatformInfo tmpGetPlatformInfo;
-//	tmpGetPlatformInfo.platform = platform;
-//	tmpGetPlatformInfo.param_name = param_name;
-//	tmpGetPlatformInfo.param_value_size = param_value_size;
-//	tmpGetPlatformInfo.param_value = param_value;
-//	tmpGetPlatformInfo.param_value_size_ret = 1;
-//	if (param_value_size_ret == NULL)
-//	{
-//		tmpGetPlatformInfo.param_value_size_ret = 0;
-//	}
-//
-//	MPI_Send(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, 0,
-//			 GET_PLATFORM_INFO_FUNC, slaveComm);
-//	MPI_Recv(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, 0,
-//			 GET_PLATFORM_INFO_FUNC, slaveComm, &status);
-//
-//	if (param_value != NULL)
-//	{
-//		MPI_Recv(param_value, param_value_size, MPI_BYTE, 0,
-//				 GET_PLATFORM_INFO_FUNC1, slaveComm, &status);
-//	}
-//
-//	if (param_value_size_ret != NULL)
-//	{
-//		*param_value_size_ret = tmpGetPlatformInfo.param_value_size_ret;
-//	}
-//
-//	return tmpGetPlatformInfo.res;
-//}
-//
+cl_int
+clGetContextInfo(cl_context         context, 
+                 cl_context_info    param_name, 
+                 size_t             param_value_size, 
+                 void *             param_value, 
+                 size_t *           param_value_size_ret)
+{
+	MPI_Status status[3];
+	MPI_Request request[3];
+	int requestNo = 0;
+	struct strGetContextInfo tmpGetContextInfo;
+	tmpGetContextInfo.context = context;
+	tmpGetContextInfo.param_name = param_name;
+	tmpGetContextInfo.param_value_size = param_value_size;
+	tmpGetContextInfo.param_value = param_value;
+	tmpGetContextInfo.param_value_size_ret = 1;
+	if (param_value_size_ret == NULL)
+	{
+		tmpGetContextInfo.param_value_size_ret = 0;
+	}
+	MPI_Isend(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
+			 GET_CONTEXT_INFO_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
+			 GET_CONTEXT_INFO_FUNC, slaveComm, request+(requestNo++));
+
+	if (param_value != NULL)
+	{
+		MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
+				 GET_CONTEXT_INFO_FUNC1, slaveComm, request+(requestNo++));
+	}
+	MPI_Waitall(requestNo, request, status);
+
+	if (param_value_size_ret != NULL)
+	{
+		*param_value_size_ret = tmpGetContextInfo.param_value_size_ret;
+	}
+
+
+	return tmpGetContextInfo.res;
+}
+
+//17
+cl_int
+clGetProgramBuildInfo(cl_program            program,
+                      cl_device_id          device,
+                      cl_program_build_info param_name,
+                      size_t                param_value_size,
+                      void *                param_value,
+                      size_t *              param_value_size_ret)
+{
+	MPI_Status status[3];
+	MPI_Request request[3];
+	int requestNo = 0;
+	struct strGetProgramBuildInfo tmpGetProgramBuildInfo;
+	tmpGetProgramBuildInfo.program = program;
+	tmpGetProgramBuildInfo.device  = device;
+	tmpGetProgramBuildInfo.param_name = param_name;
+	tmpGetProgramBuildInfo.param_value_size = param_value_size;
+	tmpGetProgramBuildInfo.param_value = param_value;
+	tmpGetProgramBuildInfo.param_value_size_ret = 1;
+	if (param_value_size_ret == NULL)
+	{
+		tmpGetProgramBuildInfo.param_value_size_ret = 0;
+	}
+
+	MPI_Isend(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, 0,
+			 GET_BUILD_INFO_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, 0,
+			 GET_BUILD_INFO_FUNC, slaveComm, request+(requestNo++));
+
+	if (param_value != NULL)
+	{
+		MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
+				 GET_BUILD_INFO_FUNC1, slaveComm, request+(requestNo++));
+	}
+	MPI_Waitall(requestNo, request, status);
+
+	if (param_value_size_ret != NULL)
+	{
+		*param_value_size_ret = tmpGetProgramBuildInfo.param_value_size_ret;
+	}
+	return tmpGetProgramBuildInfo.res;
+}
+
+//18
+cl_int
+clGetProgramInfo(cl_program         program,
+                 cl_program_info    param_name,
+                 size_t             param_value_size,
+                 void *             param_value,
+                 size_t *           param_value_size_ret)
+{
+	MPI_Status status[3];
+	MPI_Request request[3];
+	int requestNo = 0;
+	struct strGetProgramInfo tmpGetProgramInfo;
+	tmpGetProgramInfo.program = program;
+	tmpGetProgramInfo.param_name = param_name;
+	tmpGetProgramInfo.param_value_size = param_value_size;
+	tmpGetProgramInfo.param_value = param_value;
+	tmpGetProgramInfo.param_value_size_ret = 1;
+	if (param_value_size_ret == NULL)
+	{
+		tmpGetProgramInfo.param_value_size_ret = 0;
+	}
+
+	MPI_Isend(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, 0,
+			 GET_PROGRAM_INFO_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, 0,
+			 GET_PROGRAM_INFO_FUNC, slaveComm, request+(requestNo++));
+
+	if (param_value != NULL)
+	{
+		MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
+				 GET_PROGRAM_INFO_FUNC1, slaveComm, request+(requestNo++));
+	}
+	MPI_Waitall(requestNo, request, status);
+
+	if (param_value_size_ret != NULL)
+	{
+		*param_value_size_ret = tmpGetProgramInfo.param_value_size_ret;
+	}
+	return tmpGetProgramInfo.res;
+}
+
+//19
+cl_int
+clReleaseProgram(cl_program program)
+{
+	MPI_Status status[2];
+	MPI_Request request[2];
+	int requestNo = 0;
+	struct strReleaseProgram tmpReleaseProgram;
+	tmpReleaseProgram.program = program;
+	MPI_Isend(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, 0,
+			 REL_PROGRAM_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, 0,
+			 REL_PROGRAM_FUNC, slaveComm, request+(requestNo++));
+	MPI_Waitall(requestNo, request, status);
+	return tmpReleaseProgram.res;
+}
+
+//20
+cl_int
+clReleaseCommandQueue(cl_command_queue command_queue)
+{
+	MPI_Status status[2];
+	MPI_Request request[2];
+	int requestNo = 0;
+	struct strReleaseCommandQueue tmpReleaseCommandQueue;
+	tmpReleaseCommandQueue.command_queue = command_queue;
+
+	MPI_Isend(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, 0,
+			 REL_COMMAND_QUEUE_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, 0,
+			 REL_COMMAND_QUEUE_FUNC, slaveComm, request+(requestNo++));
+	//release the local command queue
+	releaseCommandQueue(command_queue);
+	MPI_Waitall(requestNo, request, status);
+	return tmpReleaseCommandQueue.res;
+}
+
+//21
+cl_int
+clReleaseContext(cl_context context)
+{
+	MPI_Status status[2];
+	MPI_Request request[2];
+	int requestNo = 0;
+	struct strReleaseContext tmpReleaseContext;
+	tmpReleaseContext.context = context;
+	MPI_Isend(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, 0,
+			 REL_CONTEXT_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, 0,
+			 REL_CONTEXT_FUNC, slaveComm, request+(requestNo++));
+	MPI_Waitall(requestNo, request, status);
+	return tmpReleaseContext.res;
+}
+
+//22
+cl_int
+clGetDeviceInfo(cl_device_id    device,
+                cl_device_info  param_name, 
+                size_t          param_value_size, 
+                void *          param_value,
+                size_t *        param_value_size_ret)
+{
+	MPI_Status status[3];
+	MPI_Request request[3];
+	int requestNo = 0;
+	struct strGetDeviceInfo tmpGetDeviceInfo;
+	tmpGetDeviceInfo.device = device;
+	tmpGetDeviceInfo.param_name = param_name;
+	tmpGetDeviceInfo.param_value_size = param_value_size;
+	tmpGetDeviceInfo.param_value = param_value;
+	tmpGetDeviceInfo.param_value_size_ret = 1;
+	if (param_value_size_ret == NULL)
+	{
+		tmpGetDeviceInfo.param_value_size_ret = 0;
+	}
+
+	MPI_Isend(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, 0,
+			 GET_DEVICE_INFO_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, 0,
+			 GET_DEVICE_INFO_FUNC, slaveComm, request+(requestNo++));
+
+	if (param_value != NULL)
+	{
+		MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
+				 GET_DEVICE_INFO_FUNC1, slaveComm, request+(requestNo++));
+	}
+	MPI_Waitall(requestNo, request, status);
+
+	if (param_value_size_ret != NULL)
+	{
+		*param_value_size_ret = tmpGetDeviceInfo.param_value_size_ret;
+	}
+
+	return tmpGetDeviceInfo.res;
+}
+
+//23
+cl_int
+clGetPlatformInfo(cl_platform_id    platform,
+                  cl_platform_info  param_name, 
+                  size_t            param_value_size, 
+                  void *            param_value,
+                  size_t *          param_value_size_ret)
+{
+	MPI_Status status[3];
+	MPI_Request request[3];
+	int requestNo = 0;
+
+	struct strGetPlatformInfo tmpGetPlatformInfo;
+	tmpGetPlatformInfo.platform = platform;
+	tmpGetPlatformInfo.param_name = param_name;
+	tmpGetPlatformInfo.param_value_size = param_value_size;
+	tmpGetPlatformInfo.param_value = param_value;
+	tmpGetPlatformInfo.param_value_size_ret = 1;
+	if (param_value_size_ret == NULL)
+	{
+		tmpGetPlatformInfo.param_value_size_ret = 0;
+	}
+
+	MPI_Isend(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, 0,
+			 GET_PLATFORM_INFO_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, 0,
+			 GET_PLATFORM_INFO_FUNC, slaveComm, request+(requestNo++));
+
+	if (param_value != NULL)
+	{
+		MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
+				 GET_PLATFORM_INFO_FUNC1, slaveComm, request+(requestNo++));
+	}
+	MPI_Waitall(requestNo, request, status);
+
+	if (param_value_size_ret != NULL)
+	{
+		*param_value_size_ret = tmpGetPlatformInfo.param_value_size_ret;
+	}
+
+	return tmpGetPlatformInfo.res;
+}
+
 ////24
 //cl_int
 //clFlush(cl_command_queue hInCmdQueue)
