@@ -312,52 +312,84 @@ void processEvent(cl_event event)
 	releaseDataTransferAll(event);
 }
 
-void processEvents(cl_event *event_list, cl_uint num_events)
-{
-	DATA_TRANSFER *dataTransferPtr;
-	MPI_Status status;
-	int i;
+//void processCommandQueue(cl_command_queue command_queue)
+//{
+//	MPI_Request *request;
+//	MPI_Status  *status;
+////	cl_event *event_list;
+//	int maxReadRequestNum = 100;
+////	int maxWriteRequestNum = 100;
+//	int readRequestNo = 0;
+////	int writeRequestNo = 0;
+//	request = (MPI_Request *)malloc(maxReadRequestNum * sizeof(MPI_Request));
+//	status  = (MPI_Status *)malloc(maxReadRequestNum * sizeof(MPI_Status));
+////	event_list = (cl_event *)malloc(maxWriteRequestNum * sizeof(cl_event));
+//
+//	CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
+//	DATA_TRANSFER *dataTransferPtr = cmdQueue->dataTransferPtr;
+//	DATA_TRANSFER *nextDataTransferPtr;
+//	while (dataTransferPtr != NULL)
+//	{
+//		if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
+//		{
+//			MPI_Isend(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
+//					 0, dataTransferPtr->tag, dataTransferPtr->comm, request+(readRequestNo++));
+//		}
+////		else
+////		{
+////			event_list[writeRequestNo++] = dataTransferPtr->event;
+////		}
+//
+//		if (readRequestNo >= maxReadRequestNum)
+//		{
+//			maxReadRequestNum *= 2;
+//			request = (MPI_Request *)realloc(request, maxReadRequestNum * sizeof(MPI_Request));
+//			status  = (MPI_Status *)realloc(status, maxReadRequestNum * sizeof(MPI_Status));
+//		}
+////		if (writeRequestNo >= maxWriteRequestNum)
+////		{
+////			maxWriteRequestNum *= 2;
+////			event_list = (cl_event *)realloc(event_list, maxWriteRequestNum * sizeof(cl_event));
+////		}
+//
+//		dataTransferPtr = dataTransferPtr->next;
+//	}
+//	if (readRequestNo > 0)
+//	{
+//		MPI_Waitall(readRequestNo, request, status);
+//	}
+////	if (writeRequestNo > 0)
+////	{
+////		clWaitForEvents(writeRequestNo, event_list);
+////	}
+//
+//	dataTransferPtr = cmdQueue->dataTransferPtr;
+//	while (dataTransferPtr != NULL)
+//	{
+//		free(dataTransferPtr->host_ptr);
+//		nextDataTransferPtr = dataTransferPtr->next;
+//		free(dataTransferPtr);
+//		dataTransferPtr = nextDataTransferPtr;
+//	}
+//
+//	cmdQueue->dataTransferPtr = NULL;
+//	cmdQueue->dataTransferPtrTail = NULL;
+//
+//	free(request);
+//	free(status);
+////	free(event_list);
+//	return;
+//}
 
-	for (i = 0; i < num_events; i++)
-	{
-		dataTransferPtr = getDataTransferAll(event_list[i]);
-		if (dataTransferPtr != NULL)
-		{
-			if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
-			{
-				MPI_Isend(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
-						 0, dataTransferPtr->tag, dataTransferPtr->comm, &dataTransferPtr->request);
-			}
-		}
-	}
-
-	for (i = 0; i < num_events; i++)
-	{
-		dataTransferPtr = getDataTransferAll(event_list[i]);
-		if (dataTransferPtr != NULL)
-		{
-			if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
-			{
-				MPI_Wait(&dataTransferPtr->request, &status);
-			}
-			free(dataTransferPtr->host_ptr);
-			dataTransferPtr->host_ptr = NULL;
-		}
-
-		//release the event
-		releaseDataTransferAll(event_list[i]);
-	}
-
-}
-
+//process all pending events, each time one event
 void processCommandQueue(cl_command_queue command_queue)
 {
 	MPI_Request *request;
 	MPI_Status  *status;
-	int maxRequestNum = 100;
-	int requestNo = 0;
-	request = (MPI_Request *)malloc(maxRequestNum * sizeof(MPI_Request));
-	status  = (MPI_Status *)malloc(maxRequestNum * sizeof(MPI_Status));
+	int maxReadRequestNum = 100;
+	int readRequestNo = 0;
+	request = (MPI_Request *)malloc(maxReadRequestNum * sizeof(MPI_Request));
+	status  = (MPI_Status *)malloc(maxReadRequestNum * sizeof(MPI_Status));
 
 	CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
 	MPI_Status status;
@@ -365,20 +397,25 @@ void processCommandQueue(cl_command_queue command_queue)
 	DATA_TRANSFER *nextDataTransferPtr;
 	while (dataTransferPtr != NULL)
 	{
+		clWaitForEvents(1, &dataTransferPtr->event);
 		if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
 		{
 			MPI_Isend(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
-					 0, dataTransferPtr->tag, dataTransferPtr->comm, request+(requestNo++));
+					 0, dataTransferPtr->tag, dataTransferPtr->comm, request+(readRequestNo++));
 		}
-		if (requestNo >= maxRequestNum)
+		if (readRequestNo >= maxReadRequestNum)
 		{
-			maxRequestNum *= 2;
-			request = (MPI_Request *)realloc(request, maxRequestNum * sizeof(MPI_Request));
-			status  = (MPI_Status *)realloc(status, maxRequestNum * sizeof(MPI_Status));
+			maxReadRequestNum *= 2;
+			request = (MPI_Request *)realloc(request, maxReadRequestNum * sizeof(MPI_Request));
+			status  = (MPI_Status *)realloc(status, maxReadRequestNum * sizeof(MPI_Status));
 		}
 		dataTransferPtr = dataTransferPtr->next;
 	}
-	MPI_Wait(requestNo, request, status);
+	if (readRequestNo > 0)
+	{
+		MPI_Waitall(readRequestNo, request, status);
+	}
+
 	dataTransferPtr = cmdQueue->dataTransferPtr;
 	while (dataTransferPtr != NULL)
 	{

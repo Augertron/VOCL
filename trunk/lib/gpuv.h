@@ -34,79 +34,91 @@ extern cl_uint readBufferTag;
 //for storing kernel arguments
 #define MAX_ARGS 100
 #define MAX_TAG 65535
-extern kernel_info *kernelInfo;
 
-#define GET_PLATFORM_ID_FUNC        10001
-#define GET_PLATFORM_ID_FUNC1       10002
-#define GET_DEVICE_ID_FUNC          10003
-#define GET_DEVICE_ID_FUNC1         10004
-#define CREATE_CONTEXT_FUNC         10005
-#define CREATE_CONTEXT_FUNC1        10006
-#define CREATE_COMMAND_QUEUE_FUNC   10007
-#define LOAD_SOURCE_FUNC            10008
-#define LOAD_SOURCE_FUNC1           10009
-#define CREATE_PROGRMA_WITH_SOURCE  10010
-#define CREATE_PROGRMA_WITH_SOURCE1 10011
-#define CREATE_PROGRMA_WITH_SOURCE2 10070
-#define BUILD_PROGRAM               10012
-#define BUILD_PROGRAM1              10013
-#define CREATE_KERNEL               10014
-#define CREATE_KERNEL1              10015
-#define CREATE_BUFFER_FUNC          10016
-#define CREATE_BUFFER_FUNC1         10017
-#define ENQUEUE_WRITE_BUFFER        10018
-#define ENQUEUE_WRITE_BUFFER1       10019
-#define ENQUEUE_WRITE_BUFFER2       10020
-#define SET_KERNEL_ARG              10021
-#define SET_KERNEL_ARG1             10022
-#define ENQUEUE_ND_RANGE_KERNEL     10023
-#define ENQUEUE_ND_RANGE_KERNEL1    10024
-#define ENQUEUE_ND_RANGE_KERNEL2    10025
-#define ENQUEUE_ND_RANGE_KERNEL3    10026
-#define ENQUEUE_ND_RANGE_KERNEL4    10069
-#define ENQUEUE_READ_BUFFER         10027
-#define ENQUEUE_READ_BUFFER1        10028
-#define RELEASE_MEM_OBJ             10029
-#define FINISH_FUNC                 10030
-#define CL_RELEASE_KERNEL_FUNC      10031
-#define GET_CONTEXT_INFO_FUNC       10032
-#define GET_CONTEXT_INFO_FUNC1      10033
-#define GET_BUILD_INFO_FUNC         10034
-#define GET_BUILD_INFO_FUNC1        10035
-#define GET_PROGRAM_INFO_FUNC       10036
-#define GET_PROGRAM_INFO_FUNC1      10037
-#define REL_PROGRAM_FUNC            10038
-#define REL_COMMAND_QUEUE_FUNC      10039
-#define REL_CONTEXT_FUNC            10040
-#define GET_DEVICE_INFO_FUNC        10041
-#define GET_DEVICE_INFO_FUNC1       10042
-#define GET_PLATFORM_INFO_FUNC      10043
-#define GET_PLATFORM_INFO_FUNC1     10044
-#define FLUSH_FUNC                  10045
-#define WAIT_FOR_EVENT_FUNC			10046
-#define WAIT_FOR_EVENT_FUNC1		10047
-#define CREATE_SAMPLER_FUNC         10048
-#define GET_CMD_QUEUE_INFO_FUNC 	10049
-#define GET_CMD_QUEUE_INFO_FUNC1 	10050
-#define ENQUEUE_MAP_BUFF_FUNC       10051
-#define ENQUEUE_MAP_BUFF_FUNC1      10052
-#define RELEASE_EVENT_FUNC          10053
-#define GET_EVENT_PROF_INFO_FUNC    10054
-#define GET_EVENT_PROF_INFO_FUNC1   10055
-#define RELEASE_SAMPLER_FUNC        10056
-#define GET_KERNEL_WGP_INFO_FUNC    10057
-#define GET_KERNEL_WGP_INFO_FUNC1   10058
-#define CREATE_IMAGE_2D_FUNC        10059
-#define CREATE_IMAGE_2D_FUNC1       10060
-#define ENQ_COPY_BUFF_FUNC          10061
-#define ENQ_COPY_BUFF_FUNC1         10062
-#define RETAIN_EVENT_FUNC           10063
-#define RETAIN_MEMOBJ_FUNC          10064
-#define RETAIN_KERNEL_FUNC          10065
-#define RETAIN_CMDQUE_FUNC          10066
-#define ENQ_UNMAP_MEMOBJ_FUNC       10067
-#define ENQ_UNMAP_MEMOBJ_FUNC1      10068
-#define PROGRAM_END                 11111
+#define MIN_WRITE_TAG 1000
+#define MAX_WRITE_TAG 2000
+#define MIN_READ_TAG  3000
+#define MAX_READ_TAG  4000
+
+#define GET_PLATFORM_ID_FUNC        10
+#define GET_DEVICE_ID_FUNC          11
+#define CREATE_CONTEXT_FUNC         12
+#define LOAD_SOURCE_FUNC            13
+#define CREATE_PROGRMA_WITH_SOURCE  14
+#define CREATE_COMMAND_QUEUE_FUNC   15
+#define BUILD_PROGRAM               16
+#define CREATE_KERNEL               17
+#define CREATE_BUFFER_FUNC          18
+#define ENQUEUE_WRITE_BUFFER        19
+#define SET_KERNEL_ARG              20
+#define ENQUEUE_ND_RANGE_KERNEL     21
+#define ENQUEUE_READ_BUFFER         22
+#define RELEASE_MEM_OBJ             23
+#define FINISH_FUNC                 24
+#define GET_CONTEXT_INFO_FUNC       25
+#define CL_RELEASE_KERNEL_FUNC      26
+#define GET_BUILD_INFO_FUNC         27
+#define GET_PROGRAM_INFO_FUNC       28
+#define REL_PROGRAM_FUNC            29
+#define REL_COMMAND_QUEUE_FUNC      30
+#define REL_CONTEXT_FUNC            31
+#define GET_DEVICE_INFO_FUNC        32
+#define GET_PLATFORM_INFO_FUNC      33
+#define FLUSH_FUNC                  34
+#define WAIT_FOR_EVENT_FUNC         35
+#define GET_CMD_QUEUE_INFO_FUNC     36
+#define CREATE_SAMPLER_FUNC         37
+#define ENQUEUE_MAP_BUFF_FUNC       38
+#define RELEASE_EVENT_FUNC          39
+#define RELEASE_SAMPLER_FUNC        40
+#define GET_EVENT_PROF_INFO_FUNC    41
+#define GET_KERNEL_WGP_INFO_FUNC    42
+#define CREATE_IMAGE_2D_FUNC        43
+#define ENQ_COPY_BUFF_FUNC          44
+#define RETAIN_EVENT_FUNC           45
+#define RETAIN_MEMOBJ_FUNC          46
+#define RETAIN_KERNEL_FUNC          47
+#define RETAIN_CMDQUE_FUNC          48
+#define ENQ_UNMAP_MEMOBJ_FUNC       49
+#define PROGRAM_END                 50
+
+#define CMSG_NUM                    (PROGRAM_END-OFFSET)
+#define DATAMSG_NUM                 100
+#define TOTAL_MSG_NUM               (CMSG_NUM + DATAMSG_NUM)
+
+#define GET_PLATFORM_ID_FUNC1       10000
+#define GET_DEVICE_ID_FUNC1         10001
+#define CREATE_CONTEXT_FUNC1        10002
+#define LOAD_SOURCE_FUNC1           10003
+#define CREATE_PROGRMA_WITH_SOURCE1 10004
+#define CREATE_PROGRMA_WITH_SOURCE2 10005
+#define BUILD_PROGRAM1              10006
+#define CREATE_KERNEL1              10007
+#define CREATE_BUFFER_FUNC1         10008
+#define ENQUEUE_WRITE_BUFFER1       10009
+#define ENQUEUE_WRITE_BUFFER2       10010
+#define SET_KERNEL_ARG1             10011
+#define ENQUEUE_ND_RANGE_KERNEL1    10012
+#define ENQUEUE_ND_RANGE_KERNEL2    10013
+#define ENQUEUE_ND_RANGE_KERNEL3    10014
+#define ENQUEUE_ND_RANGE_KERNEL4    10015
+#define ENQUEUE_READ_BUFFER1        10016
+#define GET_CONTEXT_INFO_FUNC1      10017
+#define GET_BUILD_INFO_FUNC1        10018
+#define GET_PROGRAM_INFO_FUNC1      10019
+#define GET_DEVICE_INFO_FUNC1       10020
+#define GET_PLATFORM_INFO_FUNC1     10021
+#define WAIT_FOR_EVENT_FUNC1        10022
+#define GET_CMD_QUEUE_INFO_FUNC1    10023
+#define ENQUEUE_MAP_BUFF_FUNC1      10024
+#define GET_EVENT_PROF_INFO_FUNC1   10025
+#define GET_KERNEL_WGP_INFO_FUNC1   10026
+#define CREATE_IMAGE_2D_FUNC1       10027
+#define ENQ_COPY_BUFF_FUNC1         10028
+#define ENQ_UNMAP_MEMOBJ_FUNC1      10029
+
+
+extern kernel_info *kernelInfo;
 
 //1
 #define GET_PLAT_FORM_ELEM_NUM 1
@@ -200,6 +212,7 @@ struct strEnqueueWriteBuffer {
 	cl_command_queue   command_queue; 
 	cl_mem             buffer;
 	cl_bool            blocking_write;
+	cl_int             tag;
 	size_t             offset;
 	size_t             cb;
 	cl_uint            num_events_in_wait_list;
