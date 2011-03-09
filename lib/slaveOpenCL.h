@@ -4,7 +4,6 @@
 typedef struct strDataTransfer {
 	cl_event           event;
 	MPI_Comm		   comm;
-	MPI_Request        request;
 	void               *host_ptr;
 	int                tag;
 	size_t             msgSize;
@@ -392,7 +391,6 @@ void processCommandQueue(cl_command_queue command_queue)
 	status  = (MPI_Status *)malloc(maxReadRequestNum * sizeof(MPI_Status));
 
 	CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
-	MPI_Status status;
 	DATA_TRANSFER *dataTransferPtr = cmdQueue->dataTransferPtr;
 	DATA_TRANSFER *nextDataTransferPtr;
 	while (dataTransferPtr != NULL)

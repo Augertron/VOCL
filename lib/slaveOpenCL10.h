@@ -4,7 +4,6 @@
 typedef struct strDataTransfer {
 	cl_event           event;
 	MPI_Comm		   comm;
-	MPI_Request        request;
 	void               *host_ptr;
 	int                tag;
 	size_t             msgSize;
@@ -312,66 +311,17 @@ void processEvent(cl_event event)
 	releaseDataTransferAll(event);
 }
 
-void processEvents(cl_event *event_list, cl_uint num_events)
-{
-	DATA_TRANSFER *dataTransferPtr;
-	MPI_Status status;
-	int i;
-
-	for (i = 0; i < num_events; i++)
-	{
-		dataTransferPtr = getDataTransferAll(event_list[i]);
-		if (dataTransferPtr != NULL)
-		{
-			if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
-			{
-				MPI_Isend(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
-						 0, dataTransferPtr->tag, dataTransferPtr->comm, &dataTransferPtr->request);
-			}
-		}
-	}
-
-	for (i = 0; i < num_events; i++)
-	{
-		dataTransferPtr = getDataTransferAll(event_list[i]);
-		if (dataTransferPtr != NULL)
-		{
-			if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
-			{
-				MPI_Wait(&dataTransferPtr->request, &status);
-			}
-			free(dataTransferPtr->host_ptr);
-			dataTransferPtr->host_ptr = NULL;
-		}
-
-		//release the event
-		releaseDataTransferAll(event_list[i]);
-	}
-
-}
-
 void processCommandQueue(cl_command_queue command_queue)
 {
 	CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
-	MPI_Status status;
 	DATA_TRANSFER *dataTransferPtr = cmdQueue->dataTransferPtr;
 	DATA_TRANSFER *nextDataTransferPtr;
 	while (dataTransferPtr != NULL)
 	{
 		if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
 		{
-			MPI_Isend(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
-					 0, dataTransferPtr->tag, dataTransferPtr->comm, &dataTransferPtr->request);
-		}
-		dataTransferPtr = dataTransferPtr->next;
-	}
-
-	dataTransferPtr = cmdQueue->dataTransferPtr;
-	while (dataTransferPtr != NULL)
-	{
-		if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
-		{
-			MPI_Wait(&dataTransferPtr->request, &status);
+			MPI_Send(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
+					 0, dataTransferPtr->tag, dataTransferPtr->comm);
 		}
 		free(dataTransferPtr->host_ptr);
 
@@ -379,7 +329,6 @@ void processCommandQueue(cl_command_queue command_queue)
 		free(dataTransferPtr);
 		dataTransferPtr = nextDataTransferPtr;
 	}
-
 	cmdQueue->dataTransferPtr = NULL;
 	cmdQueue->dataTransferPtrTail = NULL;
 

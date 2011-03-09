@@ -1701,11 +1701,10 @@ int main(int argc, char *argv[])
 					 WAIT_FOR_EVENT_FUNC1, parentComm, &status);
 			mpiOpenCLWaitForEvents(&tmpWaitForEvents, event_list);
 			//get the pointer structures corresponding to the events
-			processEvents(event_list, num_events);
-//			for (i = 0; i < num_events; i++)
-//			{
-//				processEvent(event_list[i]);
-//			}
+			for (i = 0; i < num_events; i++)
+			{
+				processEvent(event_list[i]);
+			}
 
 			MPI_Send(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
 					 WAIT_FOR_EVENT_FUNC, parentComm);
