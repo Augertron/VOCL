@@ -378,14 +378,34 @@ void processEvent(cl_event event)
 }
 
 void processCommandQueue(cl_command_queue command_queue)
-{
-	MPI_Status status;
+{   
+	int maxRequestNum = 100;
+	int requestNo = 0;
+	MPI_Status *status;
+	MPI_Request *request;
+	status = (MPI_Status *)malloc(maxRequestNum * sizeof(MPI_Status));
+	request = (MPI_Request *)malloc(maxRequestNum * sizeof(MPI_Request));
+
 	CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
 	DATA_READ *dataReadPtr = cmdQueue->dataReadPtr;
 	DATA_READ *nextDataReadPtr;
 	while (dataReadPtr != NULL)
 	{
-		MPI_Wait(&dataReadPtr->request, &status);
+		request[requestNo++] = dataReadPtr->request;
+		if (requestNo >= maxRequestNum)
+		{
+			maxRequestNum *= 2;
+			status = (MPI_Status *)realloc(status, maxRequestNum * sizeof(MPI_Status));
+			request = (MPI_Request *)realloc(request, maxRequestNum * sizeof(MPI_Request));
+		}
+
+		dataReadPtr = dataReadPtr->next;
+	}
+
+	MPI_Waitall(requestNo, request, status);
+	dataReadPtr = cmdQueue->dataReadPtr;
+	while (dataReadPtr != NULL)
+	{
 		nextDataReadPtr = dataReadPtr->next;
 		free(dataReadPtr);
 		dataReadPtr = nextDataReadPtr;
@@ -393,8 +413,12 @@ void processCommandQueue(cl_command_queue command_queue)
 	cmdQueue->dataReadPtr = NULL;
 	cmdQueue->dataReadPtrTail = NULL;
 
+	free(status);
+	free(request);
 	return;
 }
+
+
 
 
 //--------------------------------------------------------------------------------------
@@ -820,9 +844,8 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
 	checkSlaveProc();
 
 	struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
-	MPI_Status status[4];
-	MPI_Request request[4];
-	int requestNo = 0;
+	MPI_Status status;
+	MPI_Request request;
 	
 
 	//initialize structure
@@ -847,9 +870,7 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
 	MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0, 
 			 ENQUEUE_WRITE_BUFFER, slaveComm, &request);
 	MPI_Request_free(&request);
-	MPI_Isend((void *)ptr, cb, MPI_BYTE, 0, ENQUEUE_WRITE_BUFFER+nbWriteNo, slaveComm,
-			  request+(requestNo++));
-	if (++nbWriteTag > MAX_WRITE_TAG)
+	if (num_events_in_wait_list > 0)
 	{
 		MPI_Isend((void *)event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
 				 ENQUEUE_WRITE_BUFFER+nbWriteTag, slaveComm, &request);
@@ -1105,12 +1126,12 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
 	//send parameters to remote node
 	MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0, 
 			 ENQUEUE_READ_BUFFER, slaveComm, request);
-	MPI_Request_free(&request);
+	MPI_Request_free(request);
 	if (num_events_in_wait_list > 0)
 	{
 		MPI_Isend((void *)event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
 				 ENQUEUE_READ_BUFFER1, slaveComm, request);
-		MPI_Request_free(&request);
+		MPI_Request_free(request);
 	}
 
 	if (blocking_read == CL_TRUE)
@@ -1131,6 +1152,7 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
 	{
 		if (event != NULL)
 		{
+			printf("event list!\n");
 			MPI_Irecv(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0, 
 					 ENQUEUE_READ_BUFFER, slaveComm, request);
 		}
@@ -1145,13 +1167,17 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
 		dataReadPtr->request = dataRequest;
 		if (event != NULL)
 		{
+			printf("Wait for event!\n");
 			MPI_Wait(request, status);
 			*event = tmpEnqueueReadBuffer.event;
+			return tmpEnqueueReadBuffer.res;
 		}
-		return tmpEnqueueReadBuffer.res;
+		else
+		{
+			return CL_SUCCESS;
+		}
 	}
 	
-	return CL_SUCCESS;
 }
 
 cl_int
@@ -1214,6 +1240,7 @@ clFinish(cl_command_queue hInCmdQueue)
 			 FINISH_FUNC, slaveComm, request+(requestNo++));
 	MPI_Irecv(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0,
 			 FINISH_FUNC, slaveComm, request+(requestNo++));
+
 	//preocess the local command queue
 	processCommandQueue(hInCmdQueue);
 	MPI_Waitall(requestNo, request, status);
@@ -1241,6 +1268,7 @@ clGetContextInfo(cl_context         context,
 	{
 		tmpGetContextInfo.param_value_size_ret = 0;
 	}
+
 	MPI_Isend(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
 			 GET_CONTEXT_INFO_FUNC, slaveComm, request+(requestNo++));
 	MPI_Irecv(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,

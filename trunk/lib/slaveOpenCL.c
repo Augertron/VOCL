@@ -484,6 +484,8 @@ void mpiOpenCLEnqueueReadBuffer(struct strEnqueueReadBuffer *tmpEnqueueReadBuffe
 //		event_ret = &tmpEnqueueReadBuffer->event;
 //	}
 
+//	printf("block_reading = %d\n", read_flag);
+
 	cl_event *event_ret = &tmpEnqueueReadBuffer->event;
 
 	err = clEnqueueReadBuffer(hInCmdQueue,
@@ -1207,7 +1209,7 @@ int main(int argc, char *argv[])
 	//issue non-blocking receive for all control message
 	MPI_Status  curStatus[TOTAL_MSG_NUM];
 	MPI_Request conMsgRequest[TOTAL_MSG_NUM];
-	MPI_Request curRequest[20];
+	MPI_Request curRequest[TOTAL_MSG_NUM];
 	int requestNo, dataReqNum = 0, totalReqNum, index;
 
 	char *conMsgBuffer[CMSG_NUM];
@@ -1234,9 +1236,9 @@ int main(int argc, char *argv[])
 			//MPI_Recv(&getPlatformIDStr, sizeof(getPlatformIDStr), MPI_BYTE, 0,
 			//		 GET_PLATFORM_ID_FUNC, parentComm, &status);
 			cl_platform_id *platforms = NULL;
-			if (getPlatformIDStr->platforms != NULL)
+			if (getPlatformIDStr.platforms != NULL)
 			{
-				platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * getPlatformIDStr->num_entries);
+				platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * getPlatformIDStr.num_entries);
 			}
 
 			mpiOpenCLGetPlatformIDs(&getPlatformIDStr, platforms);
@@ -1488,6 +1490,10 @@ int main(int argc, char *argv[])
 				free(host_ptr);
 				//process all the events in the command queue
 				processCommandQueue(tmpEnqueueWriteBuffer.command_queue);
+				//reset data request number
+				//dataReqNum = 0;
+				//totalReqNum = CMSG_NUM;
+
 				MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0,
 						  ENQUEUE_WRITE_BUFFER, parentComm, curRequest);
 			}
@@ -1554,6 +1560,7 @@ int main(int argc, char *argv[])
 				arg_value = (char *)malloc(tmpSetKernelArg.arg_size);
 				MPI_Irecv(arg_value, tmpSetKernelArg.arg_size, MPI_BYTE, 0,
 						 SET_KERNEL_ARG1, parentComm, curRequest);
+				MPI_Request_free(curRequest);
 			}
 			MPI_Wait(curRequest, curStatus);
 			mpiOpenCLSetKernelArg(&tmpSetKernelArg, arg_value);
@@ -1565,26 +1572,6 @@ int main(int argc, char *argv[])
 			}
 			MPI_Wait(curRequest, curStatus);
 		}
-		
-//		if (status.MPI_TAG == SET_KERNEL_ARG)
-//		{
-//			MPI_Recv(&tmpSetKernelArg, sizeof(tmpSetKernelArg), MPI_BYTE, 0,
-//					 SET_KERNEL_ARG, parentComm, &status);
-//			void *arg_value = NULL;
-//			if (tmpSetKernelArg.arg_value != NULL)
-//			{
-//				arg_value = (char *)malloc(tmpSetKernelArg.arg_size);
-//				MPI_Recv(arg_value, tmpSetKernelArg.arg_size, MPI_BYTE, 0,
-//						 SET_KERNEL_ARG1, parentComm, &status);
-//			}
-//			mpiOpenCLSetKernelArg(&tmpSetKernelArg, arg_value);
-//			MPI_Send(&tmpSetKernelArg, sizeof(tmpSetKernelArg), MPI_BYTE, 0,
-//					 SET_KERNEL_ARG, parentComm);
-//			if (tmpSetKernelArg.arg_value != NULL)
-//			{
-//				free(arg_value);
-//			}
-//		}
 
 		if (status.MPI_TAG == ENQUEUE_ND_RANGE_KERNEL)
 		{
@@ -1689,9 +1676,6 @@ int main(int argc, char *argv[])
 			}
 
 			mpiOpenCLEnqueueReadBuffer(&tmpEnqueueReadBuffer, host_ptr, event_wait_list);
-//			requestNo = 0;
-//			MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0,
-//					 ENQUEUE_READ_BUFFER, parentComm, curRequest+(requestNo++));
 			if (num_events_in_wait_list > 0)
 			{
 				free(event_wait_list);
@@ -1703,6 +1687,7 @@ int main(int argc, char *argv[])
 
 			if (tmpEnqueueReadBuffer.blocking_read == CL_FALSE)
 			{
+				//printf("nonblocking, event_null_flag = %d\n", tmpEnqueueReadBuffer.blocking_read);
 				if (tmpEnqueueReadBuffer.event_null_flag == 0)
 				{
 					MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0,
@@ -1730,6 +1715,10 @@ int main(int argc, char *argv[])
 						 ENQUEUE_READ_BUFFER1, parentComm, curRequest+(requestNo++));
 				//process all the events in the command queue
 				processCommandQueue(tmpEnqueueReadBuffer.command_queue);
+				//reset data request number
+				//dataReqNum = 0;
+				//totalReqNum = CMSG_NUM;
+
 				MPI_Waitall(requestNo, curRequest, curStatus);
 				free(host_ptr);
 			}
@@ -1768,6 +1757,9 @@ int main(int argc, char *argv[])
 			memcpy(&tmpFinish, conMsgBuffer[index], sizeof(tmpFinish));
 			//process all the events in the command queue
 			processCommandQueue(tmpFinish.command_queue);
+			//reset data request number
+			//dataReqNum = 0;
+			//totalReqNum = CMSG_NUM;
 
 			mpiOpenCLFinish(&tmpFinish);
 			MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0,
