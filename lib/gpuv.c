@@ -869,16 +869,17 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
 	//send parameters to remote node
 	MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0, 
 			 ENQUEUE_WRITE_BUFFER, slaveComm, &request);
-	MPI_Request_free(&request);
+	//MPI_Request_free(&request);
 	if (num_events_in_wait_list > 0)
 	{
 		MPI_Isend((void *)event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
 				 ENQUEUE_WRITE_BUFFER+nbWriteTag, slaveComm, &request);
-		MPI_Request_free(&request);
+		//MPI_Request_free(&request);
 	}
 
 	MPI_Isend((void *)ptr, cb, MPI_BYTE, 0, ENQUEUE_WRITE_BUFFER+nbWriteTag, slaveComm, &request);
-	MPI_Request_free(&request);
+	//MPI_Request_free(&request);
+	//printf("nbWriteTag = %d\n", nbWriteTag);
 	if (++nbWriteTag > MAX_WRITE_TAG)
 	{
 		nbWriteTag = MIN_WRITE_TAG;
@@ -1126,12 +1127,12 @@ clEnqueueReadBuffer(cl_command_queue    command_queue,
 	//send parameters to remote node
 	MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0, 
 			 ENQUEUE_READ_BUFFER, slaveComm, request);
-	MPI_Request_free(request);
+	//MPI_Request_free(request);
 	if (num_events_in_wait_list > 0)
 	{
 		MPI_Isend((void *)event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
 				 ENQUEUE_READ_BUFFER1, slaveComm, request);
-		MPI_Request_free(request);
+		//MPI_Request_free(request);
 	}
 
 	if (blocking_read == CL_TRUE)
@@ -1513,244 +1514,264 @@ clGetPlatformInfo(cl_platform_id    platform,
 	return tmpGetPlatformInfo.res;
 }
 
-////24
-//cl_int
-//clFlush(cl_command_queue hInCmdQueue)
-//{
-//	MPI_Status status;
-//	//check whether the slave process is created. If not, create one.
-//	checkSlaveProc();
-//	
-//	struct strFlush tmpFlush;
-//	tmpFlush.command_queue = hInCmdQueue;
-//	MPI_Send(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, 0,
-//			 FLUSH_FUNC, slaveComm);
-//	MPI_Recv(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, 0,
-//			 FLUSH_FUNC, slaveComm, &status);
-//	return tmpFlush.res;
-//}
-//
-////25
-//cl_int
-//clWaitForEvents(cl_uint           num_events,
-//				const cl_event   *event_list)
-//{
-//	MPI_Status status;
-//	int i;
-//	//check whether the slave process is created. If not, create one.
-//	checkSlaveProc();
-//	
-//	struct strWaitForEvents tmpWaitForEvents;
-//	tmpWaitForEvents.num_events = num_events;
-//	MPI_Send(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
-//			 WAIT_FOR_EVENT_FUNC, slaveComm);
-//	MPI_Send((void *)event_list, sizeof(cl_event) * num_events, MPI_BYTE, 0,
-//			 WAIT_FOR_EVENT_FUNC1, slaveComm);
-//	MPI_Recv(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
-//			 WAIT_FOR_EVENT_FUNC, slaveComm, &status);
-//	for (i = 0; i < num_events; i++)
-//	{
-//		processEvent(event_list[i]);
-//	}
-//
-//	return tmpWaitForEvents.res;
-//}
-//
-////26
-//cl_sampler
-//clCreateSampler(cl_context          context,
-//				cl_bool             normalized_coords,
-//				cl_addressing_mode  addressing_mode,
-//				cl_filter_mode      filter_mode,
-//				cl_int 			   *errcode_ret)
-//{
-//	MPI_Status status;
-//	//check whether the slave process is created. If not, create one.
-//	checkSlaveProc();
-//	
-//	struct strCreateSampler tmpCreateSampler;
-//	tmpCreateSampler.context = context;
-//	tmpCreateSampler.normalized_coords = normalized_coords;
-//	tmpCreateSampler.addressing_mode = addressing_mode;
-//	tmpCreateSampler.filter_mode = filter_mode;
-//	tmpCreateSampler.errcode_ret = 0;
-//	if (errcode_ret != NULL)
-//	{
-//		tmpCreateSampler.errcode_ret = 1;
-//	}
-//
-//	MPI_Send(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, 0,
-//			 CREATE_SAMPLER_FUNC, slaveComm);
-//	MPI_Recv(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, 0,
-//			 CREATE_SAMPLER_FUNC, slaveComm, &status);
-//	
-//	if (errcode_ret != NULL)
-//	{
-//		*errcode_ret = tmpCreateSampler.errcode_ret;
-//	}
-//
-//	return tmpCreateSampler.sampler;
-//}
-//
-////27
-//cl_int
-//clGetCommandQueueInfo(cl_command_queue       command_queue,
-//                      cl_command_queue_info  param_name, 
-//                      size_t                 param_value_size, 
-//                      void *                 param_value,
-//                      size_t *               param_value_size_ret)
-//{
-//	MPI_Status status;
-//	//check whether the slave process is created. If not, create one.
-//	checkSlaveProc();
-//	struct strGetCommandQueueInfo tmpGetCommandQueueInfo;
-//	tmpGetCommandQueueInfo.command_queue = command_queue;
-//	tmpGetCommandQueueInfo.param_name = param_name;
-//	tmpGetCommandQueueInfo.param_value_size = param_value_size;
-//	tmpGetCommandQueueInfo.param_value = param_value;
-//	tmpGetCommandQueueInfo.param_value_size_ret = 1;
-//	if (param_value_size_ret == NULL)
-//	{
-//		tmpGetCommandQueueInfo.param_value_size_ret = 0;
-//	}
-//
-//	MPI_Send(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, 0,
-//			 GET_CMD_QUEUE_INFO_FUNC, slaveComm);
-//	MPI_Recv(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, 0,
-//			 GET_CMD_QUEUE_INFO_FUNC, slaveComm, &status);
-//
-//	if (param_value != NULL)
-//	{
-//		MPI_Recv(param_value, param_value_size, MPI_BYTE, 0,
-//				 GET_CMD_QUEUE_INFO_FUNC1, slaveComm, &status);
-//	}
-//
-//	if (param_value_size_ret != NULL)
-//	{
-//		*param_value_size_ret = tmpGetCommandQueueInfo.param_value_size_ret;
-//	}
-//
-//	return tmpGetCommandQueueInfo.res;
-//}
-//
-////28
-//void *
-//clEnqueueMapBuffer(cl_command_queue command_queue,
-//                   cl_mem           buffer,
-//                   cl_bool          blocking_map, 
-//                   cl_map_flags     map_flags,
-//                   size_t           offset,
-//                   size_t           cb,
-//                   cl_uint          num_events_in_wait_list,
-//                   const cl_event * event_wait_list,
-//                   cl_event *       event,
-//                   cl_int *         errcode_ret)
-//{
-//	MPI_Status status;
-//	//check whether the slave process is created. If not, create one.
-//	checkSlaveProc();
-//	struct strEnqueueMapBuffer tmpEnqueueMapBuffer;
-//	tmpEnqueueMapBuffer.command_queue = command_queue;
-//	tmpEnqueueMapBuffer.buffer = buffer;
-//	tmpEnqueueMapBuffer.blocking_map = blocking_map;
-//	tmpEnqueueMapBuffer.map_flags = map_flags;
-//	tmpEnqueueMapBuffer.offset = offset;
-//	tmpEnqueueMapBuffer.cb = cb;
-//	tmpEnqueueMapBuffer.num_events_in_wait_list = num_events_in_wait_list;
-//	if (event == NULL)
-//	{
-//		tmpEnqueueMapBuffer.event_null_flag = 1;
-//	}
-//	else
-//	{ 
-//		tmpEnqueueMapBuffer.event_null_flag = 0;
-//	}
-//
-//	//0, NOT NULL, 1: NULL
-//	tmpEnqueueMapBuffer.errcode_ret = 0;
-//	if (errcode_ret == NULL)
-//	{
-//		tmpEnqueueMapBuffer.errcode_ret = 1;
-//	}
-//	MPI_Send(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
-//			 ENQUEUE_MAP_BUFF_FUNC, slaveComm);
-//	if (num_events_in_wait_list > 0)
-//	{
-//		MPI_Send((void *)event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
-//				 ENQUEUE_MAP_BUFF_FUNC1, slaveComm);
-//	}
-//	MPI_Recv(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
-//			 ENQUEUE_MAP_BUFF_FUNC, slaveComm, &status);
-//	if (event != NULL)
-//	{
-//		*event = tmpEnqueueMapBuffer.event;
-//	}
-//
-//	if (errcode_ret != NULL)
-//	{
-//		*errcode_ret = tmpEnqueueMapBuffer.errcode_ret;
-//	}
-//
-//	return tmpEnqueueMapBuffer.ret_ptr;
-//}
-//
-////29
-//cl_int
-//clReleaseEvent(cl_event event)
-//{
-//	MPI_Status status;
-//	//check whether the slave process is created. If not, create one.
-//	checkSlaveProc();
-//	struct strReleaseEvent tmpReleaseEvent;
-//	tmpReleaseEvent.event = event;
-//	MPI_Send(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
-//			 RELEASE_EVENT_FUNC, slaveComm);
-//	MPI_Recv(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
-//			 RELEASE_EVENT_FUNC, slaveComm, &status);
-//	return tmpReleaseEvent.res;
-//}
-//
-////30
-//cl_int
-//clGetEventProfilingInfo(cl_event           event,
-//                        cl_profiling_info  param_name, 
-//                        size_t             param_value_size, 
-//                        void *             param_value,
-//                        size_t *           param_value_size_ret)
-//{
-//	MPI_Status status;
-//	//check whether the slave process is created. If not, create one.
-//	checkSlaveProc();
-//	struct strGetEventProfilingInfo tmpGetEventProfilingInfo;
-//	tmpGetEventProfilingInfo.event = event;
-//	tmpGetEventProfilingInfo.param_name = param_name;
-//	tmpGetEventProfilingInfo.param_value_size = param_value_size;
-//	tmpGetEventProfilingInfo.param_value = param_value;
-//	tmpGetEventProfilingInfo.param_value_size_ret = 1;
-//	if (param_value_size_ret == NULL)
-//	{
-//		tmpGetEventProfilingInfo.param_value_size_ret = 0;
-//	}
-//
-//	MPI_Send(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, 0,
-//			 GET_EVENT_PROF_INFO_FUNC, slaveComm);
-//	MPI_Recv(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, 0,
-//			 GET_EVENT_PROF_INFO_FUNC, slaveComm, &status);
-//
-//	if (param_value != NULL)
-//	{
-//		MPI_Recv(param_value, param_value_size, MPI_BYTE, 0,
-//				 GET_EVENT_PROF_INFO_FUNC1, slaveComm, &status);
-//	}
-//
-//	if (param_value_size_ret != NULL)
-//	{
-//		*param_value_size_ret = tmpGetEventProfilingInfo.param_value_size_ret;
-//	}
-//
-//	return tmpGetEventProfilingInfo.res;
-//}
-//
+//24
+cl_int
+clFlush(cl_command_queue hInCmdQueue)
+{
+	MPI_Status status[2];
+	MPI_Request request[2];
+	int requestNo = 0;
+	//check whether the slave process is created. If not, create one.
+	checkSlaveProc();
+	
+	struct strFlush tmpFlush;
+	tmpFlush.command_queue = hInCmdQueue;
+	MPI_Isend(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, 0,
+			 FLUSH_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, 0,
+			 FLUSH_FUNC, slaveComm, request+(requestNo++));
+	MPI_Waitall(requestNo, request, status);
+	return tmpFlush.res;
+}
+
+//25
+cl_int
+clWaitForEvents(cl_uint           num_events,
+				const cl_event   *event_list)
+{
+	MPI_Status status[3];
+	MPI_Request request[3];
+	int i, requestNo = 0;
+	//check whether the slave process is created. If not, create one.
+	checkSlaveProc();
+	
+	struct strWaitForEvents tmpWaitForEvents;
+	tmpWaitForEvents.num_events = num_events;
+	MPI_Isend(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
+			 WAIT_FOR_EVENT_FUNC, slaveComm, request+(requestNo++));
+	MPI_Isend((void *)event_list, sizeof(cl_event) * num_events, MPI_BYTE, 0,
+			 WAIT_FOR_EVENT_FUNC1, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
+			 WAIT_FOR_EVENT_FUNC, slaveComm, request+(requestNo++));
+	for (i = 0; i < num_events; i++)
+	{
+		processEvent(event_list[i]);
+	}
+	MPI_Waitall(requestNo, request, status);
+
+	return tmpWaitForEvents.res;
+}
+
+//26
+cl_sampler
+clCreateSampler(cl_context          context,
+				cl_bool             normalized_coords,
+				cl_addressing_mode  addressing_mode,
+				cl_filter_mode      filter_mode,
+				cl_int 			   *errcode_ret)
+{
+	MPI_Status status[2];
+	MPI_Request request[2];
+	int requestNo = 0;
+	//check whether the slave process is created. If not, create one.
+	checkSlaveProc();
+	
+	struct strCreateSampler tmpCreateSampler;
+	tmpCreateSampler.context = context;
+	tmpCreateSampler.normalized_coords = normalized_coords;
+	tmpCreateSampler.addressing_mode = addressing_mode;
+	tmpCreateSampler.filter_mode = filter_mode;
+	tmpCreateSampler.errcode_ret = 0;
+	if (errcode_ret != NULL)
+	{
+		tmpCreateSampler.errcode_ret = 1;
+	}
+
+	MPI_Isend(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, 0,
+			 CREATE_SAMPLER_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, 0,
+			 CREATE_SAMPLER_FUNC, slaveComm, request+(requestNo++));
+	MPI_Waitall(requestNo, request, status);
+	
+	if (errcode_ret != NULL)
+	{
+		*errcode_ret = tmpCreateSampler.errcode_ret;
+	}
+
+	return tmpCreateSampler.sampler;
+}
+
+//27
+cl_int
+clGetCommandQueueInfo(cl_command_queue       command_queue,
+                      cl_command_queue_info  param_name, 
+                      size_t                 param_value_size, 
+                      void *                 param_value,
+                      size_t *               param_value_size_ret)
+{
+	MPI_Status status[3];
+	MPI_Request request[3];
+	int requestNo = 0;
+	//check whether the slave process is created. If not, create one.
+	checkSlaveProc();
+	struct strGetCommandQueueInfo tmpGetCommandQueueInfo;
+	tmpGetCommandQueueInfo.command_queue = command_queue;
+	tmpGetCommandQueueInfo.param_name = param_name;
+	tmpGetCommandQueueInfo.param_value_size = param_value_size;
+	tmpGetCommandQueueInfo.param_value = param_value;
+	tmpGetCommandQueueInfo.param_value_size_ret = 1;
+	if (param_value_size_ret == NULL)
+	{
+		tmpGetCommandQueueInfo.param_value_size_ret = 0;
+	}
+
+	MPI_Isend(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, 0,
+			 GET_CMD_QUEUE_INFO_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, 0,
+			 GET_CMD_QUEUE_INFO_FUNC, slaveComm, request+(requestNo++));
+
+	if (param_value != NULL)
+	{
+		MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
+				 GET_CMD_QUEUE_INFO_FUNC1, slaveComm, request+(requestNo++));
+	}
+	MPI_Waitall(requestNo, request, status);
+	if (param_value_size_ret != NULL)
+	{
+		*param_value_size_ret = tmpGetCommandQueueInfo.param_value_size_ret;
+	}
+
+	return tmpGetCommandQueueInfo.res;
+}
+
+//28
+void *
+clEnqueueMapBuffer(cl_command_queue command_queue,
+                   cl_mem           buffer,
+                   cl_bool          blocking_map, 
+                   cl_map_flags     map_flags,
+                   size_t           offset,
+                   size_t           cb,
+                   cl_uint          num_events_in_wait_list,
+                   const cl_event * event_wait_list,
+                   cl_event *       event,
+                   cl_int *         errcode_ret)
+{
+	MPI_Status status[3];
+	MPI_Request request[3];
+	int requestNo = 0;
+	//check whether the slave process is created. If not, create one.
+	checkSlaveProc();
+	struct strEnqueueMapBuffer tmpEnqueueMapBuffer;
+	tmpEnqueueMapBuffer.command_queue = command_queue;
+	tmpEnqueueMapBuffer.buffer = buffer;
+	tmpEnqueueMapBuffer.blocking_map = blocking_map;
+	tmpEnqueueMapBuffer.map_flags = map_flags;
+	tmpEnqueueMapBuffer.offset = offset;
+	tmpEnqueueMapBuffer.cb = cb;
+	tmpEnqueueMapBuffer.num_events_in_wait_list = num_events_in_wait_list;
+	if (event == NULL)
+	{
+		tmpEnqueueMapBuffer.event_null_flag = 1;
+	}
+	else
+	{ 
+		tmpEnqueueMapBuffer.event_null_flag = 0;
+	}
+
+	//0, NOT NULL, 1: NULL
+	tmpEnqueueMapBuffer.errcode_ret = 0;
+	if (errcode_ret == NULL)
+	{
+		tmpEnqueueMapBuffer.errcode_ret = 1;
+	}
+	MPI_Isend(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
+			 ENQUEUE_MAP_BUFF_FUNC, slaveComm, request+(requestNo++));
+	if (num_events_in_wait_list > 0)
+	{
+		MPI_Isend((void *)event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
+				 ENQUEUE_MAP_BUFF_FUNC1, slaveComm, request+(requestNo++));
+	}
+	MPI_Irecv(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
+			 ENQUEUE_MAP_BUFF_FUNC, slaveComm, request+(requestNo++));
+	MPI_Waitall(requestNo, request, status);
+	if (event != NULL)
+	{
+		*event = tmpEnqueueMapBuffer.event;
+	}
+
+	if (errcode_ret != NULL)
+	{
+		*errcode_ret = tmpEnqueueMapBuffer.errcode_ret;
+	}
+
+	return tmpEnqueueMapBuffer.ret_ptr;
+}
+
+//29
+cl_int
+clReleaseEvent(cl_event event)
+{
+	MPI_Status status[2];
+	MPI_Request request[2];
+	int requestNo = 0;
+	//check whether the slave process is created. If not, create one.
+	checkSlaveProc();
+
+	struct strReleaseEvent tmpReleaseEvent;
+	tmpReleaseEvent.event = event;
+	MPI_Isend(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
+			 RELEASE_EVENT_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
+			 RELEASE_EVENT_FUNC, slaveComm, request+(requestNo++));
+	MPI_Waitall(requestNo, request, status);
+	return tmpReleaseEvent.res;
+}
+
+//30
+cl_int
+clGetEventProfilingInfo(cl_event           event,
+                        cl_profiling_info  param_name, 
+                        size_t             param_value_size, 
+                        void *             param_value,
+                        size_t *           param_value_size_ret)
+{
+	MPI_Status status[3];
+	MPI_Request request[3];
+	int requestNo = 0;
+
+	//check whether the slave process is created. If not, create one.
+	checkSlaveProc();
+	struct strGetEventProfilingInfo tmpGetEventProfilingInfo;
+	tmpGetEventProfilingInfo.event = event;
+	tmpGetEventProfilingInfo.param_name = param_name;
+	tmpGetEventProfilingInfo.param_value_size = param_value_size;
+	tmpGetEventProfilingInfo.param_value = param_value;
+	tmpGetEventProfilingInfo.param_value_size_ret = 1;
+	if (param_value_size_ret == NULL)
+	{
+		tmpGetEventProfilingInfo.param_value_size_ret = 0;
+	}
+
+	MPI_Isend(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, 0,
+			 GET_EVENT_PROF_INFO_FUNC, slaveComm, request+(requestNo++));
+	MPI_Irecv(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, 0,
+			 GET_EVENT_PROF_INFO_FUNC, slaveComm, request+(requestNo++));
+
+	if (param_value != NULL)
+	{
+		MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
+				 GET_EVENT_PROF_INFO_FUNC1, slaveComm, request+(requestNo++));
+	}
+	MPI_Waitall(requestNo, request, status);
+	if (param_value_size_ret != NULL)
+	{
+		*param_value_size_ret = tmpGetEventProfilingInfo.param_value_size_ret;
+	}
+
+	return tmpGetEventProfilingInfo.res;
+}
+
 ////31
 //cl_int
 //clReleaseSampler(cl_sampler sampler)

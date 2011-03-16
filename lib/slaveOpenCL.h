@@ -387,6 +387,9 @@ void processCommandQueue(cl_command_queue command_queue)
 	MPI_Status  *status;
 	int maxReadRequestNum = 100;
 	int readRequestNo = 0;
+	//debug-------------------
+	//int eventCount = 0;
+	//-------------------------
 	request = (MPI_Request *)malloc(maxReadRequestNum * sizeof(MPI_Request));
 	status  = (MPI_Status *)malloc(maxReadRequestNum * sizeof(MPI_Status));
 
@@ -396,6 +399,9 @@ void processCommandQueue(cl_command_queue command_queue)
 	while (dataTransferPtr != NULL)
 	{
 		clWaitForEvents(1, &dataTransferPtr->event);
+		//debug-------------------------------------
+		//printf("eventCount = %d\n", eventCount++);
+		//------------------------------------------
 		if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
 		{
 			MPI_Isend(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
