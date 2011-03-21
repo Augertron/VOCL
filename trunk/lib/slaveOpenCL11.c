@@ -13,7 +13,7 @@
  *11.all are non-blocking message send and receive
  **************************************************************************/
 #define OFFSET 10
-#define MAX_CMSG_SIZE 256
+#define MAX_CMSG_SIZE 512
 
 #define MIN_WRITE_TAG 1000
 #define MAX_WRITE_TAG 2000
@@ -62,7 +62,7 @@
 #define ENQ_UNMAP_MEMOBJ_FUNC       49
 #define PROGRAM_END                 50
 #define CMSG_NUM                    (PROGRAM_END-OFFSET + 1)
-#define DATAMSG_NUM					250
+#define DATAMSG_NUM					500
 #define TOTAL_MSG_NUM				(CMSG_NUM + DATAMSG_NUM)
 
 #define GET_PLATFORM_ID_FUNC1	    10000
@@ -340,6 +340,7 @@ struct strEnqueueWriteBuffer {
 	cl_event           event;
 	cl_int             res;
 };
+
 
 struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
 void mpiOpenCLEnqueueWriteBuffer(struct strEnqueueWriteBuffer *tmpEnqueueWriteBuffer,
@@ -1176,7 +1177,8 @@ void processWriteData(int dataReqNum, int totalReqNum, MPI_Request *request, str
 	for (i = 0; i < dataReqNum; i++)
 	{
 		MPI_Waitany(totalReqNum, request, &index, &status);
-		//printf("totalReqNum = %d, index = %d\n", totalReqNum, index);
+		//printf("totalReqNum = %d, index = %d, i = %d, dataReqNum = %d\n", 
+		//		totalReqNum, index, i, dataReqNum);
 		mpiOpenCLEnqueueWriteBuffer(&dataInfo[index].writeBuffInfo, 
 				dataInfo[index].host_ptr, dataInfo[index].event_wait_list);
 		DATA_TRANSFER *dataTransferPtr = createDataTransfer(dataInfo[index].writeBuffInfo.command_queue,
@@ -1468,6 +1470,7 @@ int main(int argc, char *argv[])
 		if (status.MPI_TAG == ENQUEUE_WRITE_BUFFER)
 		{
 			memcpy(&tmpEnqueueWriteBuffer, conMsgBuffer[index], sizeof(tmpEnqueueWriteBuffer));
+			//printf("cb = %ld, tag = %d\n", tmpEnqueueWriteBuffer.cb, tmpEnqueueWriteBuffer.tag);
 			//MPI_Recv(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0,
 			//		 ENQUEUE_WRITE_BUFFER, parentComm, &status);
 			requestNo = 0;
@@ -1479,7 +1482,9 @@ int main(int argc, char *argv[])
 				MPI_Irecv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
 						 tmpEnqueueWriteBuffer.tag, parentComm, curRequest+(requestNo++));
 			}
+			//printf("cb = %ld, tag = %d\n", tmpEnqueueWriteBuffer.cb, tmpEnqueueWriteBuffer.tag);
 			char *host_ptr = (char *)malloc(tmpEnqueueWriteBuffer.cb * sizeof(char));
+			//printf("host_ptr = %p, cb = %ld, tag = %d\n", host_ptr, tmpEnqueueWriteBuffer.cb, tmpEnqueueWriteBuffer.tag);
 			if (tmpEnqueueWriteBuffer.blocking_write == CL_TRUE)
 			{
 				MPI_Irecv(host_ptr, tmpEnqueueWriteBuffer.cb, MPI_BYTE, 0,
@@ -1540,16 +1545,19 @@ int main(int argc, char *argv[])
 			//issue it for later use
 			MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, ENQUEUE_WRITE_BUFFER,
 					  parentComm, conMsgRequest + index);
-			MPI_Wait(curRequest, curStatus);
+			if (requestNo > 0)
+			{
+				MPI_Wait(curRequest, curStatus);
+			}
 		}
 
 		if (status.MPI_TAG >= ENQUEUE_WRITE_BUFFER + MIN_WRITE_TAG &&
 			status.MPI_TAG <= ENQUEUE_WRITE_BUFFER + MAX_WRITE_TAG)
 		{
 			int tempIndex = index - CMSG_NUM;
+			//printf("tempIndex = %d, dataReqNum = %d\n", tempIndex, dataReqNum);
 			mpiOpenCLEnqueueWriteBuffer(&dataInfo[tempIndex].writeBuffInfo, 
 					dataInfo[tempIndex].host_ptr, dataInfo[tempIndex].event_wait_list);
-					//just store the pointer for later release
 			dataInfo[tempIndex].writeToGPUFlag = 1;
 			DATA_TRANSFER *dataTransferPtr = createDataTransfer(dataInfo[tempIndex].writeBuffInfo.command_queue,
 																dataInfo[tempIndex].writeBuffInfo.event);

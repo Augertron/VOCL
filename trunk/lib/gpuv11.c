@@ -22,6 +22,7 @@ cl_uint readBufferTag = PROGRAM_END + 1;
 kernel_info *kernelInfo = NULL;
 int nbWriteTag = MIN_WRITE_TAG;
 int nbReadTag  = MIN_READ_TAG;
+MPI_Request writeRequest[MAX_WRITE_TAG-MIN_WRITE_TAG];
 
 //get the kernel structure whether argument
 //pointer is stored
@@ -844,9 +845,9 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
 	checkSlaveProc();
 
 	struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
-	MPI_Status status;
-	MPI_Request request;
-	
+	MPI_Status status[4];
+	MPI_Request request[4];
+	int requestNo = 0;
 
 	//initialize structure
 	tmpEnqueueWriteBuffer.command_queue = command_queue;
@@ -868,19 +869,19 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
 
 	//send parameters to remote node
 	MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0, 
-			 ENQUEUE_WRITE_BUFFER, slaveComm, &request);
+			 ENQUEUE_WRITE_BUFFER, slaveComm, request+(requestNo++));
 	//MPI_Request_free(&request);
 	if (num_events_in_wait_list > 0)
 	{
 		MPI_Isend((void *)event_wait_list, sizeof(cl_event) * num_events_in_wait_list, MPI_BYTE, 0,
-				 ENQUEUE_WRITE_BUFFER+nbWriteTag, slaveComm, &request);
+				 tmpEnqueueWriteBuffer.tag, slaveComm, request+(requestNo++));
 		//MPI_Request_free(&request);
 	}
 
-	MPI_Isend((void *)ptr, cb, MPI_BYTE, 0, ENQUEUE_WRITE_BUFFER+nbWriteTag, slaveComm, &request);
+	//MPI_Isend((void *)ptr, cb, MPI_BYTE, 0, ENQUEUE_WRITE_BUFFER+nbWriteTag, slaveComm, request+(requestNo++));
+	MPI_Isend((void *)ptr, cb, MPI_BYTE, 0, tmpEnqueueWriteBuffer.tag, slaveComm, writeRequest+(nbWriteTag-MIN_WRITE_TAG));
 	//MPI_Request_free(&request);
-	//printf("nbWriteTag = %d\n", nbWriteTag);
-	if (++nbWriteTag > MAX_WRITE_TAG)
+	if (++nbWriteTag >= MAX_WRITE_TAG)
 	{
 		nbWriteTag = MIN_WRITE_TAG;
 	}
@@ -888,10 +889,10 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
 	if (blocking_write == CL_TRUE)
 	{
 		MPI_Irecv(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0, 
-				 ENQUEUE_WRITE_BUFFER, slaveComm, &request);
+				 ENQUEUE_WRITE_BUFFER, slaveComm, request+(requestNo++));
 		//for a blocking write, process all previous non-blocking ones
 		processCommandQueue(command_queue);
-		MPI_Wait(&request, &status);
+		MPI_Waitall(requestNo, request, status);
 		if (event != NULL)
 		{
 			*event = tmpEnqueueWriteBuffer.event;
@@ -901,12 +902,13 @@ clEnqueueWriteBuffer(cl_command_queue   command_queue,
 	else if (event != NULL)
 	{
 		MPI_Irecv(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0, 
-				 ENQUEUE_WRITE_BUFFER, slaveComm, &request);
-		MPI_Wait(&request, &status);
+				 ENQUEUE_WRITE_BUFFER, slaveComm, request+(requestNo));
+		MPI_Waitall(requestNo, request, status);
 		*event = tmpEnqueueWriteBuffer.event;
 		return tmpEnqueueWriteBuffer.res;
 	}
-
+	
+	MPI_Waitall(requestNo, request, status);
 	return CL_SUCCESS;
 }
 
