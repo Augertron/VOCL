@@ -1,0 +1,75 @@
+SDK_DIR=$(HOME)/NVIDIA_GPU_Computing_SDK
+CCPLUS=g++
+CC=gcc
+NVCC=nvcc
+OBJ=obj
+INC=-Iinc -I/usr/local/cuda/include -I$(SDK_DIR)/OpenCL/common/inc -I$(SDK_DIR)/shared/inc 
+LIB=-L$(SDK_DIR)/shared/lib -L$(SDK_DIR)/OpenCL/common/lib -loclUtil_x86_64 -lshrutil_x86_64 
+SRC=src
+
+SRCFILES=$(SRC)/oclBodySystemCpu.cpp \
+		 $(SRC)/timeRec.cpp \
+		 $(SRC)/oclBodySystemOpencl.cpp \
+		 $(SRC)/oclBodySystemOpenclLaunch.cpp \
+		 $(SRC)/oclNbody.cpp \
+		 $(SRC)/oclNbodyGold.cpp \
+		 $(SRC)/param.cpp \
+#		 $(SRC)/oclRenderParticles.cpp
+#		 $(SRC)/paramgl.cpp
+
+HEADERFILES=$(INC)/timeRec.h \
+			$(INC)/oclBodySystemCpu.h \
+			$(INC)/oclBodySystem.h \
+			$(INC)/oclBodySystemOpencl.h \
+			$(INC)/oclBodySystemOpenclLaunch.h \
+			$(INC)/param.h \
+#			$(INC)/oclRenderParticles.h
+#			$(INC)/paramgl.h \
+
+OBJFILES=$(OBJ)/oclBodySystemCpu.o \
+		 $(OBJ)/timeRec.o \
+		 $(OBJ)/oclBodySystemOpencl.o \
+		 $(OBJ)/oclBodySystemOpenclLaunch.o \
+		 $(OBJ)/oclNbody.o \
+		 $(OBJ)/oclNbodyGold.o \
+		 $(OBJ)/param.o \
+#		 $(OBJ)/oclRenderParticles.o 
+#		 $(OBJ)/paramgl.o
+
+CCFLAGS= -c -O3 $(INC)
+
+all: nbodyO
+
+nbodyO: $(OBJFILES)
+	$(CCPLUS) -o $@ $? $(LIB) -lOpenCL
+
+$(OBJ)/oclBodySystemCpu.o: $(SRC)/oclBodySystemCpu.cpp
+	$(CCPLUS) $(CCFLAGS) -o $@ $?
+
+$(OBJ)/timeRec.o: $(SRC)/timeRec.cpp
+	$(CCPLUS) $(CCFLAGS) -o $@ $?
+
+$(OBJ)/oclBodySystemOpencl.o: $(SRC)/oclBodySystemOpencl.cpp
+	$(CCPLUS) $(CCFLAGS) -o $@ $?
+
+$(OBJ)/oclBodySystemOpenclLaunch.o: $(SRC)/oclBodySystemOpenclLaunch.cpp
+	$(CCPLUS) $(CCFLAGS) -o $@ $?
+
+$(OBJ)/oclNbody.o: $(SRC)/oclNbody.cpp
+	$(CCPLUS) $(CCFLAGS) -o $@ $?
+
+$(OBJ)/oclNbodyGold.o: $(SRC)/oclNbodyGold.cpp
+	$(CCPLUS) $(CCFLAGS) -o $@ $?
+
+#$(OBJ)/oclRenderParticles.o: $(SRC)/oclRenderParticles.cpp
+#	$(CCPLUS) $(CCFLAGS) -o $@ $?
+
+$(OBJ)/param.o: $(SRC)/param.cpp
+	$(CCPLUS) $(CCFLAGS) -o $@ $?
+
+#$(OBJ)/paramgl.o: $(SRC)/paramgl.cpp
+#	$(CCPLUS) $(CCFLAGS) -o $@ $?
+
+clean:
+	rm -f nbodyO $(OBJ)/*
+
