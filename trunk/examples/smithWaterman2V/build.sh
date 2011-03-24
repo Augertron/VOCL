@@ -1,1 +1,0 @@
-mpicxx -static src/param.cpp src/timeRec.cpp src/alignments.cpp src/prints.cpp src/sequences.cpp src/swat.cpp -L/home/scxiao/workplace/anl/gpuvirtualization -lGPUv -I/usr/local/cuda/include -Iinc -o swat
