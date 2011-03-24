@@ -13,8 +13,8 @@ OBJFILES=$(OBJ)/alignments.o $(OBJ)/prints.o $(OBJ)/sequences.o $(OBJ)/swat.o \
 		 $(OBJ)/param.o $(OBJ)/timeRec.o
 CCFLAGS= -O3 -c -I$(INC) -I/usr/local/cuda/include
 
-swatO: $(OBJFILES)
-	$(CCPLUS) -lOpenCL -o swatO $(OBJFILES)
+swat: $(OBJFILES)
+	$(CCPLUS) -lOpenCL -o swat $(OBJFILES)
 
 $(OBJ)/param.o: $(SRC)/param.cpp
 	$(CCPLUS) $(CCFLAGS) -o $(OBJ)/param.o $(SRC)/param.cpp
@@ -35,5 +35,5 @@ $(OBJ)/swat.o: $(SRC)/swat.cpp
 	$(CCPLUS) $(CCFLAGS) -o $(OBJ)/swat.o $(SRC)/swat.cpp
 
 clean:
-	rm -f swatO $(OBJ)/*
+	rm -f swat $(OBJ)/*
 
