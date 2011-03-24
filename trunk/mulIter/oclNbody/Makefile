@@ -38,7 +38,7 @@ OBJFILES=$(OBJ)/oclBodySystemCpu.o \
 
 CCFLAGS= -c -O3 $(INC)
 
-all: nbodyO
+all: nbody
 
 nbodyO: $(OBJFILES)
 	$(CCPLUS) -o $@ $? $(LIB) -lOpenCL
@@ -71,5 +71,5 @@ $(OBJ)/param.o: $(SRC)/param.cpp
 #	$(CCPLUS) $(CCFLAGS) -o $@ $?
 
 clean:
-	rm -f nbodyO $(OBJ)/*
+	rm -f nbody $(OBJ)/*
 
