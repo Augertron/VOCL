@@ -6,7 +6,7 @@ ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -I$(top_srcdir)/src
 
 lib_LTLIBRARIES = libvocl.la
-libvocl_la_SOURCES = $(top_srcdir)/src/vocl.c
+libvocl_la_SOURCES = $(top_srcdir)/src/vocl.cpp
 
 bin_PROGRAMS = vocl_proxy
-vocl_proxy_SOURCES = src/vocl_proxy.c
+vocl_proxy_SOURCES = src/vocl_proxy.cpp
