@@ -12,9 +12,10 @@ AM_INIT_AUTOMAKE([-Wall -Werror foreign 1.11])
 LT_INIT
 LT_PREREQ([2.2.6])
 
-AC_PROG_CC(mpicc)
-AC_PROG_CXX(mpicxx)
+AC_PROG_CXX
+AC_HEADER_STDC
 
+PAC_SET_HEADER_LIB_PATH(opencl)
 PAC_CHECK_HEADER_LIB_FATAL(opencl,CL/opencl.h,OpenCL,clGetPlatformIDs)
 
 AC_SUBST(top_srcdir)
