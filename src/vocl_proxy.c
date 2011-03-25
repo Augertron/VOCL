@@ -3,7 +3,7 @@
 #include <mpi.h>
 #include <memory.h>
 #include <CL/opencl.h>
-#include "slaveOpenCL.h"
+#include "vocl_proxy.h"
 #include <sched.h>
 
 /**************************************************************************

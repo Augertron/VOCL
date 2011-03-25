@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "gpuv.h"
+#include "vocl.h"
 #include <sys/time.h>
 
 /****************************************************************************
