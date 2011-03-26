@@ -1,2 +1,0 @@
-./buildshared.sh
-./buildslave.sh

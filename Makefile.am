@@ -8,5 +8,5 @@ AM_CPPFLAGS = -I$(top_srcdir)/src
 lib_LTLIBRARIES = libvocl.la
 libvocl_la_SOURCES = $(top_srcdir)/src/vocl.cpp
 
-bin_PROGRAMS = vocl_proxy
-vocl_proxy_SOURCES = src/vocl_proxy.cpp
+bin_PROGRAMS = vocl_proxy bandwidth
+vocl_proxy_SOURCES = $(top_srcdir)/src/vocl_proxy.cpp
