@@ -1,6 +1,6 @@
 #include "global.h"
 #include "functions.h"
-#include "timeRec.h"
+#include "swat_timer.h"
 #include <CL/opencl.h>
 
 /*************************************************************
@@ -60,6 +60,8 @@ char * loadSource(char *filePathName, size_t *fileSize)
 
 int main(int argc, char ** argv)
 {
+  char kernel_source[KERNEL_SOURCE_FILE_LEN];
+
 	if (argc < 3)
 	{
 		printf("Calculate similarities between two strings.\n");
@@ -132,7 +134,9 @@ int main(int argc, char ** argv)
 	strTime.numCreateCommandQueue++;
 
 	//load the source file
-	cSourceCL = loadSource("kernels.cl", &sourceFileSize);
+	snprintf(kernel_source, KERNEL_SOURCE_FILE_LEN, "%s/examples/swat/kernels.cl",
+		 ABS_SRCDIR);
+	cSourceCL = loadSource(kernel_source, &sourceFileSize);
 
 	timerStart();
 	hProgram = clCreateProgramWithSource(hContext, 1, (const char **)&cSourceCL, 

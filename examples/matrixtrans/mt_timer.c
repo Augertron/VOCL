@@ -1,4 +1,4 @@
-#include "timeRec.h"
+#include "mt_timer.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -123,6 +123,9 @@ void printTime_toFile()
 						+ strTime.releaseProgram
 						+ strTime.releaseCmdQueue
 						+ strTime.releaseContext;
+						//+ strTime.printMatrix;
+	//fprintf(pTimeFile, "getPlatform = %.3f\ngetDeviceID = %.3f\ncreateContext = %.3f\ncreateCommandQueue = %.3f\ncreateProgramWithSource = %.3f\nbuildProgram = %.3f\ncreateKernel = %.3f\nreadMatrix = %.3f\ncreateBuffer = %.3f\nenqueueWriteBuffer = %.3f\nkernelExecution = %.3f\nenqueueReadBuffer = %.3f\nprintMatrix = %.3f\ntotalTime = %.3f\n",
+	//fprintf(pTimeFile, "%.3f\n%.3f\n%.3f\n%.3f\n%.3f\n%.3f\n%.3f\n%.3f\n%.3f\n%.3f\n%.3f\n%.3f\n%.3f\n%.3f\n%.3f\n\n",
 	fprintf(pTimeFile, "matrixTran\t %.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n",
 			strTime.getPlatform,
 			strTime.getDeviceID,
@@ -174,3 +177,37 @@ void printTime_toFile()
 	fclose(pCountFile);
 
 }
+
+//void printTime_toFile()
+//{
+//	FILE *pTimeFile;
+//	pTimeFile = fopen("../runtime.txt", "at");
+//	if (pTimeFile == NULL)
+//	{
+//		printf("File runtime.txt open error!\n");
+//		return;
+//	}
+//
+//	//calculate the total time
+//	strTime.totalTime = strTime.preprocessingTime +
+//						strTime.copyTimeHostToDevice +
+//						strTime.matrixFillingTime +
+//						strTime.copyTimeDeviceToHost +
+//						strTime.traceBackTime;
+//	fprintf(pTimeFile, "Version 6:\t %.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\t%.3lf\n",
+//			strTime.iniTime,
+//			strTime.preprocessingTime,
+//			strTime.copyTimeHostToDevice,
+//			strTime.matrixFillingTime,
+//			strTime.traceBackTime,
+//			strTime.copyTimeDeviceToHost,
+//			strTime.totalTime);
+//	fclose(pTimeFile);
+//
+//	return;
+//}
+//
+//void print_throughputTime()
+//{
+//	printf("Throughput time = %.3lf\n", strTime.throughtputTime);
+//}
