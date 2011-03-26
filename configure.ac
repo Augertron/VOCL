@@ -18,6 +18,8 @@ AC_HEADER_STDC
 PAC_SET_HEADER_LIB_PATH(opencl)
 PAC_CHECK_HEADER_LIB_FATAL(opencl,CL/opencl.h,OpenCL,clGetPlatformIDs)
 
+abs_srcdir=`(cd $srcdir && pwd)`
+AC_SUBST(abs_srcdir)
 AC_SUBST(top_srcdir)
 
 ## Final output

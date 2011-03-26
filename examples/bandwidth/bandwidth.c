@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <CL/opencl.h>
-#include "timeRec.h"
+#include "bw_timer.h"
 #include <sched.h>
 
 /**********************************************************************

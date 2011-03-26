@@ -9,6 +9,7 @@
  *********************************************************************/
 
 #define BLOCK_SIZE 16
+#define KERNEL_SOURCE_FILE_LEN 1024
 
 #define CHECK_ERR(err, str) \
 	if (err != CL_SUCCESS)  \
@@ -86,6 +87,7 @@ int main(int argc, char **argv)
 	cl_mem deviceMem[3];
 	size_t sourceFileSize;
 	char *cSourceCL = NULL;
+	char kernel_source[KERNEL_SOURCE_FILE_LEN];
 
 	//get an opencl platform
 	timerStart();
@@ -120,7 +122,9 @@ int main(int argc, char **argv)
 
 
 	//load the source file
-	cSourceCL = loadSource("matrixMul.cl", &sourceFileSize);
+	snprintf(kernel_source, KERNEL_SOURCE_FILE_LEN, "%s/examples/matrixmult/matrixmult.cl",
+		 ABS_SRCDIR);
+	cSourceCL = loadSource(kernel_source, &sourceFileSize);
 	
 	//Create & compile program
 	timerStart();
