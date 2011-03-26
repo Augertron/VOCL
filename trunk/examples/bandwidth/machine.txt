@@ -1,2 +1,0 @@
-compute-0-7
-compute-0-6
