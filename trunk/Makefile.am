@@ -16,4 +16,4 @@ bandwidth_SOURCES = $(top_srcdir)/examples/bandwidth/bandwidth.c \
 	$(top_srcdir)/examples/bandwidth/bw_timer.c
 
 matrixmult_SOURCES = $(top_srcdir)/examples/matrixmult/matrixmult.c \
-	$(top_srcdir)/examples/matrixmult/timeRec.c
+	$(top_srcdir)/examples/matrixmult/mm_timer.c
