@@ -1,4 +1,4 @@
-#include "timeRec.h"
+#include "bw_timer.h"
 #include <stdio.h>
 #include <stdlib.h>
 
