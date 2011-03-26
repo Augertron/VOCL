@@ -1,13 +1,13 @@
+#define _GNU_SOURCE
 #include <stdio.h>
+#include <string.h>
 #include <CL/opencl.h>
-#include "functions.h"
 #include "timeRec.h"
 #include <sched.h>
 
 /**********************************************************************
  * test the host device and device host memory bandwidth
  *********************************************************************/
-
 #define BLOCK_SIZE 16
 #define MAX_BUFF_NUM 200
 
@@ -29,7 +29,7 @@ int main(int argc, char **argv)
 	cpu_set_t set;
 	CPU_ZERO(&set);
 	//CPU_SETSIZE(1024, &set);
-	CPU_SET(0, &set);
+	//CPU_SET(0, &set);
 	sched_setaffinity(0, sizeof(set), &set);
 
 	double *hostMem[MAX_BUFF_NUM];
