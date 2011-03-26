@@ -23,8 +23,6 @@ extern "C"
 {
     char clSourcefile[KERNEL_SOURCE_FILE_LEN];
 
-	snprintf(clSourcefile, KERNEL_SOURCE_FILE_LEN, "%s/examples/oclNbody/oclNbodyKernel.cl"
-
     void AllocateNBodyArrays(cl_context cxGPUContext, cl_mem* vel, int numBodies, int dFlag)
     {
         // 4 floats each for alignment reasons
@@ -228,6 +226,9 @@ extern "C"
         cl_int ciErrNum = CL_SUCCESS; 
 
         // Read the kernel in from file
+	snprintf(clSourcefile, KERNEL_SOURCE_FILE_LEN, "%s/examples/oclNbody/oclNbodyKernel.cl",
+		 ABS_SRCDIR);
+
         shrLog("\nLoading Uncompiled kernel from .cl file, using %s\n", clSourcefile);
         char* cPathAndFile = shrFindFilePath(clSourcefile, cExecutablePath);
         oclCheckError(cPathAndFile != NULL, shrTRUE);
