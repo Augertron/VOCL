@@ -15,13 +15,15 @@
 #include <cstdio>
 #include <iostream>
 #include <sstream>
-#include "timeRec.h"
+#include "nbody_timer.h"
 // var to hold path to executable
 extern const char* cExecutablePath;
 
 extern "C"
 {
-    char* clSourcefile = "oclNbodyKernel.cl";
+    char clSourcefile[KERNEL_SOURCE_FILE_LEN];
+
+	snprintf(clSourcefile, KERNEL_SOURCE_FILE_LEN, "%s/examples/oclNbody/oclNbodyKernel.cl"
 
     void AllocateNBodyArrays(cl_context cxGPUContext, cl_mem* vel, int numBodies, int dFlag)
     {

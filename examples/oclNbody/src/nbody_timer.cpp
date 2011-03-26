@@ -1,4 +1,4 @@
-#include "timeRec.h"
+#include "nbody_timer.h"
 #include <stdio.h>
 #include <stdlib.h>
 

@@ -9,7 +9,6 @@
  *********************************************************************/
 
 #define BLOCK_SIZE 16
-#define KERNEL_SOURCE_FILE_LEN 1024
 
 #define CHECK_ERR(err, str) \
 	if (err != CL_SUCCESS)  \
