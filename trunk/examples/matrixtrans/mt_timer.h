@@ -2,6 +2,9 @@
 #define __TIME_RECORD_H__
 #include <sys/time.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 //timer
 void timerStart();
 void timerEnd();
@@ -68,5 +71,7 @@ extern struct timeval time1Start;
 extern struct timeval time1End;
 
 extern STRUCT_TIME strTime;
-
+#ifdef __cplusplus
+}
+#endif
 #endif //__TIME_RECORD_H__
