@@ -13,7 +13,7 @@
 #include "oclUtils.h"
 #include <paramgl.h>
 #include <algorithm>
-#include "timeRec.h"
+#include "nbody_timer.h"
 // Project includes
 #include "oclBodySystemOpencl.h"
 #include "oclBodySystemCpu.h"
