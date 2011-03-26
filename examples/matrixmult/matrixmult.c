@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <CL/opencl.h>
-#include "timeRec.h"
+#include "mm_timer.h"
 
 /**********************************************************************
  *1. Create the scenario that each time a different kernel is created.
