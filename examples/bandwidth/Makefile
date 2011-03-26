@@ -6,9 +6,9 @@ INC=-Iinc -I/usr/local/cuda/include
 SRC=src
 LIB=
 
-SRCFILES=$(SRC)/bandWidth.c $(SRC)/timeRec.c
+SRCFILES=bandWidth.c timeRec.c
 
-HEADERFILES=$(INC)/functions.h $(INC)/timeRec.h
+HEADERFILES=functions.h $(INC)/timeRec.h
 OBJFILES=$(OBJ)/bandWidth.o $(OBJ)/timeRec.o
 CCFLAGS= -c -O3 $(INC)
 
