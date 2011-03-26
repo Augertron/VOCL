@@ -187,7 +187,7 @@ int main(int argc, char** argv)
 	timerEnd();
 	strTime.getPlatform += elapsedTime();
 	strTime.numGetPlatform++;
-    oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+    //oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
     shrLog("clGetPlatformID...\n\n"); 
 	
 	if (bDouble)
