@@ -12,6 +12,9 @@ AM_INIT_AUTOMAKE([-Wall -Werror foreign 1.11])
 LT_INIT
 LT_PREREQ([2.2.6])
 
+## Non-verbose make
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+
 AC_PROG_CC
 AC_PROG_CXX
 AC_HEADER_STDC
