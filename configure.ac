@@ -12,7 +12,7 @@ AM_INIT_AUTOMAKE([-Wall -Werror foreign 1.11])
 LT_INIT
 LT_PREREQ([2.2.6])
 
-AC_PROG_CXX
+AC_PROG_CC([mpicc])
 AC_HEADER_STDC
 
 PAC_SET_HEADER_LIB_PATH(opencl)

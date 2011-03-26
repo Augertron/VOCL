@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+#include <sched.h>
 #include <stdio.h>
 #include <string.h>
 #include "vocl.h"
