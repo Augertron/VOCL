@@ -226,13 +226,11 @@ extern "C"
         cl_int ciErrNum = CL_SUCCESS; 
 
         // Read the kernel in from file
-	snprintf(clSourcefile, KERNEL_SOURCE_FILE_LEN, "%s/examples/oclNbody/oclNbodyKernel.cl",
+		snprintf(clSourcefile, KERNEL_SOURCE_FILE_LEN, "%s/examples/oclNbody/oclNbodyKernel.cl",
 		 ABS_SRCDIR);
 
         shrLog("\nLoading Uncompiled kernel from .cl file, using %s\n", clSourcefile);
-        char* cPathAndFile = shrFindFilePath(clSourcefile, cExecutablePath);
-        oclCheckError(cPathAndFile != NULL, shrTRUE);
-        char* pcSource = oclLoadProgSource(cPathAndFile, "", &szSourceLen);
+        char* pcSource = oclLoadProgSource(clSourcefile, "", &szSourceLen);
         oclCheckError(pcSource != NULL, shrTRUE);
 
 		// Check OpenCL version -> vec3 types are supported only from version 1.1 and above

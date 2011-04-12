@@ -215,7 +215,6 @@ int runTest( const int argc, const char** argv)
 {
     cl_int ciErrNum;
     cl_uint ciDeviceCount;
-	//int matrixSize = atoi(argv[1]);
     unsigned int size_x = 2048;
     unsigned int size_y = 2048;
 
@@ -378,9 +377,7 @@ int runTest( const int argc, const char** argv)
     snprintf(kernel_source, KERNEL_SOURCE_FILE_LEN, "%s/examples/matrixtrans/transpose.cl",
 	     ABS_SRCDIR);
 
-    char* source_path = shrFindFilePath(kernel_source, argv[0]);
-    oclCheckError(source_path != NULL, shrTRUE);
-    char *source = oclLoadProgSource(source_path, "", &program_length);
+    char *source = oclLoadProgSource(kernel_source, "", &program_length);
     oclCheckError(source != NULL, shrTRUE);
 
     // create the program
@@ -450,7 +447,7 @@ int runTest( const int argc, const char** argv)
     free(h_odata);
     free(reference);
     free(source);
-    free(source_path);
+    //free(source_path);
 
     // cleanup OpenCL
 	timerStart();
