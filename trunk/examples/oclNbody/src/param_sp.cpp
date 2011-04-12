@@ -9,6 +9,6 @@
  *
  */
  
- #include <param.h>
+ #include <param_sp.h>
 
 const Param<int> dummy("error");

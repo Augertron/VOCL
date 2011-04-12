@@ -11,22 +11,23 @@
 
 // Utility and system includes
 #include "oclUtils.h"
-#include <paramgl.h>
+//#include <paramgl.h>
 #include <algorithm>
 #include "nbody_timer.h"
 // Project includes
-#include "oclBodySystemOpencl.h"
-#include "oclBodySystemCpu.h"
+#include "oclBodySystemOpencl_dp.h"
+#include "oclBodySystemCpu_dp.h"
+#include <sched.h>
 
 
 // view, GLUT and display params
 int ox = 0, oy = 0;
 int buttonState          = 0;
-float camera_trans[]     = {0, -2, -100};
-float camera_rot[]       = {0, 0, 0};
-float camera_trans_lag[] = {0, -2, -100};
-float camera_rot_lag[]   = {0, 0, 0};
-const float inertia      = 0.1;
+double camera_trans[]     = {0, -2, -100};
+double camera_rot[]       = {0, 0, 0};
+double camera_trans_lag[] = {0, -2, -100};
+double camera_rot_lag[]   = {0, 0, 0};
+const double inertia      = 0.1;
 bool displayEnabled = true;
 bool bPause = false;
 bool bUsePBO = false;
@@ -43,13 +44,13 @@ int flopsPerInteraction = 20;
 // Struct defintion for Nbody demo physical parameters
 struct NBodyParams
 {       
-    float m_timestep;
-    float m_clusterScale;
-    float m_velocityScale;
-    float m_softening;
-    float m_damping;
-    float m_pointSize;
-    float m_x, m_y, m_z;
+    double m_timestep;
+    double m_clusterScale;
+    double m_velocityScale;
+    double m_softening;
+    double m_damping;
+    double m_pointSize;
+    double m_x, m_y, m_z;
 
     void print()
     { 
@@ -71,18 +72,38 @@ NBodyParams demoParams[] =
     { 0.016f, 6.04f, 0.0f, 1.0f, 1.0f, 0.76f, 0, 0, -50.0f},
 };
 
+shrBOOL compareDoublee(double *ref, double *data, unsigned int size, double errorThreshold)
+{
+	shrBOOL res = shrTRUE;
+	double delta = 0.0, tmp;
+	unsigned int i;
+	for (i = 0; i < size; i++)
+	{
+		tmp = ref[i] - data[i];
+		if (tmp < 0.0) tmp = tmp * (-1.0);
+		delta += tmp;
+	}
+
+	if (delta > errorThreshold)
+	{
+		res = shrFALSE;
+	}
+
+	return res;
+}
+
 // Basic simulation parameters
 int numBodies = 7680;               // default # of bodies in sim (can be overridden by command line switch --n=<N>)
 int numIterations = 20, iterNo;
-bool bDouble = false;               //false: sp float, true: dp 
+bool bDouble = true;               //false: sp double, true: dp 
 int numDemos = sizeof(demoParams) / sizeof(NBodyParams);
 int activeDemo = 0;
 NBodyParams activeParams = demoParams[activeDemo];
 BodySystem *nbody         = 0;
 BodySystemOpenCL *nbodyGPU = 0;
-float* hPos = 0;
-float* hVel = 0;
-float* hColor = 0;
+double* hPos = 0;
+double* hVel = 0;
+double* hColor = 0;
 
 // OpenCL vars
 cl_platform_id cpPlatform;          // OpenCL Platform
@@ -146,6 +167,8 @@ int main(int argc, char** argv)
     // Locals used with command line args
     int p = 256;            // workgroup X dimension
     int q = 1;              // workgroup Y dimension
+	cpu_set_t set;
+	CPU_ZERO(&set);
 
     // latch the executable path for other funcs to use
     cExecutablePath = argv[0];
@@ -157,7 +180,6 @@ int main(int argc, char** argv)
 	//shrLog("  --qatest\t\tCheck correctness of GPU execution and measure performance)\n");
 	shrLog("  --noprompt\t\tQuit simulation automatically after a brief period\n");
     shrLog("  --n=<numbodies>\tSpecify # of bodies to simulate (default = %d)\n", numBodies);
-	shrLog("  --double\t\tUse double precision floating point values for simulation\n");
 	shrLog("  --p=<workgroup X dim>\tSpecify X dimension of workgroup (default = %d)\n", p);
 	shrLog("  --q=<workgroup Y dim>\tSpecify Y dimension of workgroup (default = %d)\n\n", q);
 	shrLog("  --iter=<numIterations>\tSpecify the number of iterations (default = %d)\n\n", numIterations);
@@ -169,7 +191,6 @@ int main(int argc, char** argv)
         shrGetCmdLineArgumenti(argc, (const char**)argv, "q", &q);
         shrGetCmdLineArgumenti(argc, (const char**)argv, "n", &numBodies);
         shrGetCmdLineArgumenti(argc, (const char**)argv, "iter", &numIterations);
-	    bDouble = (shrTRUE == shrCheckCmdLineFlag(argc, (const char**)argv, "double"));
         bNoPrompt = shrCheckCmdLineFlag(argc, (const char**)argv, "noprompt");
         bQATest = shrCheckCmdLineFlag(argc, (const char**)argv, "qatest");
     }
@@ -187,9 +208,12 @@ int main(int argc, char** argv)
 	timerEnd();
 	strTime.getPlatform += elapsedTime();
 	strTime.numGetPlatform++;
-    //oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+    oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
     shrLog("clGetPlatformID...\n\n"); 
 	
+	sched_getaffinity(0, sizeof(set), &set);
+	printf("cpuid = %d\n", set.__bits[0]);
+
 	if (bDouble)
 	{
 		shrLog("Double precision execution...\n\n");
@@ -235,7 +259,7 @@ int main(int argc, char** argv)
     oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
 
     // Create a command-queue 
-    shrLog("clCreateCommandQueue...\n\n"); 
+    shrLog("clCreateCommandQueue...device = %d, \n\n", uiTargetDevice); 
 	timerStart();
     cqCommandQueue = clCreateCommandQueue(cxContext, cdDevices[uiTargetDevice], CL_QUEUE_PROFILING_ENABLE, &ciErrNum);
 	timerEnd();
@@ -305,27 +329,12 @@ int main(int argc, char** argv)
 	for (iterNo = 0; iterNo < numIterations; iterNo++)
 	{
 		copyDataH2D(nbody);
-	}
-	nbody->synchronizeThreads();
-	timerEnd();
-	strTime.enqueueWriteBuffer += elapsedTime();
-	strTime.numEnqueueWriteBuffer += 2 * numIterations;
-
-	shrLog("Profiling oclNbody...\n\n"); 
-	for (iterNo = 0; iterNo < numIterations; iterNo++)
-	{
 		RunProfiling(100, (unsigned int)(p * q));  // 100 iterations
-	}
-
-	//data transmission
-	timerStart();
-	for (iterNo = 0; iterNo < numIterations; iterNo++)
-	{
 		copyDataD2H(nbody);
 	}
 	nbody->synchronizeThreads();
 	timerEnd();
-	strTime.enqueueReadBuffer += elapsedTime();
+	strTime.kernelExecution += elapsedTime();
 	strTime.numEnqueueReadBuffer += numIterations;
 
     // init timers
@@ -348,24 +357,24 @@ int main(int argc, char** argv)
 void RunProfiling(int iterations, unsigned int uiWorkgroup)
 {
     // once without timing to prime the GPU
-    nbody->update(activeParams.m_timestep);
-    nbody->synchronizeThreads();
+	nbody->update(activeParams.m_timestep);
+	//nbody->synchronizeThreads();
 
-	// Start timer 0 and process n loops on the GPU
-    shrDeltaT(FUNCTIME);
+	//Start timer 0 and process n loops on the GPU
+	shrDeltaT(FUNCTIME);
     for (int i = 0; i < iterations; ++i)
     {
         nbody->update(activeParams.m_timestep);
     }
-    nbody->synchronizeThreads();
+    //nbody->synchronizeThreads();
 
-    // Get elapsed time and throughput, then log to sample and master logs
-    double dSeconds = shrDeltaT(FUNCTIME);
-    double dGigaInteractionsPerSecond = 0.0;
-    double dGigaFlops = 0.0;
-    ComputePerfStats(dGigaInteractionsPerSecond, dGigaFlops, dSeconds, iterations);
-    shrLogEx(LOGBOTH | MASTER, 0, "oclNBody-%s, Throughput = %.4f GFLOP/s, Time = %.5f s, Size = %u bodies, NumDevsUsed = %u, Workgroup = %u\n", 
-        (bDouble ? "DP" : "SP"), dGigaFlops, dSeconds/(double)iterations, numBodies, uiNumDevsUsed, uiWorkgroup); 
+    //Get elapsed time and throughput, then log to sample and master logs
+//	double dSeconds = shrDeltaT(FUNCTIME);
+//	double dGigaInteractionsPerSecond = 0.0;
+//	double dGigaFlops = 0.0;
+//	ComputePerfStats(dGigaInteractionsPerSecond, dGigaFlops, dSeconds, iterations);
+//	shrLogEx(LOGBOTH | MASTER, 0, "oclNBody-%s, Throughput = %.4f GFLOP/s, Time = %.5f s, Size = %u bodies, NumDevsUsed = %u, Workgroup = %u\n", 
+//		(bDouble ? "DP" : "SP"), dGigaFlops, dSeconds/(double)iterations, numBodies, uiNumDevsUsed, uiWorkgroup); 
 }
 
 // Helper to trigger reset of fps vars at transition 
@@ -411,9 +420,9 @@ void InitNbody(cl_device_id dev, cl_context ctx, cl_command_queue cmdq,
     nbody = nbodyGPU;
 
     // allocate host memory
-    hPos = new float[numBodies*4];
-    hVel = new float[numBodies*4];
-    hColor = new float[numBodies*4];
+    hPos = new double[numBodies*4];
+    hVel = new double[numBodies*4];
+    hColor = new double[numBodies*4];
 
     // Set sim parameters
     nbody->setSoftening(activeParams.m_softening);
@@ -445,8 +454,8 @@ void CompareResults(int numBodies)
 
     // Write out device/GPU data file for regression analysis
     shrLog("  Writing out Device/GPU data file for analysis...\n");
-    float* fGPUData = nbodyGPU->getArray(BodySystem::BODYSYSTEM_POSITION);
-    shrWriteFilef( "oclNbody_Regression.dat", fGPUData, numBodies, 0.0, false);
+    double* fGPUData = nbodyGPU->getArray(BodySystem::BODYSYSTEM_POSITION);
+    //shrWriteFilef( "oclNbody_Regression.dat", fGPUData, numBodies, 0.0, false);
 
     // Run computation on the host CPU
     shrLog("  Computing on the Host / CPU...\n\n");
@@ -456,7 +465,7 @@ void CompareResults(int numBodies)
     nbodyCPU->update(0.001f);
 
     // Check if result matches 
-    shrBOOL bMatch = shrComparefe(fGPUData, 
+    shrBOOL bMatch = compareDoublee(fGPUData, 
                         nbodyGPU->getArray(BodySystem::BODYSYSTEM_POSITION), 
 						numBodies, .001f);
     shrLog("%s\n\n", (shrTRUE == bMatch) ? "PASSED" : "FAILED");
@@ -471,7 +480,7 @@ void ComputePerfStats(double &dGigaInteractionsPerSecond, double &dGigaFlops, do
 {
 	//int flopsPerInteraction = bDouble ? 30 : 20; 
     dGigaInteractionsPerSecond = 1.0e-9 * (double)numBodies * (double)numBodies * (double)iterations / dSeconds;
-    dGigaFlops = dGigaInteractionsPerSecond * (float)flopsPerInteraction;	
+    dGigaFlops = dGigaInteractionsPerSecond * (double)flopsPerInteraction;	
 }
 
 // Helper to clean up

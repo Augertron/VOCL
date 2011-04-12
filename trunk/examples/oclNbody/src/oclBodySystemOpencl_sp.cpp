@@ -14,7 +14,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <algorithm>
-#include "oclBodySystemOpenclLaunch.h"
+#include "oclBodySystemOpenclLaunch_sp.h"
 #include "nbody_timer.h"
 
 BodySystemOpenCL::BodySystemOpenCL(int numBodies, cl_device_id dev, cl_context ctx, cl_command_queue cmdq, 
