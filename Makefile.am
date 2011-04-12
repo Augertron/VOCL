@@ -9,7 +9,7 @@ AM_CXXFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024
 lib_LTLIBRARIES = libvocl.la
 libvocl_la_SOURCES = $(top_srcdir)/src/vocl.c
 
-bin_PROGRAMS = vocl_proxy bandwidth matrixmult_sp matrixmult_dp nbody swat matrixtrans_sp matrixtrans_dp
+bin_PROGRAMS = vocl_proxy bandwidth matrixmult_sp matrixmult_dp nbody_sp nbody_dp swat matrixtrans_sp matrixtrans_dp
 
 vocl_proxy_SOURCES = $(top_srcdir)/src/vocl_proxy.c
 
@@ -22,14 +22,23 @@ matrixmult_sp_SOURCES = $(top_srcdir)/examples/matrixmult/matrixmult_sp.c \
 matrixmult_dp_SOURCES = $(top_srcdir)/examples/matrixmult/matrixmult_dp.c \
 	$(top_srcdir)/examples/matrixmult/mm_timer.c
 
-nbody_CPPFLAGS = -I$(top_srcdir)/examples/oclNbody/inc
-nbody_SOURCES = $(top_srcdir)/examples/oclNbody/src/nbody_timer.cpp \
-	$(top_srcdir)/examples/oclNbody/src/oclBodySystemOpenclLaunch.cpp \
-	$(top_srcdir)/examples/oclNbody/src/oclBodySystemCpu.cpp \
-	$(top_srcdir)/examples/oclNbody/src/oclNbody.cpp \
-	$(top_srcdir)/examples/oclNbody/src/param.cpp \
-	$(top_srcdir)/examples/oclNbody/src/oclBodySystemOpencl.cpp \
-	$(top_srcdir)/examples/oclNbody/src/oclNbodyGold.cpp
+nbody_sp_CPPFLAGS = -I$(top_srcdir)/examples/oclNbody/inc
+nbody_sp_SOURCES = $(top_srcdir)/examples/oclNbody/src/nbody_timer.cpp \
+	$(top_srcdir)/examples/oclNbody/src/oclBodySystemOpenclLaunch_sp.cpp \
+	$(top_srcdir)/examples/oclNbody/src/oclBodySystemCpu_sp.cpp \
+	$(top_srcdir)/examples/oclNbody/src/oclNbody_sp.cpp \
+	$(top_srcdir)/examples/oclNbody/src/param_sp.cpp \
+	$(top_srcdir)/examples/oclNbody/src/oclBodySystemOpencl_sp.cpp \
+	$(top_srcdir)/examples/oclNbody/src/oclNbodyGold_sp.cpp
+
+nbody_dp_CPPFLAGS = -I$(top_srcdir)/examples/oclNbody/inc
+nbody_dp_SOURCES = $(top_srcdir)/examples/oclNbody/src/nbody_timer.cpp \
+	$(top_srcdir)/examples/oclNbody/src/oclBodySystemOpenclLaunch_dp.cpp \
+	$(top_srcdir)/examples/oclNbody/src/oclBodySystemCpu_dp.cpp \
+	$(top_srcdir)/examples/oclNbody/src/oclNbody_dp.cpp \
+	$(top_srcdir)/examples/oclNbody/src/param_dp.cpp \
+	$(top_srcdir)/examples/oclNbody/src/oclBodySystemOpencl_dp.cpp \
+	$(top_srcdir)/examples/oclNbody/src/oclNbodyGold_dp.cpp
 
 swat_SOURCES = $(top_srcdir)/examples/swat/alignments.cpp \
 	$(top_srcdir)/examples/swat/prints.cpp \

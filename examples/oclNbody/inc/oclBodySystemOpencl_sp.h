@@ -17,7 +17,7 @@
 #else
     #include <CL/opencl.h>
 #endif 
-#include "oclBodySystem.h"
+#include "oclBodySystem_sp.h"
 
 // OpenCL BodySystem: runs on the GPU
 class BodySystemOpenCL : public BodySystem

@@ -9,7 +9,7 @@
  *
  */
 
-#include "oclBodySystemOpenclLaunch.h"
+#include "oclBodySystemOpenclLaunch_sp.h"
 #include <oclUtils.h>
 #include <cstdlib>
 #include <cstdio>
@@ -226,7 +226,7 @@ extern "C"
         cl_int ciErrNum = CL_SUCCESS; 
 
         // Read the kernel in from file
-		snprintf(clSourcefile, KERNEL_SOURCE_FILE_LEN, "%s/examples/oclNbody/oclNbodyKernel.cl",
+		snprintf(clSourcefile, KERNEL_SOURCE_FILE_LEN, "%s/examples/oclNbody/oclNbodyKernel_sp.cl",
 		 ABS_SRCDIR);
 
         shrLog("\nLoading Uncompiled kernel from .cl file, using %s\n", clSourcefile);

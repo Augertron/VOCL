@@ -9,7 +9,7 @@
  *
  */
 
-#include "oclBodySystemCpu.h"
+#include "oclBodySystemCpu_sp.h"
 #include <oclUtils.h>
 #include <memory.h>
 #include <algorithm>

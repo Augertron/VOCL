@@ -272,7 +272,7 @@ int runTest( const int argc, const char** argv)
     char kernel_source[KERNEL_SOURCE_FILE_LEN];
 
     snprintf(kernel_source, KERNEL_SOURCE_FILE_LEN,
-		"%s/examples/matrixtrans/transpose_dp.cl", ABS_SRCDIR);
+		"%s/examples/matrixtrans/transpose_sp.cl", ABS_SRCDIR);
     char *source = oclLoadProgSource(kernel_source, "", &program_length);
     oclCheckError(source != NULL, shrTRUE);
 
