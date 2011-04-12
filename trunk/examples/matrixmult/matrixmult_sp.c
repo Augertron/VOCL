@@ -141,7 +141,7 @@ int main(int argc, char **argv)
 
 	//load the source file
 	snprintf(kernel_source, KERNEL_SOURCE_FILE_LEN,
-			"%s/examples/matrixmult/matrixmult-sp.cl", ABS_SRCDIR);
+			"%s/examples/matrixmult/matrixmult_sp.cl", ABS_SRCDIR);
 	cSourceCL = loadSource(kernel_source, &sourceFileSize);
 	
 	//Create & compile program
