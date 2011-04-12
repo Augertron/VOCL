@@ -9,14 +9,17 @@ AM_CXXFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024
 lib_LTLIBRARIES = libvocl.la
 libvocl_la_SOURCES = $(top_srcdir)/src/vocl.c
 
-bin_PROGRAMS = vocl_proxy bandwidth matrixmult nbody swat matrixtrans
+bin_PROGRAMS = vocl_proxy bandwidth matrixmult_sp matrixmult_dp nbody swat matrixtrans_sp matrixtrans_dp
 
 vocl_proxy_SOURCES = $(top_srcdir)/src/vocl_proxy.c
 
 bandwidth_SOURCES = $(top_srcdir)/examples/bandwidth/bandwidth.c \
 	$(top_srcdir)/examples/bandwidth/bw_timer.c
 
-matrixmult_SOURCES = $(top_srcdir)/examples/matrixmult/matrixmult.c \
+matrixmult_sp_SOURCES = $(top_srcdir)/examples/matrixmult/matrixmult_sp.c \
+	$(top_srcdir)/examples/matrixmult/mm_timer.c
+
+matrixmult_dp_SOURCES = $(top_srcdir)/examples/matrixmult/matrixmult_dp.c \
 	$(top_srcdir)/examples/matrixmult/mm_timer.c
 
 nbody_CPPFLAGS = -I$(top_srcdir)/examples/oclNbody/inc
@@ -35,6 +38,10 @@ swat_SOURCES = $(top_srcdir)/examples/swat/alignments.cpp \
 	$(top_srcdir)/examples/swat/param.cpp \
 	$(top_srcdir)/examples/swat/swat_timer.cpp
 
-matrixtrans_SOURCES = $(top_srcdir)/examples/matrixtrans/oclTranspose.cpp \
-	$(top_srcdir)/examples/matrixtrans/transpose_gold.cpp \
+matrixtrans_sp_SOURCES = $(top_srcdir)/examples/matrixtrans/oclTranspose_sp.cpp \
+	$(top_srcdir)/examples/matrixtrans/transpose_gold_sp.cpp \
+	$(top_srcdir)/examples/matrixtrans/mt_timer.c
+
+matrixtrans_dp_SOURCES = $(top_srcdir)/examples/matrixtrans/oclTranspose_dp.cpp \
+	$(top_srcdir)/examples/matrixtrans/transpose_gold_dp.cpp \
 	$(top_srcdir)/examples/matrixtrans/mt_timer.c
