@@ -217,6 +217,7 @@ int runTest( const int argc, const char** argv)
 	//int matrixSize = atoi(argv[1]);
     unsigned int size_x = 2048;
     unsigned int size_y = 2048;
+	int disableCPU = 1;
 	cl_uint deviceNo = 0;
 	cpu_set_t set;
 	CPU_ZERO(&set);
@@ -238,6 +239,9 @@ int runTest( const int argc, const char** argv)
         deviceNo = temp;
     }
 
+    if( shrGetCmdLineArgumenti( argc, argv,"disablecpu", &temp) ){
+        disableCPU = temp;
+    }
 
     // size of memory required to store the matrix
     const size_t mem_size = sizeof(double) * size_x * size_y;
@@ -357,16 +361,19 @@ int runTest( const int argc, const char** argv)
 #endif
   
     // compute reference solution and cross check results
-    double* reference = (double*)malloc( mem_size);
-    computeGold( reference, h_idata, size_x, size_y);
-    shrLog("\nComparing results with CPU computation... \n\n");
-    int res = compareDouble( reference, h_odata, size_x * size_y);
-    shrLog( "%s\n\n", (1 == res) ? "PASSED" : "FAILED");
+	if (disableCPU == 0)
+	{
+		double* reference = (double*)malloc( mem_size);
+		computeGold( reference, h_idata, size_x, size_y);
+		shrLog("\nComparing results with CPU computation... \n\n");
+		int res = compareDouble( reference, h_odata, size_x * size_y);
+		shrLog( "%s\n\n", (1 == res) ? "PASSED" : "FAILED");
+		free(reference);
+	}
 
     // cleanup memory
     free(h_idata);
     free(h_odata);
-    free(reference);
     free(source);
 
     // cleanup OpenCL

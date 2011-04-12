@@ -31,6 +31,7 @@ const double inertia      = 0.1;
 bool displayEnabled = true;
 bool bPause = false;
 bool bUsePBO = false;
+int disableCPU = 1;
 bool bFullScreen = false;
 bool bShowSliders = true;
 int iGLUTWindowHandle;              // handle to the GLUT window
@@ -191,6 +192,7 @@ int main(int argc, char** argv)
         shrGetCmdLineArgumenti(argc, (const char**)argv, "q", &q);
         shrGetCmdLineArgumenti(argc, (const char**)argv, "n", &numBodies);
         shrGetCmdLineArgumenti(argc, (const char**)argv, "iter", &numIterations);
+        shrGetCmdLineArgumenti(argc, (const char**)argv, "disablecpu", &disableCPU);
         bNoPrompt = shrCheckCmdLineFlag(argc, (const char**)argv, "noprompt");
         bQATest = shrCheckCmdLineFlag(argc, (const char**)argv, "qatest");
     }
@@ -321,9 +323,11 @@ int main(int argc, char** argv)
 	nbody->synchronizeThreads();
 
 	// Compare to host, profile and write out file for regression analysis
-	shrLog("Running oclNbody Results Comparison...\n\n"); 
-	CompareResults(numBodies);
-
+	if (disableCPU == 0)
+	{
+		shrLog("Running oclNbody Results Comparison...\n\n"); 
+		CompareResults(numBodies);
+	}
 	//data transmission
 	timerStart();
 	for (iterNo = 0; iterNo < numIterations; iterNo++)
