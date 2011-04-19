@@ -1,5 +1,5 @@
-#ifndef __OPENCL_REMOTE_ACCESS_H__
-#define __OPENCL_REMOTE_ACCESS_H__
+#ifndef __VOCL_LIB_H__
+#define __VOCL_LIB_H__
 #include <CL/opencl.h>
 #include <mpi.h>
 
@@ -7,38 +7,24 @@
 extern "C" {
 #endif
 
-    typedef struct strKernelArgs {
-        cl_uint arg_index;
-        size_t arg_size;
-        char arg_value[64];
-        cl_char arg_null_flag;
-        //const void  *arg_value;
-    } kernel_args;
+/* number of slave process */
+#define MAX_NPS 1
 
-    typedef struct strKernelInfo {
-        cl_kernel kernel;
-        cl_uint args_num;
-        cl_bool args_allocated;
-        kernel_args *args_ptr;
-        struct strKernelInfo *next;
-    } kernel_info;
-
-//for slave process
-#define MAX_NPS 10
-    extern int slaveComm;
-    extern int slaveCreated;
-    extern int np;
-    extern int errCodes[MAX_NPS];
-    extern cl_uint readBufferTag;
-
-//for storing kernel arguments
+/* for kernel arguments */
 #define MAX_ARGS 100
 #define MAX_TAG 65535
 
-#define MIN_WRITE_TAG 1000
-#define MAX_WRITE_TAG 2000
-#define MIN_READ_TAG  3000
-#define MAX_READ_TAG  4000
+/* parameters of buffer pool */
+/* write buffer */
+#define VOCL_WRITE_BUFFER_NUM 8
+#define VOCL_WRITE_BUFFER_SIZE 67108864 /* 64MB 1024 X 1024 X 64 */
+#define VOCL_WRITE_TAG 5000
+
+/* read buffer */
+#define VOCL_READ_BUFFER_NUM 32
+#define VOCL_READ_BUFFER_SIZE 67108864 /* 64MB 1024 X 1024 X 64 */
+#define VOCL_READ_TAG 4000
+
 
 #define GET_PLATFORM_ID_FUNC        10
 #define GET_DEVICE_ID_FUNC          11
@@ -117,382 +103,329 @@ extern "C" {
 #define ENQ_COPY_BUFF_FUNC1         10028
 #define ENQ_UNMAP_MEMOBJ_FUNC1      10029
 
+struct strGetPlatformIDs {
+	cl_uint          num_entries;
+	cl_platform_id  *platforms;
+	cl_uint          num_platforms;
+	cl_int           res;
+};
 
-    extern kernel_info *kernelInfo;
+struct strGetDeviceIDs
+{
+	cl_platform_id   platform;
+	cl_device_type   device_type;
+	cl_uint          num_entries;
+	cl_device_id     *devices;
+	cl_uint          num_devices;
+	cl_int			 res;
+};
 
-//1
-#define GET_PLAT_FORM_ELEM_NUM 1
-    struct strGetPlatformIDs {
-        cl_uint num_entries;
-        cl_platform_id *platforms;
-        cl_uint num_platforms;
-        cl_int res;
-    };
+struct strCreateContext {
+	cl_context_properties         properties;
+	cl_uint                       num_devices;
+	cl_device_id                  *devices;
+	/* CL_CALLBACK *              pfn_notify; */
+	void *                        user_data;
+	cl_int                        errcode_ret;
+	cl_context					  hContext;
+};
 
-//2
-#define GET_DEVICE_IDS_ELEM_NUM 2
-    struct strGetDeviceIDs {
-        cl_platform_id platform;
-        cl_device_type device_type;
-        cl_uint num_entries;
-        cl_device_id *devices;
-        cl_uint num_devices;
-        cl_int res;
-    };
+struct strCreateCommandQueue {
+	cl_context                     context;
+	cl_device_id                   device;
+	cl_command_queue_properties    properties;
+	cl_command_queue			   clCommand;
+	cl_int                         errcode_ret;
+};
 
-//3
-#define CREATE_CONTEXT_ELEM_NUM 1
-    struct strCreateContext {
-        cl_context_properties properties;
-        cl_uint num_devices;
-        cl_device_id *devices;
-        //CL_CALLBACK *                 pfn_notify;
-        void *user_data;
-        cl_int errcode_ret;
-        cl_context hContext;
-    };
+struct strCreateProgramWithSource {
+	cl_context        context;
+	cl_uint           count;
+	size_t            lengths;
+	cl_program		  clProgram;
+	cl_int            errcode_ret;
+};
 
-//4
-#define CREATE_COMMAND_QUEUE_ELEM_NUM 1
-    struct strCreateCommandQueue {
-        cl_context context;
-        cl_device_id device;
-        cl_command_queue_properties properties;
-        cl_command_queue clCommand;
-        cl_int errcode_ret;
-    };
+struct strBuildProgram {
+	cl_program           program;
+	cl_uint              num_devices;
+	cl_device_id        *device_list;
+	cl_uint				 optionLen;
+	/* CL_CALLBACK *     pfn_notify; */
+	void *               user_data;
+	cl_int				 res;
+};
 
-//5
-#define CREATE_PROGRAM_WITH_SOURCE_ELEM_NUM 2
-    struct strCreateProgramWithSource {
-        cl_context context;
-        cl_uint count;
-        size_t lengths;
-        cl_program clProgram;
-        cl_int errcode_ret;
-    };
+struct strCreateKernel {
+	cl_program      program;
+	size_t			kernelNameSize;
+	cl_int          errcode_ret;
+	cl_kernel		kernel;
+};
 
-//6
-#define BUILD_PROGRAM_ELEM_NUM 2
-    struct strBuildProgram {
-        cl_program program;
-        cl_uint num_devices;
-        cl_device_id *device_list;
-        cl_uint optionLen;
-        //CL_CALLBACK *        pfn_notify;
-        void *user_data;
-        cl_int res;
-    };
-
-//7
-    struct strCreateKernel {
-        cl_program program;
-        size_t kernelNameSize;
-        cl_int errcode_ret;
-        cl_kernel kernel;
-    };
-
-//8
-#define CREATE_BUFFER_ELEM_NUM 2
 /* Memory Object APIs */
-    struct strCreateBuffer {
-        cl_context context;
-        cl_mem_flags flags;
-        size_t size;
-        //void *       host_ptr;
-        cl_int host_ptr_flag;
-        cl_int errcode_ret;
-        cl_mem deviceMem;
-    };
+struct strCreateBuffer {
+	cl_context   context;
+	cl_mem_flags flags;
+	size_t       size;
+	cl_int		 host_ptr_flag;
+	cl_int       errcode_ret;
+	cl_mem		 deviceMem;
+};
 
-//9
-#define ENQUEUE_WRITE_BUFFER_ELEM_NUM 4
-    struct strEnqueueWriteBuffer {
-        cl_command_queue command_queue;
-        cl_mem buffer;
-        cl_bool blocking_write;
-        cl_int tag;
-        size_t offset;
-        size_t cb;
-        cl_uint num_events_in_wait_list;
-        cl_int event_null_flag; //1, flag is NULL, 0, is NOT NULL
-        cl_event event;
-        cl_int res;
-    };
+struct strEnqueueWriteBuffer {
+	cl_command_queue   command_queue; 
+	cl_mem             buffer;
+	cl_bool            blocking_write;
+	cl_int             tag;
+	size_t             offset;
+	size_t             cb;
+	cl_uint            num_events_in_wait_list;
+	cl_int			   event_null_flag;   /* 1, flag is NULL, 0, is NOT NULL */
+	cl_event           event;
+	cl_int 			   res;
+};
 
-//10
-#define SET_KERNEL_ARG_ELEM_NUM 3
-    struct strSetKernelArg {
-        cl_kernel kernel;
-        cl_uint arg_index;
-        size_t arg_size;
-        const void *arg_value;
-        cl_int res;
-    };
+struct strSetKernelArg {
+	cl_kernel    kernel;
+	cl_uint      arg_index;
+	size_t       arg_size;
+	const void * arg_value;
+	cl_int		 res;
+};
 
-//11
-#define ENQUEUE_ND_RANGE_KERNEL_ELEM_NUM 5
-    struct strEnqueueNDRangeKernel {
-        cl_command_queue command_queue;
-        cl_kernel kernel;
-        cl_uint work_dim;
-        cl_int global_work_offset_flag;
-        cl_int global_work_size_flag;
-        cl_int local_work_size_flag;
-        cl_uint args_num;
-        cl_uint num_events_in_wait_list;
-        cl_int event_null_flag;
-        cl_event event;
-        cl_int res;
-    };
+struct strEnqueueNDRangeKernel {
+	cl_command_queue command_queue;
+	cl_kernel        kernel;
+	cl_uint          work_dim;
+	cl_int			 global_work_offset_flag;
+	cl_int			 global_work_size_flag;
+	cl_int			 local_work_size_flag;
+	cl_uint          args_num;
+	cl_uint          num_events_in_wait_list;
+	cl_int			 event_null_flag;
+	cl_event         event;
+	cl_int			 res;
+};
 
-//12
-#define ENQUEUE_READ_BUFFER_ELEM_NUM
-    struct strEnqueueReadBuffer {
-        cl_command_queue command_queue;
-        cl_mem buffer;
-        cl_bool blocking_read;
-        cl_uint readBufferTag;
-        size_t offset;
-        size_t cb;
-        cl_uint num_events_in_wait_list;
-        cl_int event_null_flag; //1: the event point is NULL. 0: the event point is NOT NULL
-        cl_event event;
-        cl_int res;
-    };
+struct strEnqueueReadBuffer {
+	cl_command_queue    command_queue;
+	cl_mem              buffer;
+	cl_bool             blocking_read;
+	cl_uint             readBufferTag;
+	size_t              offset;
+	size_t              cb;
+	cl_uint             num_events_in_wait_list;
+	cl_int              event_null_flag;  /* 1: the event point is NULL. 0: the event point is NOT NULL */
+	cl_event            event;
+	cl_int				res;
+};
 
-//13
-    struct strReleaseMemObject {
-        cl_mem memobj;
-        cl_int res;
-    };
+struct strReleaseMemObject {
+	cl_mem memobj;
+	cl_int res;
+};
 
-//14
-    struct strReleaseKernel {
-        cl_kernel kernel;
-        cl_int res;
-    };
+struct strReleaseKernel {
+	cl_kernel kernel;
+	cl_int    res;
+};
 
-//15
-    struct strFinish {
-        cl_command_queue command_queue;
-        cl_int res;
-    };
+struct strFinish {
+	cl_command_queue command_queue;
+	cl_int res;
+}; 
 
-//16
-    struct strGetContextInfo {
-        cl_context context;
-        cl_context_info param_name;
-        size_t param_value_size;
-        void *param_value;
-        size_t param_value_size_ret;
-        cl_int res;
-    };
+struct strGetContextInfo {
+	cl_context         context; 
+	cl_context_info    param_name; 
+	size_t             param_value_size; 
+	void *             param_value; 
+	size_t             param_value_size_ret;
+	cl_int             res;
+};
 
-//17
-    struct strGetProgramBuildInfo {
-        cl_program program;
-        cl_device_id device;
-        cl_program_build_info param_name;
-        size_t param_value_size;
-        void *param_value;
-        size_t param_value_size_ret;
-        cl_int res;
-    };
+struct strGetProgramBuildInfo {
+	cl_program            program;
+	cl_device_id          device;
+	cl_program_build_info param_name;
+	size_t                param_value_size;
+	void *                param_value;
+	size_t                param_value_size_ret;
+	cl_int				  res;
+};
 
-//18
-    struct strGetProgramInfo {
-        cl_program program;
-        cl_program_info param_name;
-        size_t param_value_size;
-        void *param_value;
-        size_t param_value_size_ret;
-        cl_int res;
-    };
+struct strGetProgramInfo {
+	cl_program         program;
+	cl_program_info    param_name;
+	size_t             param_value_size;
+	void *             param_value;
+	size_t             param_value_size_ret;
+	cl_int			   res;
+};
 
-//19
-    struct strReleaseProgram {
-        cl_program program;
-        cl_int res;
-    };
+struct strReleaseProgram {
+	cl_program  program;
+	cl_int		res;
+};
 
-//20
-    struct strReleaseCommandQueue {
-        cl_command_queue command_queue;
-        cl_int res;
-    };
+struct strReleaseCommandQueue {
+	cl_command_queue command_queue;
+	cl_int			 res;
+};
 
-//21
-    struct strReleaseContext {
-        cl_context context;
-        cl_int res;
-    };
+struct strReleaseContext {
+	cl_context context;
+	cl_int	   res;
+};
 
-//22
-    struct strGetDeviceInfo {
-        cl_device_id device;
-        cl_device_info param_name;
-        size_t param_value_size;
-        void *param_value;
-        size_t param_value_size_ret;
-        cl_int res;
-    };
+struct strGetDeviceInfo {
+	cl_device_id    device;
+	cl_device_info  param_name;
+	size_t          param_value_size;
+	void *          param_value;
+	size_t          param_value_size_ret;
+	cl_int			res;
+};
 
-//23
-    struct strGetPlatformInfo {
-        cl_platform_id platform;
-        cl_platform_info param_name;
-        size_t param_value_size;
-        void *param_value;
-        size_t param_value_size_ret;
-        cl_int res;
-    };
+struct strGetPlatformInfo {
+	cl_platform_id    platform;
+	cl_platform_info  param_name;
+	size_t            param_value_size;
+	void *            param_value;
+	size_t            param_value_size_ret;
+	cl_int			  res;
+};
 
-//24
-    struct strFlush {
-        cl_command_queue command_queue;
-        cl_int res;
-    };
+struct strFlush {
+	cl_command_queue command_queue;
+	cl_int res;
+}; 
 
-//25
-    struct strWaitForEvents {
-        cl_uint num_events;
-        cl_int res;
-    };
+struct strWaitForEvents {
+	cl_uint  num_events;
+	cl_int   res;
+};
 
-//26
-    struct strCreateSampler {
-        cl_context context;
-        cl_bool normalized_coords;
-        cl_addressing_mode addressing_mode;
-        cl_filter_mode filter_mode;
-        cl_int errcode_ret;
-        cl_sampler sampler;
-    };
+struct strCreateSampler {
+	cl_context			context;
+	cl_bool				normalized_coords;
+	cl_addressing_mode  addressing_mode;
+	cl_filter_mode		filter_mode;
+	cl_int				errcode_ret;
+	cl_sampler			sampler;
+};
 
-//27
-    struct strGetCommandQueueInfo {
-        cl_command_queue command_queue;
-        cl_command_queue_info param_name;
-        size_t param_value_size;
-        void *param_value;
-        size_t param_value_size_ret;
-        cl_int res;
-    };
+struct strGetCommandQueueInfo {
+	cl_command_queue      command_queue;
+	cl_command_queue_info param_name;
+	size_t                param_value_size;
+	void *                param_value;
+	size_t                param_value_size_ret;
+	cl_int                res;
+};
 
-//28
-    struct strEnqueueMapBuffer {
-        cl_command_queue command_queue;
-        cl_mem buffer;
-        cl_bool blocking_map;
-        cl_map_flags map_flags;
-        size_t offset;
-        size_t cb;
-        cl_uint num_events_in_wait_list;
-        cl_int event_null_flag; //1: NULL, 0: NOT NULL
-        cl_event event;
-        cl_int errcode_ret;
-        void *ret_ptr;
-    };
+struct strEnqueueMapBuffer {
+	cl_command_queue command_queue;
+	cl_mem           buffer;
+	cl_bool          blocking_map;
+	cl_map_flags     map_flags;
+	size_t           offset;
+	size_t           cb;
+	cl_uint          num_events_in_wait_list;
+	cl_int           event_null_flag; /* 1: NULL, 0: NOT NULL */
+	cl_event         event;
+	cl_int           errcode_ret;
+	void			 *ret_ptr;
+};
 
-//29
-    struct strReleaseEvent {
-        cl_event event;
-        cl_int res;
-    };
+struct strReleaseEvent {
+	cl_event         event;
+	cl_int           res;
+};
 
-//30
-    struct strGetEventProfilingInfo {
-        cl_event event;
-        cl_profiling_info param_name;
-        size_t param_value_size;
-        void *param_value;
-        size_t param_value_size_ret;
-        cl_int res;
-    };
+struct strGetEventProfilingInfo {
+	cl_event          event;
+	cl_profiling_info param_name;
+	size_t            param_value_size;
+	void *            param_value;
+	size_t            param_value_size_ret;
+	cl_int            res;
+};
 
-//31
-    struct strReleaseSampler {
-        cl_sampler sampler;
-        cl_int res;
-    };
+struct strReleaseSampler {
+	cl_sampler       sampler;
+	cl_int           res;
+};
 
-//32
-    struct strGetKernelWorkGroupInfo {
-        cl_kernel kernel;
-        cl_device_id device;
-        cl_kernel_work_group_info param_name;
-        size_t param_value_size;
-        void *param_value;
-        size_t param_value_size_ret;
-        cl_int res;
-    };
+struct strGetKernelWorkGroupInfo {
+	cl_kernel                  kernel;
+	cl_device_id               device;
+	cl_kernel_work_group_info  param_name;
+	size_t                     param_value_size;
+	void *                     param_value;
+	size_t                     param_value_size_ret;
+	cl_int                     res;
+};
 
-//33
-    struct strCreateImage2D {
-        cl_context context;
-        cl_mem_flags flags;
-        cl_image_format img_format;
-        size_t image_width;
-        size_t image_height;
-        size_t image_row_pitch;
-        size_t host_buff_size;
-        cl_int errcode_ret;
-        cl_mem mem_obj;
-    };
+struct strCreateImage2D {
+	cl_context              context;
+	cl_mem_flags            flags;
+	cl_image_format         img_format;
+	size_t                  image_width;
+	size_t                  image_height;
+	size_t                  image_row_pitch;
+	size_t                  host_buff_size;
+	cl_int                  errcode_ret;
+	cl_mem                  mem_obj;
+};
 
-//34
-    struct strEnqueueCopyBuffer {
-        cl_command_queue command_queue;
-        cl_mem src_buffer;
-        cl_mem dst_buffer;
-        size_t src_offset;
-        size_t dst_offset;
-        size_t cb;
-        cl_uint num_events_in_wait_list;
-        cl_int event_null_flag;
-        cl_event event;
-        cl_int res;
-    };
+struct strEnqueueCopyBuffer {
+	cl_command_queue    command_queue;
+	cl_mem              src_buffer;
+	cl_mem              dst_buffer;
+	size_t              src_offset;
+	size_t              dst_offset;
+	size_t              cb;
+	cl_uint             num_events_in_wait_list;
+	cl_int              event_null_flag;
+	cl_event            event;
+	cl_int              res;
+};
 
-//35
-    struct strRetainEvent {
-        cl_event event;
-        cl_int res;
-    };
+struct strRetainEvent {
+	cl_event event;
+	cl_int   res;
+};
 
-//36
-    struct strRetainMemObject {
-        cl_mem memobj;
-        cl_int res;
-    };
+struct strRetainMemObject {
+	cl_mem   memobj; 
+	cl_int   res;
+};
 
-//37
-    struct strRetainKernel {
-        cl_kernel kernel;
-        cl_int res;
-    };
+struct strRetainKernel {
+	cl_kernel    kernel;
+	cl_int       res;
+};
 
-//38
-    struct strRetainCommandQueue {
-        cl_command_queue command_queue;
-        cl_int res;
-    };
+struct strRetainCommandQueue {
+	cl_command_queue command_queue;
+	cl_int           res;
+};
 
-//39
-    struct strEnqueueUnmapMemObject {
-        cl_command_queue command_queue;
-        cl_mem memobj;
-        void *mapped_ptr;
-        cl_uint num_events_in_wait_list;
-        cl_int event_null_flag;
-        cl_event event;
-        cl_int res;
-    };
-
-    void mpiFinalize();
+struct strEnqueueUnmapMemObject {
+	cl_command_queue  command_queue;
+	cl_mem            memobj;
+	void *            mapped_ptr;
+	cl_uint           num_events_in_wait_list;
+	cl_int            event_null_flag;
+	cl_event          event;
+	cl_int            res;
+};
 
 #ifdef __cplusplus
 }
 #endif
+
 #endif
+
