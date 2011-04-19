@@ -1,528 +1,450 @@
-#ifndef __SLAVE_OPENCL_H__
-#define __SLAVE_OPENCL_H__
-#include <sys/time.h>
-#include <pthread.h>
+#ifndef __VOCL_PROXY_H__
+#define __VOCL_PROXY_H__
 
-#define CL_GPUV_READ  0
-#define CL_GPUV_WRITE 1
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+#include <string.h>
+#include <CL/opencl.h>
+#include <sched.h>
 
-typedef struct strDataTransfer {
-    cl_event event;
-    MPI_Comm comm;
-    void *host_ptr;
-    int tag;
-    size_t msgSize;
-    cl_int readOrWrite;
-    struct strDataTransfer *next;
-} DATA_TRANSFER;
+#define MAX_CMSG_SIZE 512   /* max control message size */
+#define DMSG_NUM      100   /* max data message num */
 
-typedef struct strCmdQueue {
-    cl_command_queue hCmdQueue;
-    DATA_TRANSFER *dataTransferPtr;
-    DATA_TRANSFER *dataTransferPtrTail;
-    struct strCmdQueue *next;
-} CMD_QUEUE;
+#define OFFSET 10
+#define GET_PLATFORM_ID_FUNC        10
+#define GET_DEVICE_ID_FUNC          11
+#define CREATE_CONTEXT_FUNC         12
+#define LOAD_SOURCE_FUNC            13
+#define CREATE_PROGRMA_WITH_SOURCE  14
+#define CREATE_COMMAND_QUEUE_FUNC   15
+#define BUILD_PROGRAM               16
+#define CREATE_KERNEL               17
+#define CREATE_BUFFER_FUNC          18
+#define ENQUEUE_WRITE_BUFFER        19
+#define SET_KERNEL_ARG              20
+#define ENQUEUE_ND_RANGE_KERNEL     21
+#define ENQUEUE_READ_BUFFER         22
+#define RELEASE_MEM_OBJ             23
+#define FINISH_FUNC                 24
+#define GET_CONTEXT_INFO_FUNC	    25
+#define CL_RELEASE_KERNEL_FUNC      26
+#define GET_BUILD_INFO_FUNC         27
+#define GET_PROGRAM_INFO_FUNC       28
+#define REL_PROGRAM_FUNC            29
+#define REL_COMMAND_QUEUE_FUNC      30
+#define REL_CONTEXT_FUNC            31
+#define GET_DEVICE_INFO_FUNC        32
+#define GET_PLATFORM_INFO_FUNC      33
+#define FLUSH_FUNC				    34
+#define WAIT_FOR_EVENT_FUNC         35
+#define GET_CMD_QUEUE_INFO_FUNC     36
+#define CREATE_SAMPLER_FUNC         37
+#define ENQUEUE_MAP_BUFF_FUNC       38
+#define RELEASE_EVENT_FUNC          39
+#define RELEASE_SAMPLER_FUNC        40
+#define GET_EVENT_PROF_INFO_FUNC    41
+#define GET_KERNEL_WGP_INFO_FUNC    42
+#define CREATE_IMAGE_2D_FUNC        43
+#define ENQ_COPY_BUFF_FUNC          44
+#define RETAIN_EVENT_FUNC           45
+#define RETAIN_MEMOBJ_FUNC          46
+#define RETAIN_KERNEL_FUNC          47
+#define RETAIN_CMDQUE_FUNC          48
+#define ENQ_UNMAP_MEMOBJ_FUNC       49
+#define PROGRAM_END                 50
+#define CMSG_NUM                    (PROGRAM_END-OFFSET + 1)
+#define TOTAL_MSG_NUM				(CMSG_NUM + DMSG_NUM)
 
-CMD_QUEUE *hCmdQueueHead = NULL;
+#define GET_PLATFORM_ID_FUNC1	    10000
+#define GET_DEVICE_ID_FUNC1         10001
+#define CREATE_CONTEXT_FUNC1        10002
+#define LOAD_SOURCE_FUNC1           10003
+#define CREATE_PROGRMA_WITH_SOURCE1 10004
+#define CREATE_PROGRMA_WITH_SOURCE2 10005
+#define BUILD_PROGRAM1              10006
+#define CREATE_KERNEL1              10007
+#define CREATE_BUFFER_FUNC1         10008
+#define ENQUEUE_WRITE_BUFFER1       10009
+#define ENQUEUE_WRITE_BUFFER2       10010
+#define SET_KERNEL_ARG1             10011
+#define ENQUEUE_ND_RANGE_KERNEL1    10012
+#define ENQUEUE_ND_RANGE_KERNEL2    10013
+#define ENQUEUE_ND_RANGE_KERNEL3    10014
+#define ENQUEUE_ND_RANGE_KERNEL4    10015
+#define ENQUEUE_READ_BUFFER1        10016
+#define GET_CONTEXT_INFO_FUNC1	    10017
+#define GET_BUILD_INFO_FUNC1        10018
+#define GET_PROGRAM_INFO_FUNC1      10019
+#define GET_DEVICE_INFO_FUNC1       10020
+#define GET_PLATFORM_INFO_FUNC1     10021
+#define WAIT_FOR_EVENT_FUNC1        10022
+#define GET_CMD_QUEUE_INFO_FUNC1 	10023
+#define ENQUEUE_MAP_BUFF_FUNC1      10024
+#define GET_EVENT_PROF_INFO_FUNC1   10025
+#define GET_KERNEL_WGP_INFO_FUNC1   10026
+#define CREATE_IMAGE_2D_FUNC1       10027
+#define ENQ_COPY_BUFF_FUNC1         10028
+#define ENQ_UNMAP_MEMOBJ_FUNC1      10029
 
-void createCommandQueue(cl_command_queue command_queue)
+extern pthread_barrier_t barrier;
+extern pthread_t th;
+void *proxyHelpThread(void *);
+extern int threadReadOrWrite;
+extern int writeIndexForHelpThread;
+
+/* flags for helper thread */
+#define GPU_MEM_READ        0
+#define GPU_MEM_WRITE       1
+#define GPU_WRITE_SINGLE    2
+#define GPU_ENQ_WRITE       3
+#define GPU_MEM_NULL        4
+#define SEND_LOCAL_PREVIOUS 5
+
+#define VOCL_PROXY_WRITE_BUFFER_NUM 8
+#define VOCL_PROXY_WRITE_BUFFER_SIZE 67108864    /*64MB 1024 X 1024 X 64*/
+
+#define VOCL_PROXY_READ_BUFFER_NUM 32
+#define VOCL_PROXY_READ_BUFFER_SIZE 67108864    /*64MB 1024 X 1024 X 64 */
+
+#define VOCL_PROXY_READ_TAG  4000
+#define VOCL_PROXY_WRITE_TAG 5000
+
+/* states of write buffer pool */
+#define WRITE_AVAILABLE 	0
+#define WRITE_RECV_DATA    	1
+#define WRITE_RECV_COMPLED	2
+#define WRITE_GPU_MEM	   	3
+
+/* states of read buffer pool */
+#define READ_AVAILABLE 		0
+#define READ_GPU_MEM    	1
+#define READ_GPU_MEM_SUB	2
+#define READ_GPU_MEM_COMP 	3
+#define READ_SEND_DATA  	4
+
+/* control message pointer */
+extern MPI_Request *conMsgRequest;
+
+struct strGetPlatformIDs {
+	cl_uint          num_entries;
+	cl_platform_id   *platforms;
+	cl_uint          num_platforms;
+	cl_int           res;
+};
+
+struct strGetDeviceIDs
 {
-    CMD_QUEUE *cmdQueuePtr = (CMD_QUEUE *) malloc(sizeof(CMD_QUEUE));
-    cmdQueuePtr->hCmdQueue = command_queue;
-    cmdQueuePtr->dataTransferPtr = NULL;
-    cmdQueuePtr->dataTransferPtrTail = NULL;
-    cmdQueuePtr->next = hCmdQueueHead;
-    hCmdQueueHead = cmdQueuePtr;
+	cl_platform_id   platform;
+	cl_device_type   device_type;
+	cl_uint          num_entries;
+	cl_device_id     *devices;
+	cl_uint          num_devices;
+	cl_int           res;
+};
 
-    return;
-}
+struct strCreateContext {
+	cl_context_properties   properties;
+	cl_uint                       num_devices;
+	cl_device_id                  *devices;
+	/* CL_CALLBACK *              pfn_notify; */
+	void *                        user_data;
+	cl_int                        errcode_ret;
+	cl_context                    hContext;
+};
 
-CMD_QUEUE *getCommandQueue(cl_command_queue command_queue)
-{
-    CMD_QUEUE *hCmdQueues = hCmdQueueHead;
-    while (hCmdQueues != NULL) {
-        if (hCmdQueues->hCmdQueue == command_queue) {
-            break;
-        }
-    }
+struct strCreateCommandQueue {
+	cl_context                     context;
+	cl_device_id                   device;
+	cl_command_queue_properties    properties;
+	cl_command_queue               clCommand;
+	cl_int                         errcode_ret;
+};
 
-    if (hCmdQueues == NULL) {
-        printf("Error, command queue does not exist. In getCommandQueue!\n");
-        exit(1);
-    }
+struct strCreateProgramWithSource {
+	cl_context        context;
+	cl_uint           count;
+	size_t            lengths;
+	cl_program        clProgram;
+	cl_int            errcode_ret;
+};
 
-    return hCmdQueues;
-}
+struct strBuildProgram {
+	cl_program           program;
+	cl_uint              num_devices;
+	cl_device_id        *device_list;
+	cl_uint              optionLen;
+	/*CL_CALLBACK *      pfn_notify;*/
+	void *               user_data;
+	cl_int               res;
+};
 
-void releaseCommandQueue(cl_command_queue command_queue)
-{
-    if (hCmdQueueHead == NULL) {
-        return;
-    }
+struct strCreateKernel {
+	cl_program      program;
+	size_t          kernelNameSize;
+	cl_int          errcode_ret;
+	cl_kernel       kernel;
+};
 
-    CMD_QUEUE *preCmdQueue, *curCmdQueue, *nextCmdQueue;
-    DATA_TRANSFER *curDataTransferPtr, *nextDataTransferPtr;
-    if (command_queue == hCmdQueueHead->hCmdQueue) {
-        curCmdQueue = hCmdQueueHead;
-        hCmdQueueHead = hCmdQueueHead->next;
-        curDataTransferPtr = curCmdQueue->dataTransferPtr;
-        while (curDataTransferPtr != NULL) {
-            nextDataTransferPtr = curDataTransferPtr->next;
-            if (curDataTransferPtr->host_ptr != NULL) {
-                free(curDataTransferPtr->host_ptr);
-            }
-            free(curDataTransferPtr);
-            curDataTransferPtr = nextDataTransferPtr;
-        }
-        free(curCmdQueue);
-        return;
-    }
+struct strCreateBuffer {
+	cl_context   context;
+	cl_mem_flags flags;
+	size_t       size;
+	cl_int       host_ptr_flag;
+	cl_int       errcode_ret;
+	cl_mem       deviceMem;
+};
 
-    preCmdQueue = hCmdQueueHead;
-    curCmdQueue = preCmdQueue->next;
-    while (curCmdQueue != NULL) {
-        if (command_queue == curCmdQueue->hCmdQueue) {
-            curDataTransferPtr = curCmdQueue->dataTransferPtr;
-            while (curDataTransferPtr != NULL) {
-                nextDataTransferPtr = curDataTransferPtr->next;
-                if (curDataTransferPtr->host_ptr != NULL) {
-                    free(curDataTransferPtr->host_ptr);
-                }
-                free(curDataTransferPtr);
-                curDataTransferPtr = nextDataTransferPtr;
-            }
-            preCmdQueue->next = curCmdQueue->next;
-            free(curCmdQueue);
-            break;
-        }
-        preCmdQueue = curCmdQueue;
-        curCmdQueue = curCmdQueue->next;
-    }
+struct strEnqueueWriteBuffer {
+	cl_command_queue   command_queue;
+	cl_mem             buffer;
+	cl_bool            blocking_write;
+	cl_int             tag;
+	size_t             offset;
+	size_t             cb;
+	cl_uint            num_events_in_wait_list;
+	cl_int             event_null_flag;   /* 1: event is NULL, 0: NOT NULL */
+	cl_event           event;
+	cl_int             res;
+};
 
-    return;
-}
+struct strSetKernelArg {
+	cl_kernel    kernel;
+	cl_uint      arg_index;
+	size_t       arg_size;
+	const void * arg_value;
+	cl_int       res;
+};
 
-DATA_TRANSFER *createDataTransfer(cl_command_queue command_queue, cl_event event)
-{
-    CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
-    DATA_TRANSFER *dataTransferPtr = (DATA_TRANSFER *) malloc(sizeof(DATA_TRANSFER));
-    dataTransferPtr->host_ptr = NULL;
-    dataTransferPtr->event = event;
-    dataTransferPtr->next = NULL;
-    if (cmdQueue->dataTransferPtr == NULL && cmdQueue->dataTransferPtrTail == NULL) {
-        cmdQueue->dataTransferPtr = dataTransferPtr;
-        cmdQueue->dataTransferPtrTail = dataTransferPtr;
-    }
-    else {
-        cmdQueue->dataTransferPtrTail->next = dataTransferPtr;
-        cmdQueue->dataTransferPtrTail = dataTransferPtr;
-    }
+struct strEnqueueNDRangeKernel {
+	cl_command_queue command_queue;
+	cl_kernel        kernel;
+	cl_uint          work_dim;
+	cl_int           global_work_offset_flag;
+	cl_int           global_work_size_flag;
+	cl_int           local_work_size_flag;
+	cl_uint          args_num;
+	cl_uint          num_events_in_wait_list;
+	cl_int           event_null_flag;
+	cl_event         event;
+	cl_int           res;
+};
 
-    return dataTransferPtr;
-}
+struct strEnqueueReadBuffer {
+	cl_command_queue    command_queue;
+	cl_mem              buffer;
+	cl_bool             blocking_read;
+	cl_uint             readBufferTag;
+	size_t              offset;
+	size_t              cb;
+	cl_uint             num_events_in_wait_list;
+	cl_int              event_null_flag;  /* 1: event is NULL, 0: NOT NULL */
+	cl_event            event;
+	cl_int              res;
+};
 
-DATA_TRANSFER *getDataTransfer(cl_command_queue command_queue, cl_event event)
-{
-    CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
-    DATA_TRANSFER *dataTransferPtr = cmdQueue->dataTransferPtr;
-    while (dataTransferPtr != NULL) {
-        if (dataTransferPtr->event == event) {
-            break;
-        }
-        dataTransferPtr = dataTransferPtr->next;
-    }
+struct strReleaseMemObject {
+	cl_mem memobj;
+	cl_int res;
+};
 
-    if (dataTransferPtr == NULL) {
-        printf("In function getDataTranfer() error, the corresponding event is not there!\n");
-        exit(0);
-    }
+struct strReleaseKernel {
+	cl_kernel kernel;
+	cl_int    res;
+};
 
-    return dataTransferPtr;
-}
+struct strGetContextInfo {
+	cl_context         context;
+	cl_context_info    param_name;
+	size_t             param_value_size;
+	void *             param_value;  
+	size_t             param_value_size_ret;
+	cl_int             res;
+};
 
-DATA_TRANSFER *getDataTransferAll(cl_event event)
-{
-    CMD_QUEUE *cmdQueue = hCmdQueueHead;
-    DATA_TRANSFER *curDataTransferPtr, *dataTransferPtr = NULL;
-    while (cmdQueue != NULL) {
-        curDataTransferPtr = cmdQueue->dataTransferPtr;
-        while (curDataTransferPtr != NULL) {
-            if (curDataTransferPtr->event == event) {
-                dataTransferPtr = curDataTransferPtr;
-                break;
-            }
-            curDataTransferPtr = curDataTransferPtr->next;
-        }
+struct strGetProgramBuildInfo {
+	cl_program            program;
+	cl_device_id          device;
+	cl_program_build_info param_name;
+	size_t                param_value_size;
+	void *                param_value;
+	size_t                param_value_size_ret;
+	cl_int                res;
+};
 
-        if (dataTransferPtr != NULL) {
-            break;
-        }
+struct strGetProgramInfo {	
+	cl_program         program;
+	cl_program_info    param_name;
+	size_t             param_value_size;
+	void *             param_value;
+	size_t             param_value_size_ret;
+	cl_int             res;
+};
 
-        cmdQueue = cmdQueue->next;
-    }
+struct strReleaseProgram {
+	cl_program  program;
+	cl_int      res;
+};
 
-    if (dataTransferPtr == NULL) {
-        printf("In getDataTransferAll, event does not exist!\n");
-        exit(1);
-    }
+struct strReleaseCommandQueue {
+	cl_command_queue command_queue;
+	cl_int           res;
+};
 
-    return dataTransferPtr;
-}
+struct strReleaseContext {
+	cl_context context;
+	cl_int     res;
+};
 
-void releaseDataTransfer(cl_command_queue command_queue, cl_event event)
-{
-    CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
-    DATA_TRANSFER *curDataTransferPtr = cmdQueue->dataTransferPtr;
-    DATA_TRANSFER *preDataTransferPtr;
-    if (curDataTransferPtr->event == event) {
-        cmdQueue->dataTransferPtr = curDataTransferPtr->next;
-        if (curDataTransferPtr->host_ptr != NULL) {
-            free(curDataTransferPtr->host_ptr);
-        }
-        free(curDataTransferPtr);
+struct strFinish {
+	cl_command_queue command_queue;
+	cl_int res;
+};
 
-        //if only one node in the link list
-        if (cmdQueue->dataTransferPtr == NULL) {
-            cmdQueue->dataTransferPtrTail = NULL;
-        }
+struct strGetDeviceInfo {
+	cl_device_id    device;
+	cl_device_info  param_name;
+	size_t          param_value_size;
+	void *          param_value;
+	size_t          param_value_size_ret;
+	cl_int          res;
+};
 
-        return;
-    }
+struct strGetPlatformInfo {
+	cl_platform_id    platform;
+	cl_platform_info  param_name;
+	size_t            param_value_size;
+	void *            param_value;
+	size_t            param_value_size_ret;
+	cl_int            res;
+};
 
-    preDataTransferPtr = curDataTransferPtr;
-    curDataTransferPtr = curDataTransferPtr->next;
-    while (curDataTransferPtr != NULL) {
-        if (curDataTransferPtr->event == event) {
-            preDataTransferPtr->next = curDataTransferPtr->next;
-            if (curDataTransferPtr->host_ptr != NULL) {
-                free(curDataTransferPtr->host_ptr);
-            }
-            free(curDataTransferPtr);
+struct strFlush {
+	cl_command_queue command_queue;
+	cl_int res;
+};
 
-            //if it is the last node in the link list
-            if (preDataTransferPtr->next == NULL) {
-                cmdQueue->dataTransferPtrTail = preDataTransferPtr;
-            }
+struct strWaitForEvents {
+	cl_uint  num_events;
+	cl_int   res;
+};
 
-            break;
-        }
-        preDataTransferPtr = curDataTransferPtr;
-        curDataTransferPtr = curDataTransferPtr->next;
-    }
+struct strCreateSampler {
+	cl_context          context;
+	cl_bool             normalized_coords;
+	cl_addressing_mode  addressing_mode;
+	cl_filter_mode      filter_mode;
+	cl_int              errcode_ret;
+	cl_sampler          sampler;
+};
 
-    return;
-}
+struct strGetCommandQueueInfo {
+	cl_command_queue      command_queue;
+	cl_command_queue_info param_name;
+	size_t                param_value_size;
+	void *                param_value;
+	size_t                param_value_size_ret;
+	cl_int                res;
+};
 
-void releaseDataTransferAll(cl_event event)
-{
-    CMD_QUEUE *cmdQueue = hCmdQueueHead;
-    DATA_TRANSFER *curDataTransferPtr, *preDataTransferPtr;
-    while (cmdQueue != NULL) {
-        curDataTransferPtr = cmdQueue->dataTransferPtr;
-        if (curDataTransferPtr->event == event) {
-            cmdQueue->dataTransferPtr = curDataTransferPtr->next;
-            if (curDataTransferPtr->host_ptr != NULL) {
-                free(curDataTransferPtr->host_ptr);
-            }
-            if (cmdQueue->dataTransferPtr == NULL) {
-                cmdQueue->dataTransferPtrTail = NULL;
-            }
+struct strEnqueueMapBuffer {
+	cl_command_queue command_queue;
+	cl_mem           buffer;
+	cl_bool          blocking_map;
+	cl_map_flags     map_flags;
+	size_t           offset;
+	size_t           cb;
+	cl_uint          num_events_in_wait_list;
+	cl_int           event_null_flag; /* 1: NULL, 0: NOT NULL */
+	cl_event         event;
+	cl_int           errcode_ret;
+	void             *ret_ptr;
+};
 
-            free(curDataTransferPtr);
-            return;
-        }
+struct strReleaseEvent {
+	cl_event         event;
+	cl_int           res;
+};
 
-        preDataTransferPtr = curDataTransferPtr;
-        curDataTransferPtr = preDataTransferPtr->next;
-        while (curDataTransferPtr != NULL) {
-            if (curDataTransferPtr->event == event) {
-                preDataTransferPtr->next = curDataTransferPtr->next;
-                if (curDataTransferPtr->host_ptr != NULL) {
-                    free(curDataTransferPtr->host_ptr);
-                }
-                free(curDataTransferPtr);
-                if (preDataTransferPtr->next == NULL) {
-                    cmdQueue->dataTransferPtrTail = preDataTransferPtr;
-                }
+struct strGetEventProfilingInfo {
+	cl_event          event;
+	cl_profiling_info param_name;
+	size_t            param_value_size;
+	void *            param_value;
+	size_t            param_value_size_ret;
+	cl_int            res;
+};
 
-                return;
-            }
-            preDataTransferPtr = curDataTransferPtr;
-            curDataTransferPtr = preDataTransferPtr->next;
-        }
+struct strReleaseSampler {
+	cl_sampler       sampler;
+	cl_int           res;
+};
 
-        cmdQueue = cmdQueue->next;
-    }
+struct strGetKernelWorkGroupInfo {
+   cl_kernel                  kernel;
+   cl_device_id               device;
+   cl_kernel_work_group_info  param_name;
+   size_t                     param_value_size;
+   void *                     param_value;
+   size_t                     param_value_size_ret;
+   cl_int                     res;
+};
 
-    return;
-}
+struct strCreateImage2D {
+   cl_context              context;
+   cl_mem_flags            flags;
+   cl_image_format         img_format;
+   size_t                  image_width;
+   size_t                  image_height;
+   size_t                  image_row_pitch;
+   size_t                  host_buff_size;
+   cl_int                  errcode_ret;
+   cl_mem                  mem_obj;
+};
 
-void processEvent(cl_event event)
-{
-    DATA_TRANSFER *dataTransferPtr;
-    dataTransferPtr = getDataTransferAll(event);
-    if (dataTransferPtr != NULL) {
-        if (dataTransferPtr->readOrWrite == CL_GPUV_READ) {
-            MPI_Send(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
-                     0, dataTransferPtr->tag, dataTransferPtr->comm);
-        }
-        free(dataTransferPtr->host_ptr);
-        dataTransferPtr->host_ptr = NULL;
-    }
+struct strEnqueueCopyBuffer {
+   cl_command_queue    command_queue;
+   cl_mem              src_buffer;
+   cl_mem              dst_buffer;
+   size_t              src_offset;
+   size_t              dst_offset;
+   size_t              cb;
+   cl_uint             num_events_in_wait_list;
+   cl_int              event_null_flag;
+   cl_event            event;
+   cl_int              res;
+};
 
-    //release the event
-    releaseDataTransferAll(event);
-}
+struct strRetainEvent {
+	cl_event event;
+	cl_int   res;
+};
 
-//void processCommandQueue(cl_command_queue command_queue)
-//{
-//      MPI_Request *request;
-//      MPI_Status  *status;
-////    cl_event *event_list;
-//      int maxReadRequestNum = 100;
-////    int maxWriteRequestNum = 100;
-//      int readRequestNo = 0;
-////    int writeRequestNo = 0;
-//      request = (MPI_Request *)malloc(maxReadRequestNum * sizeof(MPI_Request));
-//      status  = (MPI_Status *)malloc(maxReadRequestNum * sizeof(MPI_Status));
-////    event_list = (cl_event *)malloc(maxWriteRequestNum * sizeof(cl_event));
-//
-//      CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
-//      DATA_TRANSFER *dataTransferPtr = cmdQueue->dataTransferPtr;
-//      DATA_TRANSFER *nextDataTransferPtr;
-//      while (dataTransferPtr != NULL)
-//      {
-//              if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
-//              {
-//                      MPI_Isend(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
-//                                       0, dataTransferPtr->tag, dataTransferPtr->comm, request+(readRequestNo++));
-//              }
-////            else
-////            {
-////                    event_list[writeRequestNo++] = dataTransferPtr->event;
-////            }
-//
-//              if (readRequestNo >= maxReadRequestNum)
-//              {
-//                      maxReadRequestNum *= 2;
-//                      request = (MPI_Request *)realloc(request, maxReadRequestNum * sizeof(MPI_Request));
-//                      status  = (MPI_Status *)realloc(status, maxReadRequestNum * sizeof(MPI_Status));
-//              }
-////            if (writeRequestNo >= maxWriteRequestNum)
-////            {
-////                    maxWriteRequestNum *= 2;
-////                    event_list = (cl_event *)realloc(event_list, maxWriteRequestNum * sizeof(cl_event));
-////            }
-//
-//              dataTransferPtr = dataTransferPtr->next;
-//      }
-//      if (readRequestNo > 0)
-//      {
-//              MPI_Waitall(readRequestNo, request, status);
-//      }
-////    if (writeRequestNo > 0)
-////    {
-////            clWaitForEvents(writeRequestNo, event_list);
-////    }
-//
-//      dataTransferPtr = cmdQueue->dataTransferPtr;
-//      while (dataTransferPtr != NULL)
-//      {
-//              free(dataTransferPtr->host_ptr);
-//              nextDataTransferPtr = dataTransferPtr->next;
-//              free(dataTransferPtr);
-//              dataTransferPtr = nextDataTransferPtr;
-//      }
-//
-//      cmdQueue->dataTransferPtr = NULL;
-//      cmdQueue->dataTransferPtrTail = NULL;
-//
-//      free(request);
-//      free(status);
-////    free(event_list);
-//      return;
-//}
+struct strRetainMemObject {
+	cl_mem   memobj; 
+	cl_int   res;
+};
 
-//process all pending events, each time one event
-//void processCommandQueue(cl_command_queue command_queue)
-//{
-//      MPI_Request *request;
-//      MPI_Status  *status;
-//      int maxReadRequestNum = 100;
-//      int readRequestNo = 0;
-//      cl_int err;
-//      //debug-------------------
-//      //int eventCount = 0;
-//      //struct timeval t1, t2, t3, t4, t5;
-//      //float sendTime, waitTime;
-//      //-------------------------
-//      request = (MPI_Request *)malloc(maxReadRequestNum * sizeof(MPI_Request));
-//      status  = (MPI_Status *)malloc(maxReadRequestNum * sizeof(MPI_Status));
-//
-//      CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
-//      DATA_TRANSFER *dataTransferPtr = cmdQueue->dataTransferPtr;
-//      DATA_TRANSFER *nextDataTransferPtr;
-//      //debug---------------------------
-//      //clFinish(command_queue);
-//      //gettimeofday(&t1, NULL);
-//      //-------------------------------
-//      //clFinish(command_queue);
-//      while (dataTransferPtr != NULL)
-//      {
-//              //debug--------------------
-//              //gettimeofday(&t4, NULL);
-//              //--------------------------
-//              err = clWaitForEvents(1, &dataTransferPtr->event);
-//              if (err != CL_SUCCESS)
-//              {
-//                      printf("wait for event errror!\n");
-//              }
-//
-//              //debug--------------------
-//              //gettimeofday(&t5, NULL);
-//              //waitTime = 1000.0 * (t5.tv_sec - t4.tv_sec) + (t5.tv_usec - t4.tv_usec) / 1000.0;
-//              //--------------------------
-//              //debug-------------------------------------
-//              //printf("eventCount = %d\n", eventCount++);
-//
-//              //gettimeofday(&t4, NULL);
-//              //------------------------------------------
-//              if (dataTransferPtr->readOrWrite == CL_GPUV_READ)
-//              {
-//                      MPI_Isend(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
-//                                       0, dataTransferPtr->tag, dataTransferPtr->comm, request+(readRequestNo++));
-//              }
-//              //debug-------------------------------------------
-//              //gettimeofday(&t5, NULL);
-//              //sendTime = 1000.0 * (t5.tv_sec - t4.tv_sec) + (t5.tv_usec - t4.tv_usec) / 1000.0;
-//              //printf("oneEvent, sendTime = %.3f, waitTime = %.3f\n", sendTime, waitTime);
-//              //------------------------------------------------
-//
-//
-//              if (readRequestNo >= maxReadRequestNum)
-//              {
-//                      maxReadRequestNum *= 2;
-//                      request = (MPI_Request *)realloc(request, maxReadRequestNum * sizeof(MPI_Request));
-//                      status  = (MPI_Status *)realloc(status, maxReadRequestNum * sizeof(MPI_Status));
-//              }
-//              dataTransferPtr = dataTransferPtr->next;
-//      }
-//      //debug---------------------------
-//      //gettimeofday(&t2, NULL);
-//      //-------------------------------
-//      if (readRequestNo > 0)
-//      {
-//              MPI_Waitall(readRequestNo, request, status);
-//      }
-//      //debug---------------------------
-//      //gettimeofday(&t3, NULL);
-//      //sendTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
-//      //waitTime = 1000.0 * (t3.tv_sec - t2.tv_sec) + (t3.tv_usec - t2.tv_usec) / 1000.0;
-//      //printf("total Send time = %.3f, waittime = %.3f\n", sendTime, waitTime);
-//      //-------------------------------
-//
-//      dataTransferPtr = cmdQueue->dataTransferPtr;
-//      while (dataTransferPtr != NULL)
-//      {
-//              free(dataTransferPtr->host_ptr);
-//              nextDataTransferPtr = dataTransferPtr->next;
-//              free(dataTransferPtr);
-//              dataTransferPtr = nextDataTransferPtr;
-//      }
-//
-//      cmdQueue->dataTransferPtr = NULL;
-//      cmdQueue->dataTransferPtrTail = NULL;
-//
-//      free(request);
-//      free(status);
-//      return;
-//}
+struct strRetainKernel {
+	cl_kernel    kernel;
+	cl_int       res;
+};
 
-pthread_barrier_t barrier;
-pthread_t th;
-void *sendMsg(void *ptr)
-{
-    MPI_Request *request;
-    MPI_Status *status;
-    int maxReadRequestNum = 100;
-    int readRequestNo = 0;
-    cl_int err;
-    request = (MPI_Request *) malloc(maxReadRequestNum * sizeof(MPI_Request));
-    status = (MPI_Status *) malloc(maxReadRequestNum * sizeof(MPI_Status));
+struct strRetainCommandQueue {
+	cl_command_queue command_queue;
+	cl_int           res;
+};
 
-    CMD_QUEUE *cmdQueue = (CMD_QUEUE *) ptr;
-    DATA_TRANSFER *dataTransferPtr = cmdQueue->dataTransferPtr;
-    DATA_TRANSFER *nextDataTransferPtr;
-    pthread_barrier_wait(&barrier);
-    while (dataTransferPtr != NULL) {
-        if (dataTransferPtr->readOrWrite == CL_GPUV_READ) {
-            MPI_Isend(dataTransferPtr->host_ptr, dataTransferPtr->msgSize, MPI_BYTE,
-                      0, dataTransferPtr->tag, dataTransferPtr->comm,
-                      request + (readRequestNo++));
-        }
-        if (readRequestNo >= maxReadRequestNum) {
-            maxReadRequestNum *= 2;
-            request =
-                (MPI_Request *) realloc(request, maxReadRequestNum * sizeof(MPI_Request));
-            status = (MPI_Status *) realloc(status, maxReadRequestNum * sizeof(MPI_Status));
-        }
-        dataTransferPtr = dataTransferPtr->next;
-        pthread_barrier_wait(&barrier);
-    }
+struct strEnqueueUnmapMemObject {
+   cl_command_queue  command_queue;
+   cl_mem            memobj;
+   void *            mapped_ptr;
+   cl_uint           num_events_in_wait_list;
+   cl_int            event_null_flag;
+   cl_event          event;
+   cl_int            res;
+};
 
-    if (readRequestNo > 0) {
-        MPI_Waitall(readRequestNo, request, status);
-    }
+#endif
 
-    free(request);
-    free(status);
-    return NULL;
-}
-
-void processCommandQueue(cl_command_queue command_queue)
-{
-    cl_int err;
-    //initialize barrier
-    pthread_barrier_init(&barrier, NULL, 2);
-    CMD_QUEUE *cmdQueue = getCommandQueue(command_queue);
-    pthread_create(&th, NULL, sendMsg, (void *) cmdQueue);
-    DATA_TRANSFER *dataTransferPtr = cmdQueue->dataTransferPtr;
-    DATA_TRANSFER *nextDataTransferPtr;
-
-    if (dataTransferPtr != NULL) {
-        err = clWaitForEvents(1, &dataTransferPtr->event);
-        if (err != CL_SUCCESS) {
-            printf("wait for event errror!\n");
-        }
-    }
-    pthread_barrier_wait(&barrier);
-
-    dataTransferPtr = dataTransferPtr->next;
-    while (dataTransferPtr != NULL) {
-        err = clWaitForEvents(1, &dataTransferPtr->event);
-        if (err != CL_SUCCESS) {
-            printf("wait for event errror!\n");
-        }
-        dataTransferPtr = dataTransferPtr->next;
-        pthread_barrier_wait(&barrier);
-    }
-
-    pthread_barrier_wait(&barrier);
-    pthread_join(th, NULL);
-    pthread_barrier_destroy(&barrier);
-
-    dataTransferPtr = cmdQueue->dataTransferPtr;
-    while (dataTransferPtr != NULL) {
-        free(dataTransferPtr->host_ptr);
-        nextDataTransferPtr = dataTransferPtr->next;
-        free(dataTransferPtr);
-        dataTransferPtr = nextDataTransferPtr;
-    }
-
-    cmdQueue->dataTransferPtr = NULL;
-    cmdQueue->dataTransferPtrTail = NULL;
-
-    return;
-}
-
-#endif //__SLAVE_OPENCL_H__

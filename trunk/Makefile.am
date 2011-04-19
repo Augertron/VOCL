@@ -7,11 +7,17 @@ AM_CPPFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024
 AM_CXXFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024
 
 lib_LTLIBRARIES = libvocl.la
-libvocl_la_SOURCES = $(top_srcdir)/src/vocl.c
+libvocl_la_SOURCES = $(top_srcdir)/src/vocl.c \
+					 $(top_srcdir)/src/voclReadBufferProc.c \
+					 $(top_srcdir)/src/voclWriteBufferProc.c
 
 bin_PROGRAMS = vocl_proxy bandwidth matrixmult_sp matrixmult_dp nbody_sp nbody_dp swat matrixtrans_sp matrixtrans_dp
 
-vocl_proxy_SOURCES = $(top_srcdir)/src/vocl_proxy.c
+vocl_proxy_SOURCES = $(top_srcdir)/src/vocl_proxy.c \
+					 $(top_srcdir)/src/vocl_proxyFunctions.c \
+					 $(top_srcdir)/src/vocl_proxyHelperThread.c \
+					 $(top_srcdir)/src/vocl_proxyReadBufferProc.c \
+					 $(top_srcdir)/src/vocl_proxyWriteBufferProc.c
 
 bandwidth_SOURCES = $(top_srcdir)/examples/bandwidth/bandwidth.c \
 	$(top_srcdir)/examples/bandwidth/bw_timer.c
