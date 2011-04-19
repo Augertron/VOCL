@@ -5,11 +5,10 @@
 
 cl_int err;
 typedef struct strKernelArgs {
-	cl_uint arg_index;
-	size_t  arg_size;
-	char    arg_value[64];
-	cl_char arg_null_flag;
+    cl_uint arg_index;
+    size_t arg_size;
+    char arg_value[64];
+    cl_char arg_null_flag;
 } kernel_args;
 
 #endif
-

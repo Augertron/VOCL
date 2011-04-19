@@ -19,301 +19,283 @@
 		exit(1); \
 	} \
 
-char * loadSource(char *filePathName, size_t *fileSize)
+char *loadSource(char *filePathName, size_t * fileSize)
 {
-	FILE *pfile;
-	size_t tmpFileSize;
-	char *fileBuffer;
-	pfile = fopen(filePathName, "rb");
+    FILE *pfile;
+    size_t tmpFileSize;
+    char *fileBuffer;
+    pfile = fopen(filePathName, "rb");
 
-	if (pfile == NULL)
-	{
-		printf("Open file %s open error!\n", filePathName);
-		return NULL;
-	}
+    if (pfile == NULL) {
+        printf("Open file %s open error!\n", filePathName);
+        return NULL;
+    }
 
-	fseek(pfile, 0, SEEK_END);
-	tmpFileSize = ftell(pfile);
+    fseek(pfile, 0, SEEK_END);
+    tmpFileSize = ftell(pfile);
 
-	fileBuffer = (char *)malloc(tmpFileSize);
+    fileBuffer = (char *) malloc(tmpFileSize);
 
-	fseek(pfile, 0, SEEK_SET);
-	fread(fileBuffer, sizeof(char), tmpFileSize, pfile);
+    fseek(pfile, 0, SEEK_SET);
+    fread(fileBuffer, sizeof(char), tmpFileSize, pfile);
 
-	fclose(pfile);
+    fclose(pfile);
 
-	//debug================================
-	//for (int i = 0; i < tmpFileSize; i++)
-	//{
-	//	printf("%c", fileBuffer[i]);
-	//}
-	//=====================================
+    //debug================================
+    //for (int i = 0; i < tmpFileSize; i++)
+    //{
+    //      printf("%c", fileBuffer[i]);
+    //}
+    //=====================================
 
-	*fileSize = tmpFileSize;
-	return fileBuffer;
+    *fileSize = tmpFileSize;
+    return fileBuffer;
 }
 
 int main(int argc, char **argv)
 {
-	if (argc != 4)
-	{
-		printf("Usage: %s matrixSize, numIterations, deviceNo\n", argv[0]);
-		return 1;
-	}
+    if (argc != 4) {
+        printf("Usage: %s matrixSize, numIterations, deviceNo\n", argv[0]);
+        return 1;
+    }
 
-	cpu_set_t set;
-	CPU_ZERO(&set);
+    cpu_set_t set;
+    CPU_ZERO(&set);
 
-	double *a, *b, *c;
-	int numIterations = 20, iterationNo;
-	int matrixSize = atoi(argv[1]);
-	numIterations = atoi(argv[2]);
-	int hA = matrixSize;
-	int wA = matrixSize;
-	int wB = matrixSize;
-	int sizeA = hA * wA;
-	int sizeB = wA * wB;
-	int sizeC = hA * wB;
-	int i, j;
+    double *a, *b, *c;
+    int numIterations = 20, iterationNo;
+    int matrixSize = atoi(argv[1]);
+    numIterations = atoi(argv[2]);
+    int hA = matrixSize;
+    int wA = matrixSize;
+    int wB = matrixSize;
+    int sizeA = hA * wA;
+    int sizeB = wA * wB;
+    int sizeC = hA * wB;
+    int i, j;
 
-	size_t blockSize[2] = {BLOCK_SIZE, BLOCK_SIZE};
-	size_t globalSize[2];
+    size_t blockSize[2] = { BLOCK_SIZE, BLOCK_SIZE };
+    size_t globalSize[2];
 
-	//initialize timer
-	memset(&strTime, 0, sizeof(STRUCT_TIME));
-	
-	cl_int err;
-	cl_uint numPlatforms, numDevices, deviceNo = 0;
-	cl_platform_id platformID;
-	cl_device_id deviceID[2];
-	cl_context hContext;
-	cl_command_queue hCmdQueue;
-	cl_program hProgram;
-	cl_mem deviceMem[3];
-	size_t sourceFileSize;
-	char *cSourceCL = NULL;
-	char kernel_source[KERNEL_SOURCE_FILE_LEN];
-	deviceNo = atoi(argv[3]);
-	printf("deviceNo = %d\n", deviceNo);
+    //initialize timer
+    memset(&strTime, 0, sizeof(STRUCT_TIME));
 
-	if (deviceNo != 0 && deviceNo != 1)
-	{
-		printf("deviceNo should be 0 or 1!\n");
-		return 1;
-	}
+    cl_int err;
+    cl_uint numPlatforms, numDevices, deviceNo = 0;
+    cl_platform_id platformID;
+    cl_device_id deviceID[2];
+    cl_context hContext;
+    cl_command_queue hCmdQueue;
+    cl_program hProgram;
+    cl_mem deviceMem[3];
+    size_t sourceFileSize;
+    char *cSourceCL = NULL;
+    char kernel_source[KERNEL_SOURCE_FILE_LEN];
+    deviceNo = atoi(argv[3]);
+    printf("deviceNo = %d\n", deviceNo);
 
-	//get an opencl platform
-	timerStart();
-	err = clGetPlatformIDs(0, NULL, &numPlatforms);
-	err = clGetPlatformIDs(numPlatforms, &platformID, NULL);
-	CHECK_ERR(err, "Get platform ID error!");
-	timerEnd();
-	strTime.getPlatform = elapsedTime();
-	strTime.numGetPlatform++;
+    if (deviceNo != 0 && deviceNo != 1) {
+        printf("deviceNo should be 0 or 1!\n");
+        return 1;
+    }
 
-	sched_getaffinity(0, sizeof(cpu_set_t), &set);
-	printf("cpuid = %d\n", set.__bits[0]);
+    //get an opencl platform
+    timerStart();
+    err = clGetPlatformIDs(0, NULL, &numPlatforms);
+    err = clGetPlatformIDs(numPlatforms, &platformID, NULL);
+    CHECK_ERR(err, "Get platform ID error!");
+    timerEnd();
+    strTime.getPlatform = elapsedTime();
+    strTime.numGetPlatform++;
 
-	timerStart();
-	err  = clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
-	err |= clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, numDevices, deviceID, NULL);
-	CHECK_ERR(err, "Get device ID error!");
-	timerEnd();
-	strTime.getDeviceID = elapsedTime();
-	strTime.numGetDeviceID++;
+    sched_getaffinity(0, sizeof(cpu_set_t), &set);
+    printf("cpuid = %d\n", set.__bits[0]);
 
-	//create opencl device and context
-	timerStart();
-	hContext = clCreateContext(0, numDevices, deviceID, 0, 0, &err);
-	CHECK_ERR(err, "Create context from type error");
-	timerEnd();
-	strTime.createContext = elapsedTime();
-	strTime.numCreateContext++;
+    timerStart();
+    err = clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
+    err |= clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, numDevices, deviceID, NULL);
+    CHECK_ERR(err, "Get device ID error!");
+    timerEnd();
+    strTime.getDeviceID = elapsedTime();
+    strTime.numGetDeviceID++;
 
-	//create a command queue for the first device the context reported
-	timerStart();
-	hCmdQueue = clCreateCommandQueue(hContext, deviceID[deviceNo], 0, &err);
-	CHECK_ERR(err, "Create command queue error");
-	timerEnd();
-	strTime.createCommandQueue = elapsedTime();
-	strTime.numCreateCommandQueue++;
+    //create opencl device and context
+    timerStart();
+    hContext = clCreateContext(0, numDevices, deviceID, 0, 0, &err);
+    CHECK_ERR(err, "Create context from type error");
+    timerEnd();
+    strTime.createContext = elapsedTime();
+    strTime.numCreateContext++;
+
+    //create a command queue for the first device the context reported
+    timerStart();
+    hCmdQueue = clCreateCommandQueue(hContext, deviceID[deviceNo], 0, &err);
+    CHECK_ERR(err, "Create command queue error");
+    timerEnd();
+    strTime.createCommandQueue = elapsedTime();
+    strTime.numCreateCommandQueue++;
 
 
-	//load the source file
-	snprintf(kernel_source, KERNEL_SOURCE_FILE_LEN,
-			"%s/examples/matrixmult/matrixmult_dp.cl", ABS_SRCDIR);
-	cSourceCL = loadSource(kernel_source, &sourceFileSize);
-	
-	//Create & compile program
-	timerStart();
-	hProgram = clCreateProgramWithSource(hContext, 1, (const char **)&cSourceCL, 
-				&sourceFileSize, &err);
-	CHECK_ERR(err, "Create program with source error");
-	timerEnd();
-	strTime.createProgramWithSource = elapsedTime();
-	strTime.numCreateProgramWithSource++;
+    //load the source file
+    snprintf(kernel_source, KERNEL_SOURCE_FILE_LEN,
+             "%s/examples/matrixmult/matrixmult_dp.cl", ABS_SRCDIR);
+    cSourceCL = loadSource(kernel_source, &sourceFileSize);
 
-	timerStart();
-	err = clBuildProgram(hProgram, 0, 0, 0, 0, 0);
-	CHECK_ERR(err, "Build program error");
-	timerEnd();
-	strTime.buildProgram = elapsedTime();
-	strTime.numBuildProgram++;
+    //Create & compile program
+    timerStart();
+    hProgram = clCreateProgramWithSource(hContext, 1, (const char **) &cSourceCL,
+                                         &sourceFileSize, &err);
+    CHECK_ERR(err, "Create program with source error");
+    timerEnd();
+    strTime.createProgramWithSource = elapsedTime();
+    strTime.numCreateProgramWithSource++;
 
-	//create input matrix
-	timerStart();
-	a = (double *)malloc(sizeA * sizeof(double));
-	b = (double *)malloc(sizeB * sizeof(double));
-	c = (double *)malloc(sizeC * sizeof(double));
+    timerStart();
+    err = clBuildProgram(hProgram, 0, 0, 0, 0, 0);
+    CHECK_ERR(err, "Build program error");
+    timerEnd();
+    strTime.buildProgram = elapsedTime();
+    strTime.numBuildProgram++;
 
-	for (i = 0; i < hA; i++)
-	{
-		for (j = 0; j < wA; j++)
-		{
-			a[i * wA + j] = i + j;
-		}
-	}
-	
-	for (i = 0; i < wA; i++)
-	{
-		for (j = 0; j < wB; j++)
-		{
-			b[i * wB + j] = 1.0;
-		}
-	}
-	
-	for (i = 0; i < hA; i++)
-	{
-		for (j = 0; j < wB; j++)
-		{
-			c[i * wB + j] = 0.0;
-		}
-	}
+    //create input matrix
+    timerStart();
+    a = (double *) malloc(sizeA * sizeof(double));
+    b = (double *) malloc(sizeB * sizeof(double));
+    c = (double *) malloc(sizeC * sizeof(double));
 
-	globalSize[0] = ((wB - 1) / blockSize[0] + 1) * blockSize[0];
-	globalSize[1] = ((hA - 1) / blockSize[1] + 1) * blockSize[1];
-	timerEnd();
-	strTime.readMatrix = elapsedTime();
+    for (i = 0; i < hA; i++) {
+        for (j = 0; j < wA; j++) {
+            a[i * wA + j] = i + j;
+        }
+    }
 
-		//allocate device memory
-	timerStart();
-	deviceMem[0] = clCreateBuffer(hContext,
-								 CL_MEM_READ_WRITE,
-								 sizeA * sizeof(cl_double),
-								 0,
-								 &err);
-	CHECK_ERR(err, "Create deviceMem[0] on device error");
+    for (i = 0; i < wA; i++) {
+        for (j = 0; j < wB; j++) {
+            b[i * wB + j] = 1.0;
+        }
+    }
 
-	deviceMem[1] = clCreateBuffer(hContext,
-								 CL_MEM_READ_WRITE,
-								 sizeB * sizeof(cl_double),
-								 0,
-								 &err);
-	CHECK_ERR(err, "Create deviceMem[1] on device error");
-	deviceMem[2] = clCreateBuffer(hContext,
-								 CL_MEM_READ_WRITE,
-								 sizeC * sizeof(cl_double),
-								 0,
-								 &err);
-	CHECK_ERR(err, "Create deviceMem[2] on device error");
+    for (i = 0; i < hA; i++) {
+        for (j = 0; j < wB; j++) {
+            c[i * wB + j] = 0.0;
+        }
+    }
 
-	timerEnd();
-	strTime.createBuffer += elapsedTime();
-	strTime.numCreateBuffer += 3;
-	
-	//create kernel
-	cl_kernel hKernel;
-	timerStart();
-	hKernel = clCreateKernel(hProgram, "matrixMul", &err);
-	CHECK_ERR(err, "Create kernel error");
-	timerEnd();
-	strTime.createKernel += elapsedTime();
-	strTime.numCreateKernel++;
+    globalSize[0] = ((wB - 1) / blockSize[0] + 1) * blockSize[0];
+    globalSize[1] = ((hA - 1) / blockSize[1] + 1) * blockSize[1];
+    timerEnd();
+    strTime.readMatrix = elapsedTime();
 
-	timerStart();
-	for (iterationNo = 0; iterationNo < numIterations; iterationNo++)
-	{
-		//printf("IterationNo = %d\n", iterationNo);
-		//copy the matrix to device memory
-		err = clEnqueueWriteBuffer(hCmdQueue, deviceMem[0], CL_FALSE, 0, 
-								   sizeA * sizeof(cl_double),
-								   a, 0, NULL, NULL);
-		CHECK_ERR(err, "Write buffer error!");
-		err = clEnqueueWriteBuffer(hCmdQueue, deviceMem[1], CL_FALSE, 0, 
-								   sizeB * sizeof(cl_double),
-								   b, 0, NULL, NULL);
-		CHECK_ERR(err, "Write buffer error!");
+    //allocate device memory
+    timerStart();
+    deviceMem[0] = clCreateBuffer(hContext,
+                                  CL_MEM_READ_WRITE, sizeA * sizeof(cl_double), 0, &err);
+    CHECK_ERR(err, "Create deviceMem[0] on device error");
 
-		err  = clSetKernelArg(hKernel, 0, sizeof(cl_mem), (void *)&deviceMem[0]);
-		err |= clSetKernelArg(hKernel, 1, sizeof(cl_mem), (void *)&deviceMem[1]);
-		err |= clSetKernelArg(hKernel, 2, sizeof(cl_mem), (void *)&deviceMem[2]);
-		err |= clSetKernelArg(hKernel, 3, sizeof(cl_double) * BLOCK_SIZE * (BLOCK_SIZE + 1), (void *)NULL);
-		err |= clSetKernelArg(hKernel, 4, sizeof(cl_double) * BLOCK_SIZE * (BLOCK_SIZE + 1), (void *)NULL);
-		err |= clSetKernelArg(hKernel, 5, sizeof(cl_int), (void *)&hA);
-		err |= clSetKernelArg(hKernel, 6, sizeof(cl_int), (void *)&wA);
-		err |= clSetKernelArg(hKernel, 7, sizeof(cl_int), (void *)&wB);
-		err = clEnqueueNDRangeKernel(hCmdQueue, hKernel, 2, NULL, globalSize,
-							   blockSize, 0, NULL, NULL);
+    deviceMem[1] = clCreateBuffer(hContext,
+                                  CL_MEM_READ_WRITE, sizeB * sizeof(cl_double), 0, &err);
+    CHECK_ERR(err, "Create deviceMem[1] on device error");
+    deviceMem[2] = clCreateBuffer(hContext,
+                                  CL_MEM_READ_WRITE, sizeC * sizeof(cl_double), 0, &err);
+    CHECK_ERR(err, "Create deviceMem[2] on device error");
 
-		err = clEnqueueReadBuffer(hCmdQueue, deviceMem[2], CL_FALSE, 0,
-							sizeC * sizeof(cl_double),
-							c, 0, 0, 0);
-		CHECK_ERR(err, "Enqueue read buffer error");
-	}
-	clFinish(hCmdQueue);
-	timerEnd();
-	strTime.kernelExecution += elapsedTime();
+    timerEnd();
+    strTime.createBuffer += elapsedTime();
+    strTime.numCreateBuffer += 3;
 
-	timerStart();
-	clReleaseKernel(hKernel);
-	timerEnd();
-	strTime.releaseKernel += elapsedTime();
-	strTime.numReleaseKernel++;
-	
-	timerStart();
-	clReleaseMemObject(deviceMem[0]);
-	clReleaseMemObject(deviceMem[1]);
-	clReleaseMemObject(deviceMem[2]);
-	timerEnd();
-	strTime.releaseMemObj += elapsedTime();
-	strTime.numReleaseMemObj += 3;
-	
-	timerStart();
-//	for (i = 0; i < hA; i++)
-//	{
-//		for (j = 0; j < wB; j++)
-//		{
-//			printf("c[%d][%d] = %lf\n", i, j, c[i * wB + j]);
-//		}
-//	}
-	timerEnd();
-	strTime.printMatrix = elapsedTime();
+    //create kernel
+    cl_kernel hKernel;
+    timerStart();
+    hKernel = clCreateKernel(hProgram, "matrixMul", &err);
+    CHECK_ERR(err, "Create kernel error");
+    timerEnd();
+    strTime.createKernel += elapsedTime();
+    strTime.numCreateKernel++;
 
-	free(a);
-	free(b);
-	free(c);
-	free(cSourceCL);
+    timerStart();
+    for (iterationNo = 0; iterationNo < numIterations; iterationNo++) {
+        //printf("IterationNo = %d\n", iterationNo);
+        //copy the matrix to device memory
+        err = clEnqueueWriteBuffer(hCmdQueue, deviceMem[0], CL_FALSE, 0,
+                                   sizeA * sizeof(cl_double), a, 0, NULL, NULL);
+        CHECK_ERR(err, "Write buffer error!");
+        err = clEnqueueWriteBuffer(hCmdQueue, deviceMem[1], CL_FALSE, 0,
+                                   sizeB * sizeof(cl_double), b, 0, NULL, NULL);
+        CHECK_ERR(err, "Write buffer error!");
 
-	timerStart();
-	clReleaseProgram(hProgram);
-	timerEnd();
-	strTime.releaseProgram = elapsedTime();
-	strTime.numReleaseProgram++;
+        err = clSetKernelArg(hKernel, 0, sizeof(cl_mem), (void *) &deviceMem[0]);
+        err |= clSetKernelArg(hKernel, 1, sizeof(cl_mem), (void *) &deviceMem[1]);
+        err |= clSetKernelArg(hKernel, 2, sizeof(cl_mem), (void *) &deviceMem[2]);
+        err |=
+            clSetKernelArg(hKernel, 3, sizeof(cl_double) * BLOCK_SIZE * (BLOCK_SIZE + 1),
+                           (void *) NULL);
+        err |=
+            clSetKernelArg(hKernel, 4, sizeof(cl_double) * BLOCK_SIZE * (BLOCK_SIZE + 1),
+                           (void *) NULL);
+        err |= clSetKernelArg(hKernel, 5, sizeof(cl_int), (void *) &hA);
+        err |= clSetKernelArg(hKernel, 6, sizeof(cl_int), (void *) &wA);
+        err |= clSetKernelArg(hKernel, 7, sizeof(cl_int), (void *) &wB);
+        err = clEnqueueNDRangeKernel(hCmdQueue, hKernel, 2, NULL, globalSize,
+                                     blockSize, 0, NULL, NULL);
 
-	timerStart();
-	clReleaseCommandQueue(hCmdQueue);
-	timerEnd();
-	strTime.releaseCmdQueue = elapsedTime();
-	strTime.numReleaseCmdQueue++;
-	
-	timerStart();
-	clReleaseContext(hContext);
-	timerEnd();
-	//strTime.releaseContext = elapsedTime();
-	//strTime.numReleaseContext++;
+        err = clEnqueueReadBuffer(hCmdQueue, deviceMem[2], CL_FALSE, 0,
+                                  sizeC * sizeof(cl_double), c, 0, 0, 0);
+        CHECK_ERR(err, "Enqueue read buffer error");
+    }
+    clFinish(hCmdQueue);
+    timerEnd();
+    strTime.kernelExecution += elapsedTime();
 
-	printTime_toStandardOutput();
-	printTime_toFile();
+    timerStart();
+    clReleaseKernel(hKernel);
+    timerEnd();
+    strTime.releaseKernel += elapsedTime();
+    strTime.numReleaseKernel++;
 
-	return 0;
+    timerStart();
+    clReleaseMemObject(deviceMem[0]);
+    clReleaseMemObject(deviceMem[1]);
+    clReleaseMemObject(deviceMem[2]);
+    timerEnd();
+    strTime.releaseMemObj += elapsedTime();
+    strTime.numReleaseMemObj += 3;
+
+    timerStart();
+//      for (i = 0; i < hA; i++)
+//      {
+//              for (j = 0; j < wB; j++)
+//              {
+//                      printf("c[%d][%d] = %lf\n", i, j, c[i * wB + j]);
+//              }
+//      }
+    timerEnd();
+    strTime.printMatrix = elapsedTime();
+
+    free(a);
+    free(b);
+    free(c);
+    free(cSourceCL);
+
+    timerStart();
+    clReleaseProgram(hProgram);
+    timerEnd();
+    strTime.releaseProgram = elapsedTime();
+    strTime.numReleaseProgram++;
+
+    timerStart();
+    clReleaseCommandQueue(hCmdQueue);
+    timerEnd();
+    strTime.releaseCmdQueue = elapsedTime();
+    strTime.numReleaseCmdQueue++;
+
+    timerStart();
+    clReleaseContext(hContext);
+    timerEnd();
+    //strTime.releaseContext = elapsedTime();
+    //strTime.numReleaseContext++;
+
+    printTime_toStandardOutput();
+    printTime_toFile();
+
+    return 0;
 }
