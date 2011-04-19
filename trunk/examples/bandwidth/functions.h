@@ -11,8 +11,8 @@
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  Tom Scogland (), 
- *        Company:  
+ *         Author:  Tom Scogland (),
+ *        Company:
  *
  * =====================================================================================
  */
@@ -22,9 +22,8 @@
 #include <unistd.h>
 #include <string.h>
 
-char * allocate_matrix(int width, int height);
-void update_matrix(char ** in_matrix, int width, int height, int steps);
-char * allocate_matrix(int width, int height);
-void read_matrix(const char * filename, char ** matrix, int *width, int *height);
-void print_matrix(const char * filename, char * matrix, int width, int height);
-
+char *allocate_matrix(int width, int height);
+void update_matrix(char **in_matrix, int width, int height, int steps);
+char *allocate_matrix(int width, int height);
+void read_matrix(const char *filename, char **matrix, int *width, int *height);
+void print_matrix(const char *filename, char *matrix, int width, int height);

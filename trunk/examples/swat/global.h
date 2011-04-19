@@ -8,22 +8,22 @@
 
 #define MAX_LEN 7800
 #define CHAR_PER_LINE 50
-#define PATH_END 0 //when PATH_END module 4, the result should be 3
+#define PATH_END 0      //when PATH_END module 4, the result should be 3
 #define COALESCED_OFFSET 32
 
 typedef struct {
-	int npathflag;
+    int npathflag;
     float fngapdist;
-	float fhgapdist;
-	float fvgapdist;
+    float fhgapdist;
+    float fvgapdist;
 } match_info;
 
 typedef struct {
-	int nposi, nposj;
-	int nmaxpos;
-	float fmaxscore;
-	int noutputlen;
-}   MAX_INFO;
+    int nposi, nposj;
+    int nmaxpos;
+    float fmaxscore;
+    int noutputlen;
+} MAX_INFO;
 
 extern FILE *pDBLenFile;
 extern FILE *pDBDataFile;
@@ -31,4 +31,3 @@ extern float blosum62[23][23];
 extern char amino_acids[24];
 
 #endif
-
