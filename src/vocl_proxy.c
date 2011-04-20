@@ -179,7 +179,7 @@ int main(int argc, char *argv[])
     int len;
     MPI_Get_processor_name(hostName, &len);
     hostName[len] = '\0';
-    printf("slaveHostName = %s\n", hostName);
+    printf("proxyHostName = %s\n", hostName);
 #endif
 
     /* issue non-blocking receive for all control messages */
