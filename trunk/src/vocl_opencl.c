@@ -8,37 +8,42 @@
 #define _PRINT_NODE_NAME
 
 /* for slave process */
-static int slaveComm;
+static MPI_Comm proxyComm;
+static MPI_Comm proxyCommData;
 static int slaveCreated = 0;
 static int np = 1;
 static int errCodes[MAX_NPS];
 
+/* count for the number of OpenCL objects allocated */
+static unsigned int voclObjCount = 0;
+
 /* kernel argument processing functions */
-extern cl_int createKernel(cl_kernel kernel);
+extern cl_int      createKernel(cl_kernel kernel);
 extern kernel_info *getKernelPtr(cl_kernel kernel);
-extern cl_int releaseKernelPtr(cl_kernel kernel);
+extern cl_int      releaseKernelPtr(cl_kernel kernel);
 
 /* writeBufferPool API functions */
-extern void initializeWriteBuffer();
-extern void setWriteBufferInUse(int index);
+extern void        initializeWriteBuffer();
+extern void        setWriteBufferInUse(int index);
 extern MPI_Request *getWriteRequestPtr(int index);
-extern int getNextWriteBufferIndex();
-extern void processWriteBuffer(int curIndex, int bufferNum);
-extern void processAllWrites();
+extern int         getNextWriteBufferIndex();
+extern void        processWriteBuffer(int curIndex, int bufferNum);
+extern void        processAllWrites();
 
 /* readBufferPool API functions */
-extern void initializeReadBuffer();
-extern void setReadBufferInUse(int index);
+extern void        initializeReadBuffer();
+extern void        setReadBufferInUse(int index);
 extern MPI_Request *getReadRequestPtr(int index);
-extern int getNextReadBufferIndex();
-extern void processReadBuffer(int curIndex, int bufferNum);
-extern void processAllReads();
+extern int         getNextReadBufferIndex();
+extern void        processReadBuffer(int curIndex, int bufferNum);
+extern void        processAllReads();
 
 /* send the terminating msg to the proxy */
 static void mpiFinalize()
 {
-    MPI_Send(NULL, 0, MPI_BYTE, 0, PROGRAM_END, slaveComm);
-    MPI_Comm_free(&slaveComm);
+    MPI_Send(NULL, 0, MPI_BYTE, 0, PROGRAM_END, proxyComm);
+	MPI_Comm_free(&proxyComm);
+    MPI_Comm_free(&proxyCommData);
     MPI_Finalize();
 }
 
@@ -53,8 +58,13 @@ static void checkSlaveProc()
         MPI_Init(NULL, NULL);
 
 		snprintf(proxyPathName, PROXY_PATH_NAME_LEN, "%s/bin/vocl_proxy", PROXY_PATH_NAME);
-        MPI_Comm_spawn(proxyPathName, MPI_ARGV_NULL, np,
-                       MPI_INFO_NULL, 0, MPI_COMM_WORLD, &slaveComm, errCodes);
+
+        /* proxy comm is for transmitting data */
+		MPI_Comm_spawn(proxyPathName, MPI_ARGV_NULL, np,
+                       MPI_INFO_NULL, 0, MPI_COMM_WORLD, &proxyComm, errCodes);
+
+		/* duplicate the communicator for data transfer */
+		MPI_Comm_dup(proxyComm, &proxyCommData);
         slaveCreated = 1;
 
 #ifdef _PRINT_NODE_NAME
@@ -69,13 +79,34 @@ static void checkSlaveProc()
         initializeWriteBuffer();
         initializeReadBuffer();
 
-        if (atexit(mpiFinalize) != 0) {
-            printf("register Finalize error!\n");
-            exit(1);
-        }
+		/* set the number of OpenCL objects to 0 */
+		voclObjCount = 0;
+
+//        if (atexit(mpiFinalize) != 0) {
+//            printf("register Finalize error!\n");
+//            exit(1);
+//        }
     }
 }
 
+static void increaseObjCount()
+{
+	/*increase the number of OpenCL objects */
+	voclObjCount++;
+}
+
+static void decreaseObjCount()
+{
+	/*decrease the number of OpenCL objects */
+	voclObjCount--;
+
+	/* if all OpenCL objects are released, */
+	/* no objects exists any more */
+	if (voclObjCount == 0)
+	{
+		mpiFinalize();
+	}
+}
 
 cl_int
 clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_platforms)
@@ -98,13 +129,13 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_
 
     /* send parameters to remote node */
     MPI_Isend(&tmpGetPlatform, sizeof(tmpGetPlatform), MPI_BYTE, 0,
-              GET_PLATFORM_ID_FUNC, slaveComm, request + (requestNo++));
+              GET_PLATFORM_ID_FUNC, proxyComm, request + (requestNo++));
 
     MPI_Irecv(&tmpGetPlatform, sizeof(tmpGetPlatform), MPI_BYTE, 0,
-              GET_PLATFORM_ID_FUNC, slaveComm, request + (requestNo++));
+              GET_PLATFORM_ID_FUNC, proxyComm, request + (requestNo++));
     if (platforms != NULL && num_entries > 0) {
         MPI_Irecv(platforms, sizeof(cl_platform_id) * num_entries, MPI_BYTE, 0,
-                  GET_PLATFORM_ID_FUNC1, slaveComm, request + (requestNo++));
+                  GET_PLATFORM_ID_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Waitall(requestNo, request, status);
     if (num_platforms != NULL) {
@@ -140,14 +171,14 @@ clGetDeviceIDs(cl_platform_id platform,
     }
     /* send parameters to remote node */
     MPI_Isend(&tmpGetDeviceIDs, sizeof(tmpGetDeviceIDs), MPI_BYTE, 0,
-              GET_DEVICE_ID_FUNC, slaveComm, request + (requestNo++));
+              GET_DEVICE_ID_FUNC, proxyComm, request + (requestNo++));
 
     if (num_entries > 0 && devices != NULL) {
         MPI_Irecv(devices, sizeof(cl_device_id) * num_entries, MPI_BYTE, 0,
-                  GET_DEVICE_ID_FUNC1, slaveComm, request + (requestNo++));
+                  GET_DEVICE_ID_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Irecv(&tmpGetDeviceIDs, sizeof(tmpGetDeviceIDs), MPI_BYTE, 0,
-              GET_DEVICE_ID_FUNC, slaveComm, request + (requestNo++));
+              GET_DEVICE_ID_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (num_devices != NULL) {
         *num_devices = tmpGetDeviceIDs.num_devices;
@@ -180,17 +211,20 @@ clCreateContext(const cl_context_properties * properties,
 
     /* send parameters to remote node */
     res = MPI_Isend(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, 0,
-                    CREATE_CONTEXT_FUNC, slaveComm, request + (requestNo++));
+                    CREATE_CONTEXT_FUNC, proxyComm, request + (requestNo++));
 
     if (devices != NULL) {
         MPI_Isend((void *) devices, sizeof(cl_device_id) * num_devices, MPI_BYTE, 0,
-                  CREATE_CONTEXT_FUNC1, slaveComm, request + (requestNo++));
+                  CREATE_CONTEXT_FUNC1, proxyCommData, request + (requestNo++));
     }
 
     MPI_Irecv(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, 0,
-              CREATE_CONTEXT_FUNC, slaveComm, request + (requestNo++));
+              CREATE_CONTEXT_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     *errcode_ret = tmpCreateContext.errcode_ret;
+
+	/* increase OpenCL object count */
+	increaseObjCount();
 
     return tmpCreateContext.hContext;
 }
@@ -215,13 +249,16 @@ clCreateCommandQueue(cl_context context,
 
     /* send parameters to remote node */
     MPI_Isend(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, 0,
-              CREATE_COMMAND_QUEUE_FUNC, slaveComm, request + (requestNo++));
+              CREATE_COMMAND_QUEUE_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, 0,
-              CREATE_COMMAND_QUEUE_FUNC, slaveComm, request + (requestNo++));
+              CREATE_COMMAND_QUEUE_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (errcode_ret != NULL) {
         *errcode_ret = tmpCreateCommandQueue.errcode_ret;
     }
+
+	/* increase OpenCL object count */
+	increaseObjCount();
 
     return tmpCreateCommandQueue.clCommand;
 }
@@ -281,14 +318,14 @@ clCreateProgramWithSource(cl_context context,
     /* send parameters to remote node */
     MPI_Isend(&tmpCreateProgramWithSource,
               sizeof(tmpCreateProgramWithSource),
-              MPI_BYTE, 0, CREATE_PROGRMA_WITH_SOURCE, slaveComm, request + (requestNo++));
+              MPI_BYTE, 0, CREATE_PROGRMA_WITH_SOURCE, proxyComm, request + (requestNo++));
     MPI_Isend(lengthsArray, sizeof(size_t) * count, MPI_BYTE, 0,
-              CREATE_PROGRMA_WITH_SOURCE1, slaveComm, request + (requestNo++));
+              CREATE_PROGRMA_WITH_SOURCE1, proxyCommData, request + (requestNo++));
     MPI_Isend((void *) allStrings, totalLength * sizeof(char), MPI_BYTE, 0,
-              CREATE_PROGRMA_WITH_SOURCE2, slaveComm, request + (requestNo++));
+              CREATE_PROGRMA_WITH_SOURCE2, proxyCommData, request + (requestNo++));
     MPI_Irecv(&tmpCreateProgramWithSource,
               sizeof(tmpCreateProgramWithSource),
-              MPI_BYTE, 0, CREATE_PROGRMA_WITH_SOURCE, slaveComm, request + (requestNo++));
+              MPI_BYTE, 0, CREATE_PROGRMA_WITH_SOURCE, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (errcode_ret != NULL) {
         *errcode_ret = tmpCreateProgramWithSource.errcode_ret;
@@ -296,6 +333,9 @@ clCreateProgramWithSource(cl_context context,
 
     free(allStrings);
     free(lengthsArray);
+
+	/* increase OpenCL object count */
+	increaseObjCount();
 
     return tmpCreateProgramWithSource.clProgram;
 }
@@ -328,18 +368,18 @@ clBuildProgram(cl_program program,
 
     /* send parameters to remote node */
     MPI_Isend(&tmpBuildProgram, sizeof(tmpBuildProgram), MPI_BYTE, 0,
-              BUILD_PROGRAM, slaveComm, request + (requestNo++));
+              BUILD_PROGRAM, proxyComm, request + (requestNo++));
     if (optionsLen > 0) {
-        MPI_Isend((void *) options, optionsLen, MPI_BYTE, 0, BUILD_PROGRAM1, slaveComm,
+        MPI_Isend((void *) options, optionsLen, MPI_BYTE, 0, BUILD_PROGRAM1, proxyCommData,
                   request + (requestNo++));
     }
     if (device_list != NULL) {
         MPI_Isend((void *) device_list, sizeof(cl_device_id) * num_devices, MPI_BYTE, 0,
-                  BUILD_PROGRAM, slaveComm, request + (requestNo++));
+                  BUILD_PROGRAM, proxyCommData, request + (requestNo++));
     }
 
     MPI_Irecv(&tmpBuildProgram, sizeof(tmpBuildProgram), MPI_BYTE, 0,
-              BUILD_PROGRAM, slaveComm, request + (requestNo++));
+              BUILD_PROGRAM, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
 
     return tmpBuildProgram.res;
@@ -360,16 +400,19 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
 
     /* send input parameters to remote node */
     MPI_Isend(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, 0,
-              CREATE_KERNEL, slaveComm, request + (requestNo++));
-    MPI_Isend((void *) kernel_name, kernelNameSize, MPI_CHAR, 0, CREATE_KERNEL1, slaveComm,
+              CREATE_KERNEL, proxyComm, request + (requestNo++));
+    MPI_Isend((void *) kernel_name, kernelNameSize, MPI_CHAR, 0, CREATE_KERNEL1, proxyCommData,
               request + (requestNo++));
     MPI_Irecv(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, 0,
-              CREATE_KERNEL, slaveComm, request + (requestNo++));
+              CREATE_KERNEL, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     *errcode_ret = tmpCreateKernel.errcode_ret;
 
     /* create kernel info on the local node for storing arguments */
     createKernel(tmpCreateKernel.kernel);
+
+	/* increase OpenCL object count */
+	increaseObjCount();
 
     return tmpCreateKernel.kernel;
 }
@@ -398,17 +441,20 @@ clCreateBuffer(cl_context context,
 
     /* send parameters to remote node */
     MPI_Isend(&tmpCreateBuffer, sizeof(tmpCreateBuffer), MPI_BYTE, 0,
-              CREATE_BUFFER_FUNC, slaveComm, request + (requestNo++));
+              CREATE_BUFFER_FUNC, proxyComm, request + (requestNo++));
     if (tmpCreateBuffer.host_ptr_flag == 1) {
-        MPI_Isend(host_ptr, size, MPI_BYTE, 0, CREATE_BUFFER_FUNC1, slaveComm,
+        MPI_Isend(host_ptr, size, MPI_BYTE, 0, CREATE_BUFFER_FUNC1, proxyCommData,
                   request + (requestNo++));
     }
     MPI_Irecv(&tmpCreateBuffer, sizeof(tmpCreateBuffer), MPI_BYTE, 0,
-              CREATE_BUFFER_FUNC, slaveComm, request + (requestNo++));
+              CREATE_BUFFER_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (errcode_ret != NULL) {
         *errcode_ret = tmpCreateBuffer.errcode_ret;
     }
+
+	/* increase OpenCL object count */
+	increaseObjCount();
 
     return tmpCreateBuffer.deviceMem;
 }
@@ -451,12 +497,12 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 
     /* send parameters to remote node */
     MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(struct strEnqueueWriteBuffer), MPI_BYTE, 0,
-              ENQUEUE_WRITE_BUFFER, slaveComm, request + (requestNo++));
+              ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
 
     if (num_events_in_wait_list > 0) {
         MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
-                  MPI_BYTE, 0, tmpEnqueueWriteBuffer.tag, slaveComm, request + (requestNo++));
+                  MPI_BYTE, 0, tmpEnqueueWriteBuffer.tag, proxyCommData, request + (requestNo++));
     }
 
     bufferNum = (cb - 1) / VOCL_WRITE_BUFFER_SIZE;
@@ -465,16 +511,19 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     for (i = 0; i <= bufferNum; i++) {
         bufferIndex = getNextWriteBufferIndex();
         if (i == bufferNum)
+		{
             bufferSize = remainingSize;
+		}
+
         MPI_Isend((void *) ((char *) ptr + i * VOCL_WRITE_BUFFER_SIZE), bufferSize, MPI_BYTE,
-                  0, VOCL_WRITE_TAG + bufferIndex, slaveComm, getWriteRequestPtr(bufferIndex));
+                  0, VOCL_WRITE_TAG + bufferIndex, proxyCommData, getWriteRequestPtr(bufferIndex));
         /* current buffer is used */
         setWriteBufferInUse(bufferIndex);
     }
 
     if (blocking_write == CL_TRUE || event != NULL) {
         MPI_Irecv(&tmpEnqueueWriteBuffer, sizeof(struct strEnqueueWriteBuffer), MPI_BYTE, 0,
-                  ENQUEUE_WRITE_BUFFER, slaveComm, request + (requestNo++));
+                  ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
         /* for a blocking write, process all previous non-blocking ones */
         if (blocking_write == CL_TRUE) {
             processAllWrites();
@@ -562,37 +611,37 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 
     /* send parameters to remote node */
     MPI_Isend(&tmpEnqueueNDRangeKernel, sizeof(tmpEnqueueNDRangeKernel), MPI_BYTE, 0,
-              ENQUEUE_ND_RANGE_KERNEL, slaveComm, request + (requestNo++));
+              ENQUEUE_ND_RANGE_KERNEL, proxyComm, request + (requestNo++));
 
     if (num_events_in_wait_list > 0) {
         MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
-                  MPI_BYTE, 0, ENQUEUE_ND_RANGE_KERNEL1, slaveComm, request + (requestNo++));
+                  MPI_BYTE, 0, ENQUEUE_ND_RANGE_KERNEL1, proxyCommData, request + (requestNo++));
     }
 
     if (tmpEnqueueNDRangeKernel.global_work_offset_flag == 1) {
         MPI_Isend((void *) global_work_offset, sizeof(size_t) * work_dim, MPI_BYTE, 0,
-                  ENQUEUE_ND_RANGE_KERNEL1, slaveComm, request + (requestNo++));
+                  ENQUEUE_ND_RANGE_KERNEL1, proxyCommData, request + (requestNo++));
     }
 
     if (tmpEnqueueNDRangeKernel.global_work_size_flag == 1) {
         MPI_Isend((void *) global_work_size, sizeof(size_t) * work_dim, MPI_BYTE, 0,
-                  ENQUEUE_ND_RANGE_KERNEL2, slaveComm, request + (requestNo++));
+                  ENQUEUE_ND_RANGE_KERNEL2, proxyCommData, request + (requestNo++));
     }
 
     if (tmpEnqueueNDRangeKernel.local_work_size_flag == 1) {
         MPI_Isend((void *) local_work_size, sizeof(size_t) * work_dim, MPI_BYTE, 0,
-                  ENQUEUE_ND_RANGE_KERNEL3, slaveComm, request + (requestNo++));
+                  ENQUEUE_ND_RANGE_KERNEL3, proxyCommData, request + (requestNo++));
     }
 
     if (kernelPtr->args_num > 0) {
         MPI_Isend((void *) kernelPtr->args_ptr, sizeof(kernel_args) * kernelPtr->args_num,
-                  MPI_BYTE, 0, ENQUEUE_ND_RANGE_KERNEL4, slaveComm, request + (requestNo++));
+                  MPI_BYTE, 0, ENQUEUE_ND_RANGE_KERNEL4, proxyCommData, request + (requestNo++));
     }
     /* arguments for current call are processed */
     kernelPtr->args_num = 0;
 
     MPI_Irecv(&tmpEnqueueNDRangeKernel, sizeof(tmpEnqueueNDRangeKernel), MPI_BYTE, 0,
-              ENQUEUE_ND_RANGE_KERNEL, slaveComm, request + (requestNo++));
+              ENQUEUE_ND_RANGE_KERNEL, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
         *event = tmpEnqueueNDRangeKernel.event;
@@ -642,10 +691,10 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
 
     /* send parameters to remote node */
     MPI_Isend(&tmpEnqueueReadBuffer, sizeof(struct strEnqueueReadBuffer), MPI_BYTE, 0,
-              ENQUEUE_READ_BUFFER, slaveComm, request + (requestNo++));
+              ENQUEUE_READ_BUFFER, proxyComm, request + (requestNo++));
     if (num_events_in_wait_list > 0) {
         MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
-                  MPI_BYTE, 0, ENQUEUE_READ_BUFFER1, slaveComm, request + (requestNo++));
+                  MPI_BYTE, 0, ENQUEUE_READ_BUFFER1, proxyCommData, request + (requestNo++));
     }
     MPI_Waitall(requestNo, request, status);
 
@@ -656,13 +705,13 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
         }
         bufferIndex = getNextReadBufferIndex();
         MPI_Irecv((void *) ((char *) ptr + VOCL_READ_BUFFER_SIZE * i), bufferSize, MPI_BYTE, 0,
-                  VOCL_READ_TAG + bufferIndex, slaveComm, getReadRequestPtr(bufferIndex));
+                  VOCL_READ_TAG + bufferIndex, proxyCommData, getReadRequestPtr(bufferIndex));
     }
 
     requestNo = 0;
     if (blocking_read == CL_TRUE || event != NULL) {
         MPI_Irecv(&tmpEnqueueReadBuffer, sizeof(struct strEnqueueReadBuffer), MPI_BYTE, 0,
-                  ENQUEUE_READ_BUFFER, slaveComm, request + (requestNo++));
+                  ENQUEUE_READ_BUFFER, proxyComm, request + (requestNo++));
     }
 
     if (blocking_read == CL_TRUE) {
@@ -698,10 +747,13 @@ cl_int clReleaseMemObject(cl_mem memobj)
 
     requestNo = 0;
     MPI_Isend(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE,
-              0, RELEASE_MEM_OBJ, slaveComm, request + (requestNo++));
+              0, RELEASE_MEM_OBJ, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE,
-              0, RELEASE_MEM_OBJ, slaveComm, request + (requestNo++));
+              0, RELEASE_MEM_OBJ, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
+
+	/* decrease the number of OpenCL objects count */
+	decreaseObjCount();
 
     return tmpReleaseMemObject.res;
 }
@@ -723,10 +775,14 @@ cl_int clReleaseKernel(cl_kernel kernel)
     struct strReleaseKernel tmpReleaseKernel;
     tmpReleaseKernel.kernel = kernel;
     MPI_Isend(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE,
-              0, CL_RELEASE_KERNEL_FUNC, slaveComm, request + (requestNo++));
+              0, CL_RELEASE_KERNEL_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE,
-              0, CL_RELEASE_KERNEL_FUNC, slaveComm, request + (requestNo++));
+              0, CL_RELEASE_KERNEL_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
+
+	/* decrease the number of OpenCL objects count */
+	decreaseObjCount();
+
     return tmpReleaseKernel.res;
 }
 
@@ -743,9 +799,9 @@ cl_int clFinish(cl_command_queue hInCmdQueue)
     processAllReads();
 
 
-    MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0, FINISH_FUNC, slaveComm, &request1);
+    MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0, FINISH_FUNC, proxyComm, &request1);
     MPI_Wait(&request1, status);
-    MPI_Irecv(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0, FINISH_FUNC, slaveComm, &request2);
+    MPI_Irecv(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0, FINISH_FUNC, proxyComm, &request2);
     MPI_Wait(&request2, status);
     return tmpFinish.res;
 }
@@ -769,13 +825,13 @@ clGetContextInfo(cl_context context,
     }
 
     MPI_Isend(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
-              GET_CONTEXT_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_CONTEXT_INFO_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
-              GET_CONTEXT_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_CONTEXT_INFO_FUNC, proxyComm, request + (requestNo++));
 
     if (param_value != NULL) {
         MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
-                  GET_CONTEXT_INFO_FUNC1, slaveComm, request + (requestNo++));
+                  GET_CONTEXT_INFO_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Waitall(requestNo, request, status);
 
@@ -809,13 +865,13 @@ clGetProgramBuildInfo(cl_program program,
     }
 
     MPI_Isend(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, 0,
-              GET_BUILD_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_BUILD_INFO_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, 0,
-              GET_BUILD_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_BUILD_INFO_FUNC, proxyComm, request + (requestNo++));
 
     if (param_value != NULL) {
         MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
-                  GET_BUILD_INFO_FUNC1, slaveComm, request + (requestNo++));
+                  GET_BUILD_INFO_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Waitall(requestNo, request, status);
 
@@ -844,13 +900,13 @@ clGetProgramInfo(cl_program program,
     }
 
     MPI_Isend(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, 0,
-              GET_PROGRAM_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_PROGRAM_INFO_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, 0,
-              GET_PROGRAM_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_PROGRAM_INFO_FUNC, proxyComm, request + (requestNo++));
 
     if (param_value != NULL) {
         MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
-                  GET_PROGRAM_INFO_FUNC1, slaveComm, request + (requestNo++));
+                  GET_PROGRAM_INFO_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Waitall(requestNo, request, status);
 
@@ -868,10 +924,14 @@ cl_int clReleaseProgram(cl_program program)
     struct strReleaseProgram tmpReleaseProgram;
     tmpReleaseProgram.program = program;
     MPI_Isend(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, 0,
-              REL_PROGRAM_FUNC, slaveComm, request + (requestNo++));
+              REL_PROGRAM_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, 0,
-              REL_PROGRAM_FUNC, slaveComm, request + (requestNo++));
+              REL_PROGRAM_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
+
+	/* decrease the number of OpenCL objects count */
+	decreaseObjCount();
+
     return tmpReleaseProgram.res;
 }
 
@@ -884,10 +944,14 @@ cl_int clReleaseCommandQueue(cl_command_queue command_queue)
     tmpReleaseCommandQueue.command_queue = command_queue;
 
     MPI_Isend(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, 0,
-              REL_COMMAND_QUEUE_FUNC, slaveComm, request + (requestNo++));
+              REL_COMMAND_QUEUE_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, 0,
-              REL_COMMAND_QUEUE_FUNC, slaveComm, request + (requestNo++));
+              REL_COMMAND_QUEUE_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
+
+	/* decrease the number of OpenCL objects count */
+	decreaseObjCount();
+
     return tmpReleaseCommandQueue.res;
 }
 
@@ -899,10 +963,14 @@ cl_int clReleaseContext(cl_context context)
     struct strReleaseContext tmpReleaseContext;
     tmpReleaseContext.context = context;
     MPI_Isend(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, 0,
-              REL_CONTEXT_FUNC, slaveComm, request + (requestNo++));
+              REL_CONTEXT_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, 0,
-              REL_CONTEXT_FUNC, slaveComm, request + (requestNo++));
+              REL_CONTEXT_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
+	
+	/* decrease the number of OpenCL objects count */
+	decreaseObjCount();
+
     return tmpReleaseContext.res;
 }
 
@@ -925,13 +993,13 @@ clGetDeviceInfo(cl_device_id device,
     }
 
     MPI_Isend(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, 0,
-              GET_DEVICE_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_DEVICE_INFO_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, 0,
-              GET_DEVICE_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_DEVICE_INFO_FUNC, proxyComm, request + (requestNo++));
 
     if (param_value != NULL) {
         MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
-                  GET_DEVICE_INFO_FUNC1, slaveComm, request + (requestNo++));
+                  GET_DEVICE_INFO_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Waitall(requestNo, request, status);
 
@@ -962,13 +1030,13 @@ clGetPlatformInfo(cl_platform_id platform,
     }
 
     MPI_Isend(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, 0,
-              GET_PLATFORM_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_PLATFORM_INFO_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, 0,
-              GET_PLATFORM_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_PLATFORM_INFO_FUNC, proxyComm, request + (requestNo++));
 
     if (param_value != NULL) {
         MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
-                  GET_PLATFORM_INFO_FUNC1, slaveComm, request + (requestNo++));
+                  GET_PLATFORM_INFO_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Waitall(requestNo, request, status);
 
@@ -990,9 +1058,9 @@ cl_int clFlush(cl_command_queue hInCmdQueue)
     struct strFlush tmpFlush;
     tmpFlush.command_queue = hInCmdQueue;
     MPI_Isend(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, 0,
-              FLUSH_FUNC, slaveComm, request + (requestNo++));
+              FLUSH_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, 0,
-              FLUSH_FUNC, slaveComm, request + (requestNo++));
+              FLUSH_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     return tmpFlush.res;
 }
@@ -1008,11 +1076,11 @@ cl_int clWaitForEvents(cl_uint num_events, const cl_event * event_list)
     struct strWaitForEvents tmpWaitForEvents;
     tmpWaitForEvents.num_events = num_events;
     MPI_Isend(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
-              WAIT_FOR_EVENT_FUNC, slaveComm, request + (requestNo++));
+              WAIT_FOR_EVENT_FUNC, proxyComm, request + (requestNo++));
     MPI_Isend((void *) event_list, sizeof(cl_event) * num_events, MPI_BYTE, 0,
-              WAIT_FOR_EVENT_FUNC1, slaveComm, request + (requestNo++));
+              WAIT_FOR_EVENT_FUNC1, proxyCommData, request + (requestNo++));
     MPI_Irecv(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
-              WAIT_FOR_EVENT_FUNC, slaveComm, request + (requestNo++));
+              WAIT_FOR_EVENT_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
 
     return tmpWaitForEvents.res;
@@ -1041,14 +1109,17 @@ clCreateSampler(cl_context context,
     }
 
     MPI_Isend(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, 0,
-              CREATE_SAMPLER_FUNC, slaveComm, request + (requestNo++));
+              CREATE_SAMPLER_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, 0,
-              CREATE_SAMPLER_FUNC, slaveComm, request + (requestNo++));
+              CREATE_SAMPLER_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
 
     if (errcode_ret != NULL) {
         *errcode_ret = tmpCreateSampler.errcode_ret;
     }
+
+	/* increase OpenCL object count */
+	increaseObjCount();
 
     return tmpCreateSampler.sampler;
 }
@@ -1075,13 +1146,13 @@ clGetCommandQueueInfo(cl_command_queue command_queue,
     }
 
     MPI_Isend(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, 0,
-              GET_CMD_QUEUE_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_CMD_QUEUE_INFO_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, 0,
-              GET_CMD_QUEUE_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_CMD_QUEUE_INFO_FUNC, proxyComm, request + (requestNo++));
 
     if (param_value != NULL) {
         MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
-                  GET_CMD_QUEUE_INFO_FUNC1, slaveComm, request + (requestNo++));
+                  GET_CMD_QUEUE_INFO_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Waitall(requestNo, request, status);
     if (param_value_size_ret != NULL) {
@@ -1127,13 +1198,13 @@ void *clEnqueueMapBuffer(cl_command_queue command_queue,
         tmpEnqueueMapBuffer.errcode_ret = 1;
     }
     MPI_Isend(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
-              ENQUEUE_MAP_BUFF_FUNC, slaveComm, request + (requestNo++));
+              ENQUEUE_MAP_BUFF_FUNC, proxyComm, request + (requestNo++));
     if (num_events_in_wait_list > 0) {
         MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
-                  MPI_BYTE, 0, ENQUEUE_MAP_BUFF_FUNC1, slaveComm, request + (requestNo++));
+                  MPI_BYTE, 0, ENQUEUE_MAP_BUFF_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Irecv(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
-              ENQUEUE_MAP_BUFF_FUNC, slaveComm, request + (requestNo++));
+              ENQUEUE_MAP_BUFF_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
         *event = tmpEnqueueMapBuffer.event;
@@ -1157,10 +1228,14 @@ cl_int clReleaseEvent(cl_event event)
     struct strReleaseEvent tmpReleaseEvent;
     tmpReleaseEvent.event = event;
     MPI_Isend(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
-              RELEASE_EVENT_FUNC, slaveComm, request + (requestNo++));
+              RELEASE_EVENT_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
-              RELEASE_EVENT_FUNC, slaveComm, request + (requestNo++));
+              RELEASE_EVENT_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
+
+	/* decrease the number of OpenCL objects count */
+	decreaseObjCount();
+
     return tmpReleaseEvent.res;
 }
 
@@ -1187,13 +1262,13 @@ clGetEventProfilingInfo(cl_event event,
     }
 
     MPI_Isend(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, 0,
-              GET_EVENT_PROF_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_EVENT_PROF_INFO_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, 0,
-              GET_EVENT_PROF_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_EVENT_PROF_INFO_FUNC, proxyComm, request + (requestNo++));
 
     if (param_value != NULL) {
         MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
-                  GET_EVENT_PROF_INFO_FUNC1, slaveComm, request + (requestNo++));
+                  GET_EVENT_PROF_INFO_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Waitall(requestNo, request, status);
     if (param_value_size_ret != NULL) {
@@ -1213,10 +1288,13 @@ cl_int clReleaseSampler(cl_sampler sampler)
     struct strReleaseSampler tmpReleaseSampler;
     tmpReleaseSampler.sampler = sampler;
     MPI_Isend(&tmpReleaseSampler, sizeof(tmpReleaseSampler), MPI_BYTE, 0,
-              RELEASE_SAMPLER_FUNC, slaveComm, request + (requestNo++));
+              RELEASE_SAMPLER_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseSampler, sizeof(tmpReleaseSampler), MPI_BYTE, 0,
-              RELEASE_SAMPLER_FUNC, slaveComm, request + (requestNo++));
+              RELEASE_SAMPLER_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
+
+	/* decrease the number of OpenCL objects count */
+	decreaseObjCount();
 
     return tmpReleaseSampler.res;
 }
@@ -1246,13 +1324,13 @@ clGetKernelWorkGroupInfo(cl_kernel kernel,
     }
 
     MPI_Isend(&tmpGetKernelWorkGroupInfo, sizeof(tmpGetKernelWorkGroupInfo), MPI_BYTE, 0,
-              GET_KERNEL_WGP_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_KERNEL_WGP_INFO_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpGetKernelWorkGroupInfo, sizeof(tmpGetKernelWorkGroupInfo), MPI_BYTE, 0,
-              GET_KERNEL_WGP_INFO_FUNC, slaveComm, request + (requestNo++));
+              GET_KERNEL_WGP_INFO_FUNC, proxyComm, request + (requestNo++));
 
     if (param_value != NULL) {
         MPI_Irecv(param_value, param_value_size, MPI_BYTE, 0,
-                  GET_KERNEL_WGP_INFO_FUNC1, slaveComm, request + (requestNo++));
+                  GET_KERNEL_WGP_INFO_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Waitall(requestNo, request, status);
 
@@ -1301,17 +1379,20 @@ clCreateImage2D(cl_context context,
         tmpCreateImage2D.errcode_ret = 1;
     }
     MPI_Isend(&tmpCreateImage2D, sizeof(tmpCreateImage2D), MPI_BYTE, 0,
-              CREATE_IMAGE_2D_FUNC, slaveComm, request + (requestNo++));
+              CREATE_IMAGE_2D_FUNC, proxyComm, request + (requestNo++));
     if (host_ptr != NULL) {
         MPI_Isend(host_ptr, tmpCreateImage2D.host_buff_size, MPI_BYTE, 0,
-                  CREATE_IMAGE_2D_FUNC1, slaveComm, request + (requestNo++));
+                  CREATE_IMAGE_2D_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Irecv(&tmpCreateImage2D, sizeof(tmpCreateImage2D), MPI_BYTE, 0,
-              CREATE_IMAGE_2D_FUNC, slaveComm, request + (requestNo++));
+              CREATE_IMAGE_2D_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (errcode_ret != NULL) {
         *errcode_ret = tmpCreateImage2D.errcode_ret;
     }
+
+	/* increase OpenCL object count */
+	increaseObjCount();
 
     return tmpCreateImage2D.mem_obj;
 }
@@ -1346,13 +1427,13 @@ clEnqueueCopyBuffer(cl_command_queue command_queue,
     }
 
     MPI_Isend(&tmpEnqueueCopyBuffer, sizeof(tmpEnqueueCopyBuffer), MPI_BYTE, 0,
-              ENQ_COPY_BUFF_FUNC, slaveComm, request + (requestNo++));
+              ENQ_COPY_BUFF_FUNC, proxyComm, request + (requestNo++));
     if (num_events_in_wait_list > 0) {
         MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
-                  MPI_BYTE, 0, ENQ_COPY_BUFF_FUNC1, slaveComm, request + (requestNo++));
+                  MPI_BYTE, 0, ENQ_COPY_BUFF_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Irecv(&tmpEnqueueCopyBuffer, sizeof(tmpEnqueueCopyBuffer), MPI_BYTE, 0,
-              ENQ_COPY_BUFF_FUNC, slaveComm, request + (requestNo++));
+              ENQ_COPY_BUFF_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
         *event = tmpEnqueueCopyBuffer.event;
@@ -1371,9 +1452,9 @@ cl_int clRetainEvent(cl_event event)
     struct strRetainEvent tmpRetainEvent;
     tmpRetainEvent.event = event;
     MPI_Isend(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, 0,
-              RETAIN_EVENT_FUNC, slaveComm, request + (requestNo++));
+              RETAIN_EVENT_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, 0,
-              RETAIN_EVENT_FUNC, slaveComm, request + (requestNo++));
+              RETAIN_EVENT_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     return tmpRetainEvent.res;
 }
@@ -1388,9 +1469,9 @@ cl_int clRetainMemObject(cl_mem memobj)
     struct strRetainMemObject tmpRetainMemObject;
     tmpRetainMemObject.memobj = memobj;
     MPI_Isend(&tmpRetainMemObject, sizeof(tmpRetainMemObject), MPI_BYTE, 0,
-              RETAIN_MEMOBJ_FUNC, slaveComm, request + (requestNo++));
+              RETAIN_MEMOBJ_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpRetainMemObject, sizeof(tmpRetainMemObject), MPI_BYTE, 0,
-              RETAIN_MEMOBJ_FUNC, slaveComm, request + (requestNo++));
+              RETAIN_MEMOBJ_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     return tmpRetainMemObject.res;
 }
@@ -1405,9 +1486,9 @@ cl_int clRetainKernel(cl_kernel kernel)
     struct strRetainKernel tmpRetainKernel;
     tmpRetainKernel.kernel = kernel;
     MPI_Isend(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, 0,
-              RETAIN_KERNEL_FUNC, slaveComm, request + (requestNo++));
+              RETAIN_KERNEL_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, 0,
-              RETAIN_KERNEL_FUNC, slaveComm, request + (requestNo++));
+              RETAIN_KERNEL_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     return tmpRetainKernel.res;
 }
@@ -1422,9 +1503,9 @@ cl_int clRetainCommandQueue(cl_command_queue command_queue)
     struct strRetainCommandQueue tmpRetainCommandQueue;
     tmpRetainCommandQueue.command_queue = command_queue;
     MPI_Isend(&tmpRetainCommandQueue, sizeof(tmpRetainCommandQueue), MPI_BYTE, 0,
-              RETAIN_CMDQUE_FUNC, slaveComm, request + (requestNo++));
+              RETAIN_CMDQUE_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpRetainCommandQueue, sizeof(tmpRetainCommandQueue), MPI_BYTE, 0,
-              RETAIN_CMDQUE_FUNC, slaveComm, request + (requestNo++));
+              RETAIN_CMDQUE_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     return tmpRetainCommandQueue.res;
 }
@@ -1451,13 +1532,13 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue,
         tmpEnqueueUnmapMemObject.event_null_flag = 1;
     }
     MPI_Isend(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE, 0,
-              ENQ_UNMAP_MEMOBJ_FUNC, slaveComm, request + (requestNo++));
+              ENQ_UNMAP_MEMOBJ_FUNC, proxyComm, request + (requestNo++));
     if (num_events_in_wait_list > 0) {
         MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
-                  MPI_BYTE, 0, ENQ_UNMAP_MEMOBJ_FUNC1, slaveComm, request + (requestNo++));
+                  MPI_BYTE, 0, ENQ_UNMAP_MEMOBJ_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Irecv(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE, 0,
-              ENQ_UNMAP_MEMOBJ_FUNC, slaveComm, request + (requestNo++));
+              ENQ_UNMAP_MEMOBJ_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
         *event = tmpEnqueueUnmapMemObject.event;

@@ -10,7 +10,6 @@
 #include <sched.h>
 
 #define MAX_CMSG_SIZE 512       /* max control message size */
-#define DMSG_NUM      100       /* max data message num */
 
 #define OFFSET 10
 #define GET_PLATFORM_ID_FUNC        10
@@ -54,7 +53,9 @@
 #define RETAIN_CMDQUE_FUNC          48
 #define ENQ_UNMAP_MEMOBJ_FUNC       49
 #define PROGRAM_END                 50
-#define CMSG_NUM                    (PROGRAM_END-OFFSET + 1)
+
+#define CMSG_NUM                    50   /* number of buffers for control messages */
+#define DMSG_NUM      				100  /* number of buffers for data messages */
 #define TOTAL_MSG_NUM				(CMSG_NUM + DMSG_NUM)
 
 #define GET_PLATFORM_ID_FUNC1	    10000
