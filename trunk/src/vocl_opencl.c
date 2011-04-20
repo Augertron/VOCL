@@ -52,7 +52,7 @@ static void checkSlaveProc()
     if (slaveCreated == 0) {
         MPI_Init(NULL, NULL);
 
-		snprintf(proxyPathName, PROXY_PATH_NAME_LEN, "%s/bin/vocl_proxy", PROXY_PATH_NAME);
+		snprintf(proxyPathName, PROXY_PATH_NAME_LEN, "%s/vocl_proxy", PROXY_PATH_NAME);
         MPI_Comm_spawn(proxyPathName, MPI_ARGV_NULL, np,
                        MPI_INFO_NULL, 0, MPI_COMM_WORLD, &slaveComm, errCodes);
         slaveCreated = 1;
