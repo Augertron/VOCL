@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <string.h>
-#include "vocl.h"
+#include "vocl_opencl.h"
 #include "voclKernelArgProc.h"
-#include "vocl.h"
 #include <sys/time.h>
 
 /* used for print node name */
@@ -48,11 +47,13 @@ static void checkSlaveProc()
 {
     struct timeval t1, t2;
     float tmpTime;
+	char proxyPathName[PROXY_PATH_NAME_LEN];
 
     if (slaveCreated == 0) {
         MPI_Init(NULL, NULL);
 
-        MPI_Comm_spawn("/home/scxiao/workplace/trunk/vocl/vocl_proxy", MPI_ARGV_NULL, np,
+		snprintf(proxyPathName, PROXY_PATH_NAME_LEN, "%s/bin/vocl_proxy", PROXY_PATH_NAME);
+        MPI_Comm_spawn(proxyPathName, MPI_ARGV_NULL, np,
                        MPI_INFO_NULL, 0, MPI_COMM_WORLD, &slaveComm, errCodes);
         slaveCreated = 1;
 

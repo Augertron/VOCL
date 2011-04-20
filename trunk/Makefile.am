@@ -3,13 +3,14 @@
 #
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CPPFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024
-AM_CXXFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024
+AM_CPPFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024 -DPROXY_PATH_NAME=\"$(prefix)\" -DPROXY_PATH_NAME_LEN=256
+AM_CXXFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024 -DPROXY_PATH_NAME=\"$(prefix)\" -DPROXY_PATH_NAME_LEN=256
 
 lib_LTLIBRARIES = libvocl.la
-libvocl_la_SOURCES = $(top_srcdir)/src/vocl.c \
+libvocl_la_SOURCES = $(top_srcdir)/src/vocl_opencl.c \
 					 $(top_srcdir)/src/voclReadBufferProc.c \
-					 $(top_srcdir)/src/voclWriteBufferProc.c
+					 $(top_srcdir)/src/voclWriteBufferProc.c \
+					 $(top_srcdir)/src/voclKernelArgProc.c
 
 bin_PROGRAMS = vocl_proxy bandwidth matrixmult_sp matrixmult_dp nbody_sp nbody_dp swat matrixtrans_sp matrixtrans_dp
 

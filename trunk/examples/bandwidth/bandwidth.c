@@ -189,8 +189,6 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-//      printf("H2D bandwidth = %.3f (GB/s)\n", buffSize * buffNum/strTime.enqueueWriteBuffer/1000000.0);
-//      printf("D2H bandwidth = %.3f (GB/s)\n", buffSize * buffNum/strTime.enqueueReadBuffer/1000000.0);
     printf("%.1fKB\t\%d\t%.3f\t%.3f\n", megaBytes, buffNum,
            buffSize * buffNum / strTime.enqueueWriteBuffer / 1000000.0,
            buffSize * buffNum / strTime.enqueueReadBuffer / 1000000.0);
@@ -198,8 +196,6 @@ int main(int argc, char **argv)
             buffSize * buffNum / strTime.enqueueWriteBuffer / 1000000.0,
             buffSize * buffNum / strTime.enqueueReadBuffer / 1000000.0);
     fclose(pfile);
-//      printTime_toStandardOutput();
-//      printTime_toFile();
 
     return 0;
 }
