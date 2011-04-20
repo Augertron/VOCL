@@ -114,20 +114,20 @@ void printTime_toFile()
             strTime.releaseCmdQueue, strTime.releaseContext, strTime.totalTime);
     fclose(pTimeFile);
 
-    pCountFile = fopen("../counts.txt", "at");
-    if (pCountFile == NULL) {
-        printf("File counts.txt open error!\n");
-        return;
-    }
-
-    fprintf(pCountFile,
-            "matrixMul\t %d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
-            strTime.numGetPlatform, strTime.numGetDeviceID, strTime.numCreateContext,
-            strTime.numCreateCommandQueue, strTime.numCreateProgramWithSource,
-            strTime.numBuildProgram, strTime.numCreateBuffer, strTime.numCreateKernel,
-            strTime.numEnqueueWriteBuffer, strTime.numSetKernelArg, strTime.numKernelExecution,
-            strTime.numEnqueueReadBuffer, strTime.numReleaseKernel, strTime.numReleaseMemObj,
-            strTime.numReleaseProgram, strTime.numReleaseCmdQueue, strTime.numReleaseContext);
-    fclose(pCountFile);
+//    pCountFile = fopen("../counts.txt", "at");
+//    if (pCountFile == NULL) {
+//        printf("File counts.txt open error!\n");
+//        return;
+//    }
+//
+//    fprintf(pCountFile,
+//            "matrixMul\t %d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
+//            strTime.numGetPlatform, strTime.numGetDeviceID, strTime.numCreateContext,
+//            strTime.numCreateCommandQueue, strTime.numCreateProgramWithSource,
+//            strTime.numBuildProgram, strTime.numCreateBuffer, strTime.numCreateKernel,
+//            strTime.numEnqueueWriteBuffer, strTime.numSetKernelArg, strTime.numKernelExecution,
+//            strTime.numEnqueueReadBuffer, strTime.numReleaseKernel, strTime.numReleaseMemObj,
+//            strTime.numReleaseProgram, strTime.numReleaseCmdQueue, strTime.numReleaseContext);
+//    fclose(pCountFile);
 
 }

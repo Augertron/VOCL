@@ -1,5 +1,4 @@
-#include "mpi.h"
-#include "vocl.h"
+#include "vocl_opencl.h"
 
 /* for sending data from local node to GPU */
 struct strWriteBufferInfo {

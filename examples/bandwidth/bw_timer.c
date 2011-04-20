@@ -82,7 +82,7 @@ void printTime_toStandardOutput()
 
 void printTime_toFile()
 {
-    FILE *pTimeFile, *pCountFile;
+    FILE *pTimeFile;
     pTimeFile = fopen("../runtime.txt", "at");
     if (pTimeFile == NULL) {
         printf("File runtime.txt open error!\n");
@@ -105,7 +105,7 @@ void printTime_toFile()
         + strTime.releaseMemObj
         + strTime.releaseProgram + strTime.releaseCmdQueue + strTime.releaseContext;
     fprintf(pTimeFile,
-            "matrixMul\t %.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n",
+            "bandwidth\t %.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n",
             strTime.getPlatform, strTime.getDeviceID, strTime.createContext,
             strTime.createCommandQueue, strTime.createProgramWithSource, strTime.buildProgram,
             strTime.createBuffer, strTime.createKernel, strTime.enqueueWriteBuffer,
@@ -113,21 +113,5 @@ void printTime_toFile()
             strTime.releaseKernel, strTime.releaseMemObj, strTime.releaseProgram,
             strTime.releaseCmdQueue, strTime.releaseContext, strTime.totalTime);
     fclose(pTimeFile);
-
-    pCountFile = fopen("../counts.txt", "at");
-    if (pCountFile == NULL) {
-        printf("File counts.txt open error!\n");
-        return;
-    }
-
-    fprintf(pCountFile,
-            "matrixMul\t %d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
-            strTime.numGetPlatform, strTime.numGetDeviceID, strTime.numCreateContext,
-            strTime.numCreateCommandQueue, strTime.numCreateProgramWithSource,
-            strTime.numBuildProgram, strTime.numCreateBuffer, strTime.numCreateKernel,
-            strTime.numEnqueueWriteBuffer, strTime.numSetKernelArg, strTime.numKernelExecution,
-            strTime.numEnqueueReadBuffer, strTime.numReleaseKernel, strTime.numReleaseMemObj,
-            strTime.numReleaseProgram, strTime.numReleaseCmdQueue, strTime.numReleaseContext);
-    fclose(pCountFile);
 
 }

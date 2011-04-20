@@ -1,4 +1,4 @@
-#include "vocl.h"
+#include "vocl_opencl.h"
 
 /* for receiving data from GPU to local node */
 struct strReadBufferInfo {
