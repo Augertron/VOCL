@@ -11,17 +11,15 @@ static kernel_info *kernelInfo = NULL;
 extern "C" {
 #endif
 
-cl_int createKernel(cl_kernel kernel);
-kernel_info *getKernelPtr(cl_kernel kernel);
-cl_int releaseKernelPtr(cl_kernel kernel);
+    cl_int createKernel(cl_kernel kernel);
+    kernel_info *getKernelPtr(cl_kernel kernel);
+    cl_int releaseKernelPtr(cl_kernel kernel);
 
 #ifdef __cplusplus
 }
 #endif
-
-/* for each kernel, a different pointer */
-/* is used for storing kernel arguments */
-cl_int createKernel(cl_kernel kernel)
+/* for each kernel, a different pointer *//* is used for storing kernel arguments */
+    cl_int createKernel(cl_kernel kernel)
 {
     kernel_info *kernelPtr;
     kernelPtr = (kernel_info *) malloc(sizeof(kernel_info));
