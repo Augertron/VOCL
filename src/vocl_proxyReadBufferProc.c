@@ -224,7 +224,6 @@ cl_int processAllReads()
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_PROXY_READ_BUFFER_NUM;
 		readBufferInfo[index].numReadBuffers = 0;
-		readBufferInfo[index].event = NULL;
         setReadBufferFlag(index, READ_AVAILABLE);
     }
     curReadBufferIndex = 0;

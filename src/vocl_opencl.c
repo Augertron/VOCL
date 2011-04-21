@@ -26,6 +26,10 @@ extern cl_int      releaseKernelPtr(cl_kernel kernel);
 /* writeBufferPool API functions */
 extern void        initializeWriteBuffer();
 extern void        setWriteBufferInUse(int index);
+extern void        setWriteBufferEvent(int index, vocl_event event);
+extern void        setWriteBuffers(int index, int bufferNum);
+extern int         getWriteBuffers(int index);
+extern int         getWriteBufferIndexFromEvent(vocl_event event);
 extern MPI_Request *getWriteRequestPtr(int index);
 extern int         getNextWriteBufferIndex();
 extern void        processWriteBuffer(int curIndex, int bufferNum);
@@ -34,6 +38,10 @@ extern void        processAllWrites();
 /* readBufferPool API functions */
 extern void        initializeReadBuffer();
 extern void        setReadBufferInUse(int index);
+extern void        setReadBufferEvent(int index, vocl_event event);
+extern void        setReadBuffers(int index, int bufferNum);
+extern int         getReadBuffers(int index);
+extern int         getReadBufferIndexFromEvent(vocl_event event);
 extern MPI_Request *getReadRequestPtr(int index);
 extern int         getNextReadBufferIndex();
 extern void        processReadBuffer(int curIndex, int bufferNum);
@@ -497,6 +505,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 
     int bufferNum, i, bufferIndex;
     size_t remainingSize, bufferSize;
+	vocl_event voclEvent;
 	cl_event *eventList = NULL;
 
     /* initialize structure */
@@ -563,7 +572,10 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
         MPI_Waitall(requestNo, request, status);
         if (event != NULL) {
 			/* covert opencl event to vocl event */
-            *event = voclCLEvent2VOCLEvent(tmpEnqueueWriteBuffer.event);
+            voclEvent = voclCLEvent2VOCLEvent(tmpEnqueueWriteBuffer.event);
+			setWriteBufferEvent(bufferIndex, voclEvent);
+			setWriteBuffers(bufferIndex, bufferNum + 1);
+            *event = (cl_event)voclEvent;
         }
         return tmpEnqueueWriteBuffer.res;
     }
@@ -687,7 +699,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
 		/* covert opencl event to vocl event to be stored */
-        *event = voclCLEvent2VOCLEvent(tmpEnqueueNDRangeKernel.event);
+        *event = (cl_event)voclCLEvent2VOCLEvent(tmpEnqueueNDRangeKernel.event);
     }
 
 	/* delete buffer for vocl events */
@@ -719,6 +731,7 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     int requestNo = 0;
     int i, bufferIndex, bufferNum;
     size_t bufferSize = VOCL_READ_BUFFER_SIZE, remainingSize;
+	vocl_event voclEvent;
 	cl_event *eventList = NULL;
 
     bufferNum = (cb - 1) / bufferSize;
@@ -783,14 +796,17 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
         processAllReads();
         MPI_Waitall(requestNo, request, status);
         if (event != NULL) {
-            *event = voclCLEvent2VOCLEvent(tmpEnqueueReadBuffer.event);
+            voclEvent = voclCLEvent2VOCLEvent(tmpEnqueueReadBuffer.event);
+            *event = (cl_event)voclEvent;
+			setReadBufferEvent(bufferIndex, voclEvent);
+			setReadBuffers(bufferIndex, bufferNum + 1);
         }
         return tmpEnqueueReadBuffer.res;
     }
     else {
         if (event != NULL) {
             MPI_Waitall(requestNo, request, status);
-            *event = voclCLEvent2VOCLEvent(tmpEnqueueReadBuffer.event);
+            *event = (cl_event)voclCLEvent2VOCLEvent(tmpEnqueueReadBuffer.event);
             return tmpEnqueueReadBuffer.res;
         }
         else {
@@ -1135,7 +1151,7 @@ cl_int clWaitForEvents(cl_uint num_events, const cl_event * event_list)
 {
     MPI_Status status[3];
     MPI_Request request[3];
-    int i, requestNo = 0;
+    int i, requestNo = 0, bufferIndex;
 	cl_event *eventList = NULL;
 
     /* check whether the slave process is created. If not, create one. */
@@ -1153,16 +1169,29 @@ cl_int clWaitForEvents(cl_uint num_events, const cl_event * event_list)
 	/* convert vocl events to opencl events */
 	voclVOCLEvents2CLEvents((vocl_event *)event_list, eventList, num_events);
 
-	for (i = 0; i < num_events; i++)
-	{
-		printf("i = %d, clEvent = %p, voclEvent = %ld\n", i, eventList[i], event_list[i]);
-	}
-	
     MPI_Isend(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
               WAIT_FOR_EVENT_FUNC, proxyComm, request + (requestNo++));
-    //MPI_Isend((void *) event_list, sizeof(cl_event) * num_events, MPI_BYTE, 0,
     MPI_Isend((void *) eventList, sizeof(cl_event) * num_events, MPI_BYTE, 0,
               WAIT_FOR_EVENT_FUNC1, proxyCommData, request + (requestNo++));
+
+//	for (i = 0; i < num_events; i++)
+//	{
+//		printf("i = %d\n", i);
+//		bufferIndex = getReadBufferIndexFromEvent((vocl_event)event_list[i]);
+//		if (bufferIndex >= 0)
+//		{
+//			processReadBuffer(bufferIndex, getReadBuffers(bufferIndex));
+//			setReadBuffers(bufferIndex, 0);
+//		}
+//
+//		bufferIndex = getWriteBufferIndexFromEvent((vocl_event)event_list[i]);
+//		if (bufferIndex >= 0)
+//		{
+//			processWriteBuffer(bufferIndex, getWriteBuffers(bufferIndex));
+//			setWriteBuffers(bufferIndex, 0);
+//		}
+//	}
+	
     MPI_Irecv(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
               WAIT_FOR_EVENT_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
@@ -1307,7 +1336,7 @@ void *clEnqueueMapBuffer(cl_command_queue command_queue,
     if (event != NULL) {
 
 	    /* convert opencl event to vocl event */
-        *event = voclCLEvent2VOCLEvent(tmpEnqueueMapBuffer.event);
+        *event = (cl_event)voclCLEvent2VOCLEvent(tmpEnqueueMapBuffer.event);
     }
 
     if (errcode_ret != NULL) {
@@ -1557,7 +1586,7 @@ clEnqueueCopyBuffer(cl_command_queue command_queue,
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
 	    /* convert opencl event to vocl event */
-        *event = voclCLEvent2VOCLEvent(tmpEnqueueCopyBuffer.event);
+        *event = (cl_event)voclCLEvent2VOCLEvent(tmpEnqueueCopyBuffer.event);
     }
 
 	if (num_events_in_wait_list > 0) {
