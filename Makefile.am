@@ -10,7 +10,8 @@ lib_LTLIBRARIES = libvocl.la
 libvocl_la_SOURCES = $(top_srcdir)/src/vocl_opencl.c \
 					 $(top_srcdir)/src/voclReadBufferProc.c \
 					 $(top_srcdir)/src/voclWriteBufferProc.c \
-					 $(top_srcdir)/src/voclKernelArgProc.c
+					 $(top_srcdir)/src/voclKernelArgProc.c \
+					 $(top_srcdir)/src/voclEventProc.c
 
 bin_PROGRAMS = vocl_proxy bandwidth matrixmult_sp matrixmult_dp nbody_sp nbody_dp swat matrixtrans_sp matrixtrans_dp
 
