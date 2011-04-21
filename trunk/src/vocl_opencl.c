@@ -2,6 +2,7 @@
 #include <string.h>
 #include "vocl_opencl.h"
 #include "voclKernelArgProc.h"
+#include "voclEventProc.h"
 #include <sys/time.h>
 
 /* used for print node name */
@@ -38,9 +39,20 @@ extern int         getNextReadBufferIndex();
 extern void        processReadBuffer(int curIndex, int bufferNum);
 extern void        processAllReads();
 
+/* vocl event processing API functions */
+extern void       voclEventInitialize();
+extern void       voclEventFinalize();
+extern vocl_event voclCLEvent2VOCLEvent(cl_event event);
+extern cl_event   voclVOCLEvent2CLEvent(vocl_event event);
+extern void       voclVOCLEvents2CLEvents(vocl_event *voclEventList, cl_event *clEventList, cl_uint eventNum);
+
 /* send the terminating msg to the proxy */
 static void mpiFinalize()
 {
+	/* release the buffer for vocl event processing */
+	voclEventFinalize();
+
+	/* send empty msg to proxy to terminate its execution */
     MPI_Send(NULL, 0, MPI_BYTE, 0, PROGRAM_END, proxyComm);
 	MPI_Comm_free(&proxyComm);
     MPI_Comm_free(&proxyCommData);
@@ -82,10 +94,13 @@ static void checkSlaveProc()
 		/* set the number of OpenCL objects to 0 */
 		voclObjCount = 0;
 
-//        if (atexit(mpiFinalize) != 0) {
-//            printf("register Finalize error!\n");
-//            exit(1);
-//        }
+		/* initialize buffers for vocl event */
+		voclEventInitialize();
+
+        if (atexit(mpiFinalize) != 0) {
+            printf("register Finalize error!\n");
+            exit(1);
+        }
     }
 }
 
@@ -102,11 +117,13 @@ static void decreaseObjCount()
 
 	/* if all OpenCL objects are released, */
 	/* no objects exists any more */
-	if (voclObjCount == 0)
-	{
-		mpiFinalize();
-	}
+//	if (voclObjCount == 0)
+//	{
+//		mpiFinalize();
+//	}
 }
+
+/*--------------------VOCL API functions, countparts of OpenCL API functions ----------------*/
 
 cl_int
 clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_platforms)
@@ -467,7 +484,8 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
                      size_t cb,
                      const void *ptr,
                      cl_uint num_events_in_wait_list,
-                     const cl_event * event_wait_list, cl_event * event)
+                     const cl_event * event_wait_list, 
+					 cl_event * event)
 {
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
@@ -479,6 +497,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 
     int bufferNum, i, bufferIndex;
     size_t remainingSize, bufferSize;
+	cl_event *eventList = NULL;
 
     /* initialize structure */
     tmpEnqueueWriteBuffer.command_queue = command_queue;
@@ -501,7 +520,16 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     MPI_Waitall(requestNo, request, status);
 
     if (num_events_in_wait_list > 0) {
-        MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+		eventList = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
+		if (eventList == NULL) {
+			printf("enqueueWriteBuffer, allocate eventList error!\n");
+		}
+		
+		/* convert vocl events to opencl events */
+		voclVOCLEvents2CLEvents((vocl_event *)event_wait_list, eventList, num_events_in_wait_list);
+
+        //MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+        MPI_Isend((void *) eventList, sizeof(cl_event) * num_events_in_wait_list,
                   MPI_BYTE, 0, tmpEnqueueWriteBuffer.tag, proxyCommData, request + (requestNo++));
     }
 
@@ -534,10 +562,16 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 
         MPI_Waitall(requestNo, request, status);
         if (event != NULL) {
-            *event = tmpEnqueueWriteBuffer.event;
+			/* covert opencl event to vocl event */
+            *event = voclCLEvent2VOCLEvent(tmpEnqueueWriteBuffer.event);
         }
         return tmpEnqueueWriteBuffer.res;
     }
+
+	/* delete buffer for vocl events */
+    if (num_events_in_wait_list > 0) {
+        free(eventList);
+	}
 
     return CL_SUCCESS;
 }
@@ -579,9 +613,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
     MPI_Status status[7];
     MPI_Request request[7];
     int requestNo = 0;
-
-    struct timeval t1, t2;
-    float tmpTime;
+	cl_event *eventList = NULL;
 
     /* initialize structure */
     tmpEnqueueNDRangeKernel.command_queue = command_queue;
@@ -614,7 +646,17 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
               ENQUEUE_ND_RANGE_KERNEL, proxyComm, request + (requestNo++));
 
     if (num_events_in_wait_list > 0) {
-        MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+		eventList = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
+		if (eventList == NULL) {
+			printf("enqueueNDRangeKernel, allocate eventList error!\n");
+		}
+		
+		/* convert vocl events to opencl events */
+		voclVOCLEvents2CLEvents((vocl_event *)event_wait_list, eventList, num_events_in_wait_list);
+
+
+        //MPI_Isend((void *)event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+        MPI_Isend((void *)eventList, sizeof(cl_event) * num_events_in_wait_list,
                   MPI_BYTE, 0, ENQUEUE_ND_RANGE_KERNEL1, proxyCommData, request + (requestNo++));
     }
 
@@ -644,8 +686,14 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
               ENQUEUE_ND_RANGE_KERNEL, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
-        *event = tmpEnqueueNDRangeKernel.event;
+		/* covert opencl event to vocl event to be stored */
+        *event = voclCLEvent2VOCLEvent(tmpEnqueueNDRangeKernel.event);
     }
+
+	/* delete buffer for vocl events */
+    if (num_events_in_wait_list > 0) {
+        free(eventList);
+	}
 
     return tmpEnqueueNDRangeKernel.res;
 }
@@ -671,6 +719,8 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     int requestNo = 0;
     int i, bufferIndex, bufferNum;
     size_t bufferSize = VOCL_READ_BUFFER_SIZE, remainingSize;
+	cl_event *eventList = NULL;
+
     bufferNum = (cb - 1) / bufferSize;
     remainingSize = cb - bufferNum * bufferSize;
 
@@ -693,10 +743,25 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     MPI_Isend(&tmpEnqueueReadBuffer, sizeof(struct strEnqueueReadBuffer), MPI_BYTE, 0,
               ENQUEUE_READ_BUFFER, proxyComm, request + (requestNo++));
     if (num_events_in_wait_list > 0) {
-        MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+		eventList = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
+		if (eventList == NULL) {
+			printf("enqueueReadBuffer, allocate eventList error!\n");
+		}
+		
+		/* convert vocl events to opencl events */
+		voclVOCLEvents2CLEvents((vocl_event *)event_wait_list, eventList, num_events_in_wait_list);
+
+
+        //MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+        MPI_Isend((void *) eventList, sizeof(cl_event) * num_events_in_wait_list,
                   MPI_BYTE, 0, ENQUEUE_READ_BUFFER1, proxyCommData, request + (requestNo++));
     }
     MPI_Waitall(requestNo, request, status);
+	
+	/* delete buffer for vocl events */
+    if (num_events_in_wait_list > 0) {
+        free(eventList);
+	}
 
     /* receive all data */
     for (i = 0; i <= bufferNum; i++) {
@@ -718,20 +783,21 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
         processAllReads();
         MPI_Waitall(requestNo, request, status);
         if (event != NULL) {
-            *event = tmpEnqueueReadBuffer.event;
+            *event = voclCLEvent2VOCLEvent(tmpEnqueueReadBuffer.event);
         }
         return tmpEnqueueReadBuffer.res;
     }
     else {
         if (event != NULL) {
             MPI_Waitall(requestNo, request, status);
-            *event = tmpEnqueueReadBuffer.event;
+            *event = voclCLEvent2VOCLEvent(tmpEnqueueReadBuffer.event);
             return tmpEnqueueReadBuffer.res;
         }
         else {
             return CL_SUCCESS;
         }
     }
+
 }
 
 cl_int clReleaseMemObject(cl_mem memobj)
@@ -1070,18 +1136,40 @@ cl_int clWaitForEvents(cl_uint num_events, const cl_event * event_list)
     MPI_Status status[3];
     MPI_Request request[3];
     int i, requestNo = 0;
+	cl_event *eventList = NULL;
+
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
 
     struct strWaitForEvents tmpWaitForEvents;
     tmpWaitForEvents.num_events = num_events;
+
+	/* allocate opencl event buffer */
+	eventList = (cl_event *)malloc(sizeof(cl_event) * num_events);
+	if (eventList == NULL) {
+		printf("wait for event, allocate eventList error!\n");
+	}
+
+	/* convert vocl events to opencl events */
+	voclVOCLEvents2CLEvents((vocl_event *)event_list, eventList, num_events);
+
+	for (i = 0; i < num_events; i++)
+	{
+		printf("i = %d, clEvent = %p, voclEvent = %ld\n", i, eventList[i], event_list[i]);
+	}
+	
     MPI_Isend(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
               WAIT_FOR_EVENT_FUNC, proxyComm, request + (requestNo++));
-    MPI_Isend((void *) event_list, sizeof(cl_event) * num_events, MPI_BYTE, 0,
+    //MPI_Isend((void *) event_list, sizeof(cl_event) * num_events, MPI_BYTE, 0,
+    MPI_Isend((void *) eventList, sizeof(cl_event) * num_events, MPI_BYTE, 0,
               WAIT_FOR_EVENT_FUNC1, proxyCommData, request + (requestNo++));
     MPI_Irecv(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, 0,
               WAIT_FOR_EVENT_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
+
+	/* free opencl event buffer */
+	free(eventList);
+	eventList = NULL;
 
     return tmpWaitForEvents.res;
 }
@@ -1175,6 +1263,7 @@ void *clEnqueueMapBuffer(cl_command_queue command_queue,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
+	cl_event *eventList = NULL;
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
     struct strEnqueueMapBuffer tmpEnqueueMapBuffer;
@@ -1200,19 +1289,36 @@ void *clEnqueueMapBuffer(cl_command_queue command_queue,
     MPI_Isend(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
               ENQUEUE_MAP_BUFF_FUNC, proxyComm, request + (requestNo++));
     if (num_events_in_wait_list > 0) {
-        MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+		eventList = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
+		if (eventList == NULL) {
+			printf("enqueueMapBuffer, allocate eventList error!\n");
+		}
+		
+		/* convert vocl events to opencl events */
+		voclVOCLEvents2CLEvents((vocl_event *)event_wait_list, eventList, num_events_in_wait_list);
+
+        //MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+        MPI_Isend((void *)eventList, sizeof(cl_event) * num_events_in_wait_list,
                   MPI_BYTE, 0, ENQUEUE_MAP_BUFF_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Irecv(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
               ENQUEUE_MAP_BUFF_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
-        *event = tmpEnqueueMapBuffer.event;
+
+	    /* convert opencl event to vocl event */
+        *event = voclCLEvent2VOCLEvent(tmpEnqueueMapBuffer.event);
     }
 
     if (errcode_ret != NULL) {
         *errcode_ret = tmpEnqueueMapBuffer.errcode_ret;
     }
+
+    /* free opencl event buffer */
+	if (num_events_in_wait_list > 0) {
+		free(eventList);
+		eventList = NULL;
+	}
 
     return tmpEnqueueMapBuffer.ret_ptr;
 }
@@ -1226,7 +1332,9 @@ cl_int clReleaseEvent(cl_event event)
     checkSlaveProc();
 
     struct strReleaseEvent tmpReleaseEvent;
-    tmpReleaseEvent.event = event;
+	/* convert vocl event to opencl event */
+    tmpReleaseEvent.event = voclVOCLEvent2CLEvent((vocl_event)event);
+
     MPI_Isend(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
               RELEASE_EVENT_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
@@ -1252,7 +1360,9 @@ clGetEventProfilingInfo(cl_event event,
     checkSlaveProc();
 
     struct strGetEventProfilingInfo tmpGetEventProfilingInfo;
-    tmpGetEventProfilingInfo.event = event;
+	/*convert vocl event to opencl event */
+    tmpGetEventProfilingInfo.event = voclVOCLEvent2CLEvent((vocl_event)event);
+
     tmpGetEventProfilingInfo.param_name = param_name;
     tmpGetEventProfilingInfo.param_value_size = param_value_size;
     tmpGetEventProfilingInfo.param_value = param_value;
@@ -1410,6 +1520,7 @@ clEnqueueCopyBuffer(cl_command_queue command_queue,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
+	cl_event *eventList = NULL;
 
     checkSlaveProc();
 
@@ -1429,15 +1540,30 @@ clEnqueueCopyBuffer(cl_command_queue command_queue,
     MPI_Isend(&tmpEnqueueCopyBuffer, sizeof(tmpEnqueueCopyBuffer), MPI_BYTE, 0,
               ENQ_COPY_BUFF_FUNC, proxyComm, request + (requestNo++));
     if (num_events_in_wait_list > 0) {
-        MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+		eventList = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
+		if (eventList == NULL) {
+			printf("enqueueCopyBuffer, allocate eventList error!\n");
+		}
+		
+		/* convert vocl events to opencl events */
+		voclVOCLEvents2CLEvents((vocl_event *)event_wait_list, eventList, num_events_in_wait_list);
+
+        //MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+        MPI_Isend((void *) eventList, sizeof(cl_event) * num_events_in_wait_list,
                   MPI_BYTE, 0, ENQ_COPY_BUFF_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Irecv(&tmpEnqueueCopyBuffer, sizeof(tmpEnqueueCopyBuffer), MPI_BYTE, 0,
               ENQ_COPY_BUFF_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
-        *event = tmpEnqueueCopyBuffer.event;
+	    /* convert opencl event to vocl event */
+        *event = voclCLEvent2VOCLEvent(tmpEnqueueCopyBuffer.event);
     }
+
+	if (num_events_in_wait_list > 0) {
+	    free(eventList);
+		eventList = NULL;
+	}
 
     return tmpEnqueueCopyBuffer.res;
 }
@@ -1450,7 +1576,9 @@ cl_int clRetainEvent(cl_event event)
     checkSlaveProc();
 
     struct strRetainEvent tmpRetainEvent;
-    tmpRetainEvent.event = event;
+    /*convert vocl event to opencl event */
+    tmpRetainEvent.event = voclVOCLEvent2CLEvent((vocl_event)event);
+
     MPI_Isend(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, 0,
               RETAIN_EVENT_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, 0,
@@ -1519,6 +1647,7 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue,
 {
     MPI_Status status[3];
     MPI_Request request[3];
+	cl_event *eventList = NULL;
     int requestNo = 0;
     checkSlaveProc();
 
@@ -1534,7 +1663,16 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue,
     MPI_Isend(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE, 0,
               ENQ_UNMAP_MEMOBJ_FUNC, proxyComm, request + (requestNo++));
     if (num_events_in_wait_list > 0) {
-        MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+		eventList = (cl_event *)malloc(sizeof(cl_event) * num_events_in_wait_list);
+		if (eventList == NULL) {
+			printf("enqueueUnMapMemObject, allocate eventList error!\n");
+		}
+		
+		/* convert vocl events to opencl events */
+		voclVOCLEvents2CLEvents((vocl_event *)event_wait_list, eventList, num_events_in_wait_list);
+
+        //MPI_Isend((void *) event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
+        MPI_Isend((void *) eventList, sizeof(cl_event) * num_events_in_wait_list,
                   MPI_BYTE, 0, ENQ_UNMAP_MEMOBJ_FUNC1, proxyCommData, request + (requestNo++));
     }
     MPI_Irecv(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE, 0,
@@ -1543,6 +1681,11 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue,
     if (event != NULL) {
         *event = tmpEnqueueUnmapMemObject.event;
     }
+
+	if (num_events_in_wait_list > 0) {
+	    free(eventList);
+		eventList = NULL;
+	}
 
     return tmpEnqueueUnmapMemObject.res;
 }

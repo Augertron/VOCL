@@ -266,6 +266,8 @@ cl_int processAllWrites()
         index = i % VOCL_PROXY_WRITE_BUFFER_NUM;
         setWriteBufferFlag(index, WRITE_AVAILABLE);
         writeBufferInfo[index].sendProcInfo.toBeProcessedNum = 0;
+		writeBufferInfo[index].numWriteBuffers = 0;
+		writeBufferInfo[index].event = NULL;
     }
 
     curWriteBufferIndex = 0;
