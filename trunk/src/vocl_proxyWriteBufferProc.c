@@ -267,7 +267,6 @@ cl_int processAllWrites()
         setWriteBufferFlag(index, WRITE_AVAILABLE);
         writeBufferInfo[index].sendProcInfo.toBeProcessedNum = 0;
 		writeBufferInfo[index].numWriteBuffers = 0;
-		writeBufferInfo[index].event = NULL;
     }
 
     curWriteBufferIndex = 0;
