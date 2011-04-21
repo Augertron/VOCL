@@ -4,9 +4,7 @@
 /* for sending data from local node to GPU */
 struct strWriteBufferInfo {
     int isInUse;
-	int writeBufferNum;
     MPI_Request request;
-	vocl_event event;
 };
 
 static struct strWriteBufferInfo voclWriteBufferInfo[VOCL_WRITE_BUFFER_NUM];
@@ -18,8 +16,6 @@ void initializeWriteBuffer()
     int i = 0;
     for (i = 0; i < VOCL_WRITE_BUFFER_NUM; i++) {
         voclWriteBufferInfo[i].isInUse = 0;
-        voclWriteBufferInfo[i].writeBufferNum = 0;
-        voclWriteBufferInfo[i].event = -1;
     }
     curWriteBufferIndex = 0;
     writeDataRequestNum = 0;
@@ -30,35 +26,6 @@ void initializeWriteBuffer()
 void setWriteBufferInUse(int index)
 {
     voclWriteBufferInfo[index].isInUse = 1;
-}
-
-void setWriteBufferEvent(int index, vocl_event event)
-{
-	voclWriteBufferInfo[index].event = event;
-}
-
-void setWriteBuffers(int index, int bufferNum)
-{
-	voclWriteBufferInfo[index].writeBufferNum = bufferNum;
-}
-
-int getWriteBuffers(int index)
-{
-	return voclWriteBufferInfo[index].writeBufferNum;
-}
-
-int getWriteBufferIndexFromEvent(vocl_event event)
-{
-	int index;
-	for (index = 0; index < writeDataRequestNum; index++)
-	{
-		if (voclWriteBufferInfo[index].event == event)
-		{
-			return index;
-		}
-	}
-
-	return -1;
 }
 
 MPI_Request *getWriteRequestPtr(int index)
@@ -114,7 +81,6 @@ void processWriteBuffer(int curIndex, int bufferNum)
     for (i = startIndex; i <= endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
         voclWriteBufferInfo[index].isInUse = 0;
-        voclWriteBufferInfo[index].writeBufferNum = 0;
     }
 
     return;
@@ -149,7 +115,6 @@ void processAllWrites()
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
         voclWriteBufferInfo[index].isInUse = 0;
-        voclWriteBufferInfo[index].writeBufferNum = 0;
     }
 
     curWriteBufferIndex = 0;

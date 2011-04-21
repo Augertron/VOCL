@@ -4,14 +4,11 @@
 /* for receiving data from GPU to local node */
 struct strReadBufferInfo {
     int isInUse;
-	int readBufferNum;
     MPI_Request request;
-	vocl_event event;
 };
 
 static int readDataRequestNum;
 static struct strReadBufferInfo voclReadBufferInfo[VOCL_READ_BUFFER_NUM];
-/* static MPI_Request readRequest[VOCL_READ_BUFFER_NUM]; */
 static int curReadBufferIndex;
 
 void initializeReadBuffer()
@@ -19,8 +16,6 @@ void initializeReadBuffer()
     int i = 0;
     for (i = 0; i < VOCL_READ_BUFFER_NUM; i++) {
         voclReadBufferInfo[i].isInUse = 0;
-		voclReadBufferInfo[i].readBufferNum = 0;
-		voclReadBufferInfo[i].event = -1; /*invalid vocl event */
     }
     curReadBufferIndex = 0;
     readDataRequestNum = 0;
@@ -31,35 +26,6 @@ void initializeReadBuffer()
 void setReadBufferInUse(int index)
 {
     voclReadBufferInfo[index].isInUse = 1;
-}
-
-void setReadBufferEvent(int index, vocl_event event)
-{
-	voclReadBufferInfo[index].event = event;
-}
-
-void setReadBuffers(int index, int bufferNum)
-{
-	voclReadBufferInfo[index].readBufferNum = bufferNum;
-}
-
-int getReadBuffers(int index)
-{
-	return voclReadBufferInfo[index].readBufferNum;
-}
-
-int getReadBufferIndexFromEvent(vocl_event event)
-{
-	int index;
-	for (index = 0; index < readDataRequestNum; index++)
-	{
-		if (voclReadBufferInfo[index].event == event)
-		{
-			return index;
-		}
-	}
-
-	return -1;
 }
 
 MPI_Request *getReadRequestPtr(int index)
@@ -116,7 +82,6 @@ void processReadBuffer(int curIndex, int bufferNum)
     for (i = startIndex; i <= endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
         voclReadBufferInfo[index].isInUse = 0;
-		voclReadBufferInfo[index].readBufferNum = 0;
     }
 
     return;
@@ -151,7 +116,6 @@ void processAllReads()
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
         voclReadBufferInfo[index].isInUse = 0;
-        voclReadBufferInfo[index].readBufferNum = 0;
     }
 
     curReadBufferIndex = 0;
