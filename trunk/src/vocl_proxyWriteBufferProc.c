@@ -266,7 +266,7 @@ cl_int processAllWrites()
         index = i % VOCL_PROXY_WRITE_BUFFER_NUM;
         setWriteBufferFlag(index, WRITE_AVAILABLE);
         writeBufferInfo[index].sendProcInfo.toBeProcessedNum = 0;
-		writeBufferInfo[index].numWriteBuffers = 0;
+        writeBufferInfo[index].numWriteBuffers = 0;
     }
 
     curWriteBufferIndex = 0;
@@ -293,9 +293,9 @@ static void getAllPreviousReadBuffers(int writeIndex)
         index = i % VOCL_PROXY_READ_BUFFER_NUM;
         readBufferInfoPtr = getReadBufferInfoPtr(index);
         if (readBufferInfoPtr->isInUse == READ_GPU_MEM) {
-            writeBufferInfo[writeIndex].sendProcInfo.
-                readBufferIndex[writeBufferInfo[writeIndex].sendProcInfo.toBeProcessedNum++] =
-                index;
+            writeBufferInfo[writeIndex].
+                sendProcInfo.readBufferIndex[writeBufferInfo[writeIndex].sendProcInfo.
+                                             toBeProcessedNum++] = index;
             setReadBufferFlag(index, READ_GPU_MEM_SUB);
         }
     }

@@ -54,8 +54,8 @@
 #define ENQ_UNMAP_MEMOBJ_FUNC       49
 #define PROGRAM_END                 50
 
-#define CMSG_NUM                    50   /* number of buffers for control messages */
-#define DMSG_NUM      				100  /* number of buffers for data messages */
+#define CMSG_NUM                    50  /* number of buffers for control messages */
+#define DMSG_NUM      				100     /* number of buffers for data messages */
 #define TOTAL_MSG_NUM				(CMSG_NUM + DMSG_NUM)
 
 #define GET_PLATFORM_ID_FUNC1	    10000

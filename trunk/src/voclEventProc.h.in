@@ -5,7 +5,7 @@
 
 /* #define vocl_event long long */
 /* typedef uint64_t vocl_event; */
-typedef @vocl_event@ vocl_event;
+typedef @vocl_event @ vocl_event;
 
 /* allocate elements in the buffer */
 /* if not enough, re-allocate */
@@ -13,12 +13,11 @@ typedef @vocl_event@ vocl_event;
 
 /* map between real opencl event and vocl event */
 struct strVOCLEventBuffer {
-	cl_event    clEvent;
-	/* long long int is used to indicate vocl event */
-	vocl_event  voclEvent;
+    cl_event clEvent;
+    /* long long int is used to indicate vocl event */
+    vocl_event voclEvent;
 };
 
 
 
 #endif
-

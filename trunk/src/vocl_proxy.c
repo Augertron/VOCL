@@ -11,45 +11,45 @@
 
 #define _PRINT_NODE_NAME
 
-static struct strGetPlatformIDs           tmpGetPlatformID;
-static struct strGetDeviceIDs             tmpGetDeviceIDs;
-static struct strCreateContext            tmpCreateContext;
-static struct strCreateCommandQueue       tmpCreateCommandQueue;
-static struct strCreateProgramWithSource  tmpCreateProgramWithSource;
-static struct strBuildProgram             tmpBuildProgram;
-static struct strCreateKernel             tmpCreateKernel;
-static struct strCreateBuffer             tmpCreateBuffer;
-static struct strEnqueueWriteBuffer       tmpEnqueueWriteBuffer;
-static struct strSetKernelArg             tmpSetKernelArg;
-static struct strEnqueueNDRangeKernel     tmpEnqueueNDRangeKernel;
-static struct strEnqueueReadBuffer        tmpEnqueueReadBuffer;
-static struct strReleaseMemObject         tmpReleaseMemObject;
-static struct strReleaseKernel            tmpReleaseKernel;
-static struct strGetContextInfo           tmpGetContextInfo;
-static struct strGetProgramBuildInfo      tmpGetProgramBuildInfo;
-static struct strGetProgramInfo           tmpGetProgramInfo;
-static struct strReleaseProgram           tmpReleaseProgram;
-static struct strReleaseCommandQueue      tmpReleaseCommandQueue;
-static struct strReleaseContext           tmpReleaseContext;
-static struct strFinish                   tmpFinish;
-static struct strGetDeviceInfo            tmpGetDeviceInfo;
-static struct strGetPlatformInfo          tmpGetPlatformInfo;
-static struct strFlush                    tmpFlush;
-static struct strWaitForEvents            tmpWaitForEvents;
-static struct strCreateSampler            tmpCreateSampler;
-static struct strGetCommandQueueInfo      tmpGetCommandQueueInfo;
-static struct strEnqueueMapBuffer         tmpEnqueueMapBuffer;
-static struct strReleaseEvent             tmpReleaseEvent;
-static struct strGetEventProfilingInfo    tmpGetEventProfilingInfo;
-static struct strReleaseSampler           tmpReleaseSampler;
-static struct strGetKernelWorkGroupInfo   tmpGetKernelWorkGroupInfo;
-static struct strCreateImage2D            tmpCreateImage2D;
-static struct strEnqueueCopyBuffer        tmpEnqueueCopyBuffer;
-static struct strRetainEvent              tmpRetainEvent;
-static struct strRetainMemObject          tmpRetainMemObject;
-static struct strRetainKernel             tmpRetainKernel;
-static struct strRetainCommandQueue       tmpRetainCommandQueue;
-static struct strEnqueueUnmapMemObject    tmpEnqueueUnmapMemObject;
+static struct strGetPlatformIDs tmpGetPlatformID;
+static struct strGetDeviceIDs tmpGetDeviceIDs;
+static struct strCreateContext tmpCreateContext;
+static struct strCreateCommandQueue tmpCreateCommandQueue;
+static struct strCreateProgramWithSource tmpCreateProgramWithSource;
+static struct strBuildProgram tmpBuildProgram;
+static struct strCreateKernel tmpCreateKernel;
+static struct strCreateBuffer tmpCreateBuffer;
+static struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
+static struct strSetKernelArg tmpSetKernelArg;
+static struct strEnqueueNDRangeKernel tmpEnqueueNDRangeKernel;
+static struct strEnqueueReadBuffer tmpEnqueueReadBuffer;
+static struct strReleaseMemObject tmpReleaseMemObject;
+static struct strReleaseKernel tmpReleaseKernel;
+static struct strGetContextInfo tmpGetContextInfo;
+static struct strGetProgramBuildInfo tmpGetProgramBuildInfo;
+static struct strGetProgramInfo tmpGetProgramInfo;
+static struct strReleaseProgram tmpReleaseProgram;
+static struct strReleaseCommandQueue tmpReleaseCommandQueue;
+static struct strReleaseContext tmpReleaseContext;
+static struct strFinish tmpFinish;
+static struct strGetDeviceInfo tmpGetDeviceInfo;
+static struct strGetPlatformInfo tmpGetPlatformInfo;
+static struct strFlush tmpFlush;
+static struct strWaitForEvents tmpWaitForEvents;
+static struct strCreateSampler tmpCreateSampler;
+static struct strGetCommandQueueInfo tmpGetCommandQueueInfo;
+static struct strEnqueueMapBuffer tmpEnqueueMapBuffer;
+static struct strReleaseEvent tmpReleaseEvent;
+static struct strGetEventProfilingInfo tmpGetEventProfilingInfo;
+static struct strReleaseSampler tmpReleaseSampler;
+static struct strGetKernelWorkGroupInfo tmpGetKernelWorkGroupInfo;
+static struct strCreateImage2D tmpCreateImage2D;
+static struct strEnqueueCopyBuffer tmpEnqueueCopyBuffer;
+static struct strRetainEvent tmpRetainEvent;
+static struct strRetainMemObject tmpRetainMemObject;
+static struct strRetainKernel tmpRetainKernel;
+static struct strRetainCommandQueue tmpRetainCommandQueue;
+static struct strEnqueueUnmapMemObject tmpEnqueueUnmapMemObject;
 
 /* control message pointer */
 MPI_Request *conMsgRequest;
@@ -369,7 +369,8 @@ int main(int argc, char *argv[])
                     (cl_device_id *) malloc(sizeof(cl_device_id) *
                                             tmpBuildProgram.num_devices);
                 MPI_Irecv(devices, sizeof(cl_device_id) * tmpBuildProgram.num_devices,
-                          MPI_BYTE, 0, BUILD_PROGRAM, parentCommData, curRequest + (requestNo++));
+                          MPI_BYTE, 0, BUILD_PROGRAM, parentCommData,
+                          curRequest + (requestNo++));
             }
             if (requestNo > 0) {
                 MPI_Waitall(requestNo, curRequest, curStatus);
@@ -549,19 +550,22 @@ int main(int argc, char *argv[])
             if (tmpEnqueueNDRangeKernel.global_work_offset_flag == 1) {
                 global_work_offset = (size_t *) malloc(work_dim * sizeof(size_t));
                 MPI_Irecv(global_work_offset, work_dim * sizeof(size_t), MPI_BYTE, 0,
-                          ENQUEUE_ND_RANGE_KERNEL1, parentCommData, curRequest + (requestNo++));
+                          ENQUEUE_ND_RANGE_KERNEL1, parentCommData,
+                          curRequest + (requestNo++));
             }
 
             if (tmpEnqueueNDRangeKernel.global_work_size_flag == 1) {
                 global_work_size = (size_t *) malloc(work_dim * sizeof(size_t));
                 MPI_Irecv(global_work_size, work_dim * sizeof(size_t), MPI_BYTE, 0,
-                          ENQUEUE_ND_RANGE_KERNEL2, parentCommData, curRequest + (requestNo++));
+                          ENQUEUE_ND_RANGE_KERNEL2, parentCommData,
+                          curRequest + (requestNo++));
             }
 
             if (tmpEnqueueNDRangeKernel.local_work_size_flag == 1) {
                 local_work_size = (size_t *) malloc(work_dim * sizeof(size_t));
                 MPI_Irecv(local_work_size, work_dim * sizeof(size_t), MPI_BYTE, 0,
-                          ENQUEUE_ND_RANGE_KERNEL3, parentCommData, curRequest + (requestNo++));
+                          ENQUEUE_ND_RANGE_KERNEL3, parentCommData,
+                          curRequest + (requestNo++));
             }
 
             if (tmpEnqueueNDRangeKernel.args_num > 0) {
@@ -916,7 +920,8 @@ int main(int argc, char *argv[])
 
             if (param_value_size > 0 && tmpGetCommandQueueInfo.param_value != NULL) {
                 MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
-                          GET_CMD_QUEUE_INFO_FUNC1, parentCommData, curRequest + (requestNo++));
+                          GET_CMD_QUEUE_INFO_FUNC1, parentCommData,
+                          curRequest + (requestNo++));
             }
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -972,7 +977,8 @@ int main(int argc, char *argv[])
 
             if (param_value_size > 0 && tmpGetEventProfilingInfo.param_value != NULL) {
                 MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
-                          GET_EVENT_PROF_INFO_FUNC1, parentCommData, curRequest + (requestNo++));
+                          GET_EVENT_PROF_INFO_FUNC1, parentCommData,
+                          curRequest + (requestNo++));
             }
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -1005,7 +1011,8 @@ int main(int argc, char *argv[])
 
             if (param_value_size > 0 && tmpGetKernelWorkGroupInfo.param_value != NULL) {
                 MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
-                          GET_KERNEL_WGP_INFO_FUNC1, parentCommData, curRequest + (requestNo++));
+                          GET_KERNEL_WGP_INFO_FUNC1, parentCommData,
+                          curRequest + (requestNo++));
                 free(param_value);
             }
 
