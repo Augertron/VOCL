@@ -36,9 +36,35 @@ else
    AC_ERROR([No CUDA SDK path provided])
 fi
 
+AC_PROG_CC_C99
+
+AC_CHECK_SIZEOF(cl_event)
+AC_CHECK_SIZEOF(uint8_t)
+AC_CHECK_SIZEOF(uint16_t)
+AC_CHECK_SIZEOF(uint32_t)
+AC_CHECK_SIZEOF(uint64_t)
+AC_CHECK_SIZEOF(uint128_t)
+
+if test "$ac_cv_sizeof_uint8_t" = "$ac_cv_sizeof_cl_event" ; then
+   vocl_event=uint8_t
+elif test "$ac_cv_sizeof_uint16_t" = "$ac_cv_sizeof_cl_event" ; then
+   vocl_event=uint16_t
+elif test "$ac_cv_sizeof_uint32_t" = "$ac_cv_sizeof_cl_event" ; then
+   vocl_event=uint32_t
+elif test "$ac_cv_sizeof_uint64_t" = "$ac_cv_sizeof_cl_event" ; then
+   vocl_event=uint64_t
+elif test "$ac_cv_sizeof_uint128_t" = "$ac_cv_sizeof_cl_event" ; then
+   vocl_event=uint128_t
+else
+   AC_ERROR([Cannot find cl_event size])
+fi
+AC_SUBST(vocl_event)
+
 abs_srcdir=`(cd $srcdir && pwd)`
 AC_SUBST(abs_srcdir)
 AC_SUBST(top_srcdir)
 
 ## Final output
-AC_OUTPUT(Makefile)
+AC_OUTPUT(Makefile
+	src/voclEventProc.h
+)
