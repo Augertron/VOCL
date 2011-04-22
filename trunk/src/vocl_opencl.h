@@ -68,8 +68,8 @@ extern "C" {
 #define ENQ_UNMAP_MEMOBJ_FUNC       49
 #define PROGRAM_END                 50
 
-#define CMSG_NUM                    (PROGRAM_END-OFFSET+1)
-#define DATAMSG_NUM                 500
+#define CMSG_NUM                    50
+#define DATAMSG_NUM                 100
 #define TOTAL_MSG_NUM               (CMSG_NUM + DATAMSG_NUM)
 
 #define GET_PLATFORM_ID_FUNC1       10000
