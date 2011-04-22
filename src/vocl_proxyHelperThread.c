@@ -2,6 +2,7 @@
 #include <CL/opencl.h>
 #include "pthread.h"
 #include "vocl_proxy.h"
+#include "vocl_proxy_macro.h"
 #include <sched.h>
 
 pthread_barrier_t barrier;

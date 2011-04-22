@@ -3,6 +3,7 @@
 #include <mpi.h>
 #include <sched.h>
 #include "vocl_proxy.h"
+#include "vocl_proxy_macro.h"
 #include "vocl_proxyBufferProc.h"
 
 /* declared in the helper thread file for barrier */
