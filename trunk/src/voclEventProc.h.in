@@ -5,7 +5,7 @@
 
 /* #define vocl_event long long */
 /* typedef uint64_t vocl_event; */
-typedef @vocl_event @ vocl_event;
+typedef @vocl_event@ vocl_event;
 
 /* allocate elements in the buffer */
 /* if not enough, re-allocate */
