@@ -54,8 +54,8 @@
 #define ENQ_UNMAP_MEMOBJ_FUNC       49
 #define PROGRAM_END                 50
 
-#define CMSG_NUM                    50  /* number of buffers for control messages */
-#define DMSG_NUM      				100     /* number of buffers for data messages */
+#define CMSG_NUM                    50   /* number of buffers for control messages */
+#define DMSG_NUM      				100  /* number of buffers for data messages */
 #define TOTAL_MSG_NUM				(CMSG_NUM + DMSG_NUM)
 
 #define GET_PLATFORM_ID_FUNC1	    10000
@@ -89,11 +89,11 @@
 #define ENQ_COPY_BUFF_FUNC1         10028
 #define ENQ_UNMAP_MEMOBJ_FUNC1      10029
 
-extern pthread_barrier_t barrier;
-extern pthread_t th;
-void *proxyHelpThread(void *);
-extern int threadReadOrWrite;
-extern int writeIndexForHelpThread;
+//extern pthread_barrier_t barrier;
+//extern pthread_t th;
+//void *proxyHelpThread(void *);
+//extern int threadReadOrWrite;
+//extern int writeIndexForHelpThread;
 
 /* flags for helper thread */
 #define GPU_MEM_READ        0
@@ -126,7 +126,7 @@ extern int writeIndexForHelpThread;
 #define READ_SEND_DATA  	4
 
 /* control message pointer */
-extern MPI_Request *conMsgRequest;
+//extern MPI_Request *conMsgRequest;
 
 struct strGetPlatformIDs {
     cl_uint num_entries;
@@ -445,47 +445,5 @@ struct strEnqueueUnmapMemObject {
     cl_event event;
     cl_int res;
 };
-
-union controlMessage {
-    struct strGetPlatformIDs tmpGetPlatformID;
-    struct strGetDeviceIDs tmpGetDeviceIDs;
-    struct strCreateContext tmpCreateContext;
-    struct strCreateCommandQueue tmpCreateCommandQueue;
-    struct strCreateProgramWithSource tmpCreateProgramWithSource;
-    struct strBuildProgram tmpBuildProgram;
-    struct strCreateKernel tmpCreateKernel;
-    struct strCreateBuffer tmpCreateBuffer;
-    struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
-    struct strSetKernelArg tmpSetKernelArg;
-    struct strEnqueueNDRangeKernel tmpEnqueueNDRangeKernel;
-    struct strEnqueueReadBuffer tmpEnqueueReadBuffer;
-    struct strReleaseMemObject tmpReleaseMemObject;
-    struct strReleaseKernel tmpReleaseKernel;
-    struct strGetContextInfo tmpGetContextInfo;
-    struct strGetProgramBuildInfo tmpGetProgramBuildInfo;
-    struct strGetProgramInfo tmpGetProgramInfo;
-    struct strReleaseProgram tmpReleaseProgram;
-    struct strReleaseCommandQueue tmpReleaseCommandQueue;
-    struct strReleaseContext tmpReleaseContext;
-    struct strFinish tmpFinish;
-    struct strGetDeviceInfo tmpGetDeviceInfo;
-    struct strGetPlatformInfo tmpGetPlatformInfo;
-    struct strFlush tmpFlush;
-    struct strWaitForEvents tmpWaitForEvents;
-    struct strCreateSampler tmpCreateSampler;
-    struct strGetCommandQueueInfo tmpGetCommandQueueInfo;
-    struct strEnqueueMapBuffer tmpEnqueueMapBuffer;
-    struct strReleaseEvent tmpReleaseEvent;
-    struct strGetEventProfilingInfo tmpGetEventProfilingInfo;
-    struct strReleaseSampler tmpReleaseSampler;
-    struct strGetKernelWorkGroupInfo tmpGetKernelWorkGroupInfo;
-    struct strCreateImage2D tmpCreateImage2D;
-    struct strEnqueueCopyBuffer tmpEnqueueCopyBuffer;
-    struct strRetainEvent tmpRetainEvent;
-    struct strRetainMemObject tmpRetainMemObject;
-    struct strRetainKernel tmpRetainKernel;
-    struct strRetainCommandQueue tmpRetainCommandQueue;
-    struct strEnqueueUnmapMemObject tmpEnqueueUnmapMemObject;
-} CONTROL_MSG_UNION;
 
 #endif
