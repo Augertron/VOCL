@@ -446,4 +446,46 @@ struct strEnqueueUnmapMemObject {
     cl_int res;
 };
 
+union controlMessage {
+    struct strGetPlatformIDs tmpGetPlatformID;
+    struct strGetDeviceIDs tmpGetDeviceIDs;
+    struct strCreateContext tmpCreateContext;
+    struct strCreateCommandQueue tmpCreateCommandQueue;
+    struct strCreateProgramWithSource tmpCreateProgramWithSource;
+    struct strBuildProgram tmpBuildProgram;
+    struct strCreateKernel tmpCreateKernel;
+    struct strCreateBuffer tmpCreateBuffer;
+    struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
+    struct strSetKernelArg tmpSetKernelArg;
+    struct strEnqueueNDRangeKernel tmpEnqueueNDRangeKernel;
+    struct strEnqueueReadBuffer tmpEnqueueReadBuffer;
+    struct strReleaseMemObject tmpReleaseMemObject;
+    struct strReleaseKernel tmpReleaseKernel;
+    struct strGetContextInfo tmpGetContextInfo;
+    struct strGetProgramBuildInfo tmpGetProgramBuildInfo;
+    struct strGetProgramInfo tmpGetProgramInfo;
+    struct strReleaseProgram tmpReleaseProgram;
+    struct strReleaseCommandQueue tmpReleaseCommandQueue;
+    struct strReleaseContext tmpReleaseContext;
+    struct strFinish tmpFinish;
+    struct strGetDeviceInfo tmpGetDeviceInfo;
+    struct strGetPlatformInfo tmpGetPlatformInfo;
+    struct strFlush tmpFlush;
+    struct strWaitForEvents tmpWaitForEvents;
+    struct strCreateSampler tmpCreateSampler;
+    struct strGetCommandQueueInfo tmpGetCommandQueueInfo;
+    struct strEnqueueMapBuffer tmpEnqueueMapBuffer;
+    struct strReleaseEvent tmpReleaseEvent;
+    struct strGetEventProfilingInfo tmpGetEventProfilingInfo;
+    struct strReleaseSampler tmpReleaseSampler;
+    struct strGetKernelWorkGroupInfo tmpGetKernelWorkGroupInfo;
+    struct strCreateImage2D tmpCreateImage2D;
+    struct strEnqueueCopyBuffer tmpEnqueueCopyBuffer;
+    struct strRetainEvent tmpRetainEvent;
+    struct strRetainMemObject tmpRetainMemObject;
+    struct strRetainKernel tmpRetainKernel;
+    struct strRetainCommandQueue tmpRetainCommandQueue;
+    struct strEnqueueUnmapMemObject tmpEnqueueUnmapMemObject;
+} CONTROL_MSG_UNION;
+
 #endif
