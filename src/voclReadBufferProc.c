@@ -1,60 +1,103 @@
 #include "vocl_opencl.h"
-#include "voclEventProc.h"
+#include "vocl_structures.h"
 
 /* for receiving data from GPU to local node */
-struct strReadBufferInfo {
-    int isInUse;
-    MPI_Request request;
-};
+//struct strReadBufferInfo {
+//    int isInUse;
+//    MPI_Request request;
+//};
+//
+//static int readDataRequestNum;
+//static int curReadBufferIndex;
+//static struct strReadBufferInfo voclReadBufferInfo[VOCL_READ_BUFFER_NUM];
+static struct voclReadBuffer *voclReadBufferPtr = NULL;
+static int voclReadBufferNum;
 
-static int readDataRequestNum;
-static struct strReadBufferInfo voclReadBufferInfo[VOCL_READ_BUFFER_NUM];
-static int curReadBufferIndex;
-
-void initializeReadBuffer()
+static void initializeReadBuffer(int proxyID)
 {
     int i = 0;
     for (i = 0; i < VOCL_READ_BUFFER_NUM; i++) {
-        voclReadBufferInfo[i].isInUse = 0;
+        voclReadBufferPtr[proxyID].voclReadBufferInfo[i].isInUse = 0;
     }
-    curReadBufferIndex = 0;
-    readDataRequestNum = 0;
+
+    voclReadBufferPtr[proxyID].curReadBufferIndex = 0;
+    voclReadBufferPtr[proxyID].readDataRequestNum = 0;
 
     return;
 }
 
-void setReadBufferInUse(int index)
+void initializeVoclReadBufferAll()
 {
-    voclReadBufferInfo[index].isInUse = 1;
+	int i;
+	voclReadBufferNum = VOCL_BUFF_NUM;
+	voclReadBufferPtr = (struct voclReadBuffer *)malloc(sizeof(struct voclReadBuffer) * voclReadBufferNum);
+	for (i = 0; i < voclReadBufferNum; i++)
+	{
+		initializeReadBuffer(i);
+	}
 }
 
-MPI_Request *getReadRequestPtr(int index)
+void finalizeVoclReadBufferAll()
 {
-    return &voclReadBufferInfo[index].request;
+	if (voclReadBufferPtr != NULL)
+	{
+		free(voclReadBufferPtr);
+		voclReadBufferPtr = NULL;
+	}
+
+	return;
 }
 
-int getNextReadBufferIndex()
+static void reallocateReadBuffer(int origBufferNum, int newBufferNum)
 {
-    int index = curReadBufferIndex;
+	int i;
+	voclReadBufferPtr = (struct voclReadBuffer *)malloc(sizeof(struct voclReadBuffer) * newBufferNum);
+	for (i = origBufferNum; i < newBufferNum; i++)
+	{
+		initializeReadBuffer(i);
+	}
+
+	return;
+}
+
+void setReadBufferInUse(int proxyID, int index)
+{
+    voclReadBufferPtr[proxyID].voclReadBufferInfo[index].isInUse = 1;
+}
+
+MPI_Request *getReadRequestPtr(int proxyID, int index)
+{
+    return &voclReadBufferPtr[proxyID].voclReadBufferInfo[index].request;
+}
+
+int getNextReadBufferIndex(int proxyID)
+{
+	if (proxyID >= voclReadBufferNum)
+	{
+		reallocateReadBuffer(voclReadBufferNum, 2*voclReadBufferNum);
+		voclReadBufferNum *= 2;
+	}
+
+    int index = voclReadBufferPtr[proxyID].curReadBufferIndex;
     MPI_Status status;
 
-    if (voclReadBufferInfo[curReadBufferIndex].isInUse == 1) {
-        MPI_Wait(getReadRequestPtr(curReadBufferIndex), &status);
-        voclReadBufferInfo[curReadBufferIndex].isInUse = 0;
+    if (voclReadBufferPtr[proxyID].voclReadBufferInfo[index].isInUse == 1) {
+        MPI_Wait(getReadRequestPtr(proxyID, index), &status);
+        voclReadBufferPtr[proxyID].voclReadBufferInfo[index].isInUse = 0;
     }
 
-    if (++curReadBufferIndex >= VOCL_READ_BUFFER_NUM) {
-        curReadBufferIndex = 0;
+    if (++voclReadBufferPtr[proxyID].curReadBufferIndex >= VOCL_READ_BUFFER_NUM) {
+        voclReadBufferPtr[proxyID].curReadBufferIndex = 0;
     }
 
-    if (++readDataRequestNum >= VOCL_READ_BUFFER_NUM) {
-        readDataRequestNum = VOCL_READ_BUFFER_NUM;
+    if (++voclReadBufferPtr[proxyID].readDataRequestNum >= VOCL_READ_BUFFER_NUM) {
+        voclReadBufferPtr[proxyID].readDataRequestNum = VOCL_READ_BUFFER_NUM;
     }
 
     return index;
 }
 
-void processReadBuffer(int curIndex, int bufferNum)
+void processReadBuffer(int proxyID, int curIndex, int bufferNum)
 {
     int i, index, startIndex, endIndex;
     MPI_Request request[VOCL_READ_BUFFER_NUM];
@@ -76,26 +119,26 @@ void processReadBuffer(int curIndex, int bufferNum)
     requestNo = 0;
     for (i = startIndex; i <= endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
-        request[requestNo++] = *getReadRequestPtr(index);
+        request[requestNo++] = *getReadRequestPtr(proxyID, index);
     }
     MPI_Waitall(requestNo, request, status);
     for (i = startIndex; i <= endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
-        voclReadBufferInfo[index].isInUse = 0;
+        voclReadBufferPtr[proxyID].voclReadBufferInfo[index].isInUse = 0;
     }
 
     return;
 }
 
-void processAllReads()
+void processAllReads(int proxyID)
 {
     int i, index, startIndex, endIndex;
     MPI_Request request[VOCL_READ_BUFFER_NUM];
     MPI_Status status[VOCL_READ_BUFFER_NUM];
     int requestNo;
 
-    endIndex = curReadBufferIndex;
-    startIndex = endIndex - readDataRequestNum;
+    endIndex = voclReadBufferPtr[proxyID].curReadBufferIndex;
+    startIndex = endIndex - voclReadBufferPtr[proxyID].readDataRequestNum;
     if (startIndex < 0) {
         startIndex += VOCL_READ_BUFFER_NUM;
         endIndex += VOCL_READ_BUFFER_NUM;
@@ -104,8 +147,8 @@ void processAllReads()
     requestNo = 0;
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
-        if (voclReadBufferInfo[index].isInUse == 1) {
-            request[requestNo++] = *getReadRequestPtr(index);
+        if (voclReadBufferPtr[proxyID].voclReadBufferInfo[index].isInUse == 1) {
+            request[requestNo++] = *getReadRequestPtr(proxyID, index);
         }
     }
 
@@ -115,10 +158,11 @@ void processAllReads()
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
-        voclReadBufferInfo[index].isInUse = 0;
+        voclReadBufferPtr[proxyID].voclReadBufferInfo[index].isInUse = 0;
     }
 
-    curReadBufferIndex = 0;
+    voclReadBufferPtr[proxyID].curReadBufferIndex = 0;
+    voclReadBufferPtr[proxyID].readDataRequestNum = 0;
 
     return;
 }

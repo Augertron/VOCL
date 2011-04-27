@@ -10,8 +10,19 @@ lib_LTLIBRARIES = libvocl.la
 libvocl_la_SOURCES = $(top_srcdir)/src/vocl_opencl.c \
 					 $(top_srcdir)/src/voclReadBufferProc.c \
 					 $(top_srcdir)/src/voclWriteBufferProc.c \
+					 $(top_srcdir)/src/voclPlatformIDProc.c \
+					 $(top_srcdir)/src/voclDeviceIDProc.c \
+					 $(top_srcdir)/src/voclContextProc.c \
+					 $(top_srcdir)/src/voclCommandQueueProc.c \
+					 $(top_srcdir)/src/voclKernelPrototype.c \
+					 $(top_srcdir)/src/voclKernelProc.c \
 					 $(top_srcdir)/src/voclKernelArgProc.c \
-					 $(top_srcdir)/src/voclEventProc.c
+					 $(top_srcdir)/src/voclEventProc.c \
+					 $(top_srcdir)/src/voclMemoryProc.c \
+					 $(top_srcdir)/src/voclObjCount.c \
+					 $(top_srcdir)/src/voclProgramProc.c \
+					 $(top_srcdir)/src/voclSamplerProc.c
+
 
 bin_PROGRAMS = vocl_proxy bandwidth matrixmult_sp matrixmult_dp nbody_sp nbody_dp swat matrixtrans_sp matrixtrans_dp
 
