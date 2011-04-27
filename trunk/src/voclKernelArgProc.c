@@ -127,6 +127,8 @@ void createKernelArgInfo(cl_kernel kernel, char *kernel_name, vocl_program progr
 
 	/* get argument info of the kernel */
 	kernelPtr->args_flag = voclKernelPrototye(codeSource, kernel_name, &kernelPtr->kernel_arg_num);
+	
+	free(codeSource);
 
 	return;
 }

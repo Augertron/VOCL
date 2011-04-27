@@ -56,10 +56,8 @@ vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyID)
 }
 
 cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyID)
-/*comm and commData indicate the proxy process */
-/*that the event corresponds to. They are the output of this function */
 {
-    /* the vocl event value indicates its location */
+    /* the vocl kernel value indicates its location */
     /* in the event buffer */
     int kernelNo = (int) kernel;
 	*proxyID = voclKernelPtr[kernelNo].proxyID;
