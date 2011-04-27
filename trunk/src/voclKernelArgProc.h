@@ -17,6 +17,8 @@ typedef struct strKernelInfo {
     cl_kernel kernel;
     cl_uint args_num;
     cl_bool args_allocated;
+	char *args_flag;
+	unsigned int kernel_arg_num;
     kernel_args *args_ptr;
     struct strKernelInfo *next;
 } kernel_info;

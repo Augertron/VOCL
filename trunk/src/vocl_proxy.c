@@ -177,11 +177,13 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 #ifdef _PRINT_NODE_NAME
-    char hostName[200];
-    int len;
-    MPI_Get_processor_name(hostName, &len);
-    hostName[len] = '\0';
-    printf("proxyHostName = %s\n", hostName);
+    {
+        char hostName[200];
+        int len;
+        MPI_Get_processor_name(hostName, &len);
+        hostName[len] = '\0';
+        printf("proxyHostName = %s\n", hostName);
+    }
 #endif
 
     /* issue non-blocking receive for all control messages */
@@ -260,7 +262,7 @@ int main(int argc, char *argv[])
                       GET_PLATFORM_ID_FUNC, parentComm, curRequest + (requestNo++));
             if (tmpGetPlatformID.platforms != NULL && tmpGetPlatformID.num_entries > 0) {
                 MPI_Isend((void *) platforms,
-                          sizeof(cl_platform_id) * tmpGetPlatformID.num_entries, MPI_BYTE, 0,
+                          sizeof(cl_platform_id) * tmpGetPlatformID.num_platforms, MPI_BYTE, 0,
                           GET_PLATFORM_ID_FUNC1, parentCommData, curRequest + (requestNo++));
             }
 
@@ -322,7 +324,6 @@ int main(int argc, char *argv[])
 
             MPI_Isend(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, 0,
                       CREATE_COMMAND_QUEUE_FUNC, parentComm, curRequest);
-
             MPI_Wait(curRequest, curStatus);
         }
 

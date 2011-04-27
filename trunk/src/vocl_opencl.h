@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 /* number of slave process */
-#define MAX_NPS 1
+#define MAX_NPS 100
 
 /* for kernel arguments */
 #define MAX_ARGS 100
