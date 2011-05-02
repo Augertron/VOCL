@@ -15,10 +15,10 @@ extern char *voclKernelPrototye(char *sourceIn, char *kernelName, unsigned int *
 extern "C" {
 #endif
 
-    cl_int createKernel(cl_kernel kernel);
-    kernel_info *getKernelPtr(cl_kernel kernel);
-    cl_int releaseKernelPtr(cl_kernel kernel);
-	void createKernelArgInfo(cl_kernel kernel, char *kernel_name, vocl_program program);
+cl_int createKernel(cl_kernel kernel);
+kernel_info *getKernelPtr(cl_kernel kernel);
+cl_int releaseKernelPtr(cl_kernel kernel);
+void createKernelArgInfo(cl_kernel kernel, char *kernel_name, vocl_program program);
 
 #ifdef __cplusplus
 }

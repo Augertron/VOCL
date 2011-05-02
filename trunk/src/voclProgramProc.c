@@ -1,10 +1,10 @@
+#include <stdio.h>
 #include <string.h>
 #include "vocl_structures.h"
 
 
 static struct strVOCLProgram *voclProgramPtr = NULL;
 static vocl_program voclProgram;
-static int voclProgramNum;
 static int voclProgramNo;
 
 static vocl_program getVOCLProgramValue()
@@ -15,93 +15,158 @@ static vocl_program getVOCLProgramValue()
     return program;
 }
 
-static struct strVOCLProgram *getVOCLProgramPtr()
+static struct strVOCLProgram *createVOCLProgram()
 {
-    if (voclProgramNo >= voclProgramNum) {
-        voclProgramNum *= 2;
-        voclProgramPtr = (struct strVOCLProgram *) realloc(voclProgramPtr,
-                                                   voclProgramNum * sizeof(struct strVOCLProgram));
-    }
-    return &voclProgramPtr[voclProgramNo++];
+    struct strVOCLProgram *programPtr;
+	programPtr = (struct strVOCLProgram *)malloc(sizeof(struct strVOCLProgram));
+	programPtr->next = voclProgramPtr;
+	programPtr->voclSourceString = NULL;
+	programPtr->sourceSize = 0;
+	voclProgramPtr = programPtr;
+
+	return programPtr;
+}
+
+static struct strVOCLProgram *getVOCLProgramPtr(vocl_program program)
+{
+	struct strVOCLProgram *programPtr;
+	programPtr = voclProgramPtr;
+	while (programPtr != NULL)
+	{
+		if (programPtr->voclProgram == program)
+		{
+			break;
+		}
+		programPtr = programPtr->next;
+	}
+
+	if (programPtr == NULL)
+	{
+		printf("Error, program does not exist!\n");
+		exit (1);
+	}
+
+	return programPtr;
 }
 
 
 void voclProgramInitialize()
 {
-	int i;
-    voclProgramNum = VOCL_PROGRAM_NUM;
-    voclProgramPtr =
-        (struct strVOCLProgram *) malloc(voclProgramNum * sizeof(struct strVOCLProgram));
+    voclProgramPtr = NULL;
     voclProgramNo = 0;
     voclProgram = 0;
-	for (i = 0; i < voclProgramNum; i++)
-	{
-		voclProgramPtr[i].voclSourceString = NULL;
-	}
 }
 
 void voclProgramFinalize()
 {
-	int i;
-	for (i = 0; i < voclProgramNum; i++)
+    struct strVOCLProgram *programPtr, *tmpprogramPtr;
+	programPtr = voclProgramPtr;
+	while (programPtr != NULL)
 	{
-		if (voclProgramPtr[i].voclSourceString != NULL)
+		tmpprogramPtr = programPtr->next;
+		if (programPtr->voclSourceString != NULL)
 		{
-			free(voclProgramPtr[i].voclSourceString);
-			voclProgramPtr[i].voclSourceString = NULL;
-			voclProgramPtr[i].sourceSize = 0;
+			free(programPtr->voclSourceString);
 		}
+		free(programPtr);
+		programPtr = tmpprogramPtr;
 	}
 
-    if (voclProgramPtr != NULL) {
-        free(voclProgramPtr);
-        voclProgramPtr = NULL;
-    }
+    voclProgramPtr = NULL;
     voclProgramNo = 0;
     voclProgram = 0;
-    voclProgramNum = 0;
 }
 
 void voclStoreProgramSource(char *source, size_t sourceSize)
 {
-	int programIndex = voclProgramNo - 1;
-	if (voclProgramPtr[programIndex].voclSourceString != NULL)
+	struct strVOCLProgram *programPtr;
+	programPtr = voclProgramPtr;
+	if (programPtr->voclSourceString != NULL)
 	{
-		free(voclProgramPtr[programIndex].voclSourceString);
+		free(programPtr->voclSourceString);
 	}
-	voclProgramPtr[programIndex].voclSourceString = (char *)malloc(sizeof(char) * (sourceSize+1));
-	memcpy(voclProgramPtr[programIndex].voclSourceString, source, sizeof(char) * sourceSize);
+	programPtr->voclSourceString = (char *)malloc(sizeof(char) * (sourceSize+1));
+	memcpy(programPtr->voclSourceString, source, sizeof(char) * sourceSize);
 	/* null terminated string */
-	voclProgramPtr[programIndex].voclSourceString[sourceSize] = '\0';
-	voclProgramPtr[programIndex].sourceSize = sourceSize;
+	programPtr->voclSourceString[sourceSize] = '\0';
+	programPtr->sourceSize = sourceSize;
 	return;
 }
 
 char *voclGetProgramSource(vocl_program program, size_t *sourceSize)
 {
-	int programNo = (int)program;
-	*sourceSize = voclProgramPtr[programNo].sourceSize;
-	return voclProgramPtr[programNo].voclSourceString;
+	struct strVOCLProgram *programPtr;
+	programPtr = getVOCLProgramPtr(program);
+
+	*sourceSize = programPtr->sourceSize;
+	return programPtr->voclSourceString;
 }
 
-vocl_program voclCLProgram2VOCLProgram(cl_program program, int proxyID)
+vocl_program voclCLProgram2VOCLProgram(cl_program program, int proxyID,
+                 int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
-    struct strVOCLProgram *programPtr = getVOCLProgramPtr();
+    struct strVOCLProgram *programPtr = createVOCLProgram();
     programPtr->clProgram = program;
 	programPtr->proxyID = proxyID;
+	programPtr->proxyIndex = proxyIndex;
+	programPtr->proxyComm = proxyComm;
+	programPtr->proxyCommData = proxyCommData;
     programPtr->voclProgram = getVOCLProgramValue();
 
     return programPtr->voclProgram;
 }
 
-cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyID)
+cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyID,
+               int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
     /* the vocl program value indicates its location */
     /* in the event buffer */
-    int programNo = (int) program;
+	struct strVOCLProgram *programPtr = getVOCLProgramPtr(program);
 
-	*proxyID = voclProgramPtr[programNo].proxyID;
+	*proxyID = programPtr->proxyID;
+	*proxyIndex = programPtr->proxyIndex;
+	*proxyComm = programPtr->proxyComm;
+	*proxyCommData = programPtr->proxyCommData;
 
-    return voclProgramPtr[programNo].clProgram;
+    return programPtr->clProgram;
 }
 
+int voclReleaseProgram(vocl_program program)
+{
+	struct strVOCLProgram *programPtr, *preProgramPtr, *curProgramPtr;
+	/* the first node in the link list */
+	if (program == voclProgramPtr->voclProgram)
+	{
+		programPtr = voclProgramPtr;
+		voclProgramPtr = voclProgramPtr->next;
+		free(programPtr);
+
+		return 0;
+	}
+
+	programPtr = NULL;
+	preProgramPtr = voclProgramPtr;
+	curProgramPtr = voclProgramPtr->next;
+	while (curProgramPtr != NULL)
+	{
+		if (program == curProgramPtr->voclProgram)
+		{
+			programPtr = curProgramPtr;
+			break;
+		}
+		preProgramPtr = curProgramPtr;
+		curProgramPtr = curProgramPtr->next;
+	}
+
+	if (programPtr == NULL)
+	{
+		printf("program does not exist!\n");
+		exit (1);
+	}
+
+	/* remote the current node from link list */
+	preProgramPtr->next = curProgramPtr->next;
+	free(curProgramPtr);
+	
+	return 0;
+}

@@ -1,8 +1,8 @@
+#include <stdio.h>
 #include "vocl_structures.h"
 
 static struct strVOCLSampler *voclSamplerPtr = NULL;
 static vocl_sampler voclSampler;
-static int voclSamplerNum;
 static int voclSamplerNo;
 
 static vocl_sampler getVOCLSamplerValue()
@@ -13,56 +13,123 @@ static vocl_sampler getVOCLSamplerValue()
     return sampler;
 }
 
-static struct strVOCLSampler *getVOCLSamplerPtr()
+static struct strVOCLSampler *createVOCLSampler()
 {
-    if (voclSamplerNo >= voclSamplerNum) {
-        voclSamplerNum *= 2;
-        voclSamplerPtr = (struct strVOCLSampler *) realloc(voclSamplerPtr,
-                                                   voclSamplerNum *
-                                                   sizeof(struct strVOCLSampler));
-    }
-    return &voclSamplerPtr[voclSamplerNo++];
+	struct strVOCLSampler *samplerPtr;
+	samplerPtr = (struct strVOCLSampler *)malloc(sizeof(struct strVOCLSampler));
+	samplerPtr->next = voclSamplerPtr;
+	voclSamplerPtr = samplerPtr;
+
+	return samplerPtr;
 }
 
+static struct strVOCLSampler *getVOCLSamplerPtr(vocl_sampler sampler)
+{
+	struct strVOCLSampler *samplerPtr;
+	samplerPtr = voclSamplerPtr;
+	while (samplerPtr != NULL)
+	{
+		if (samplerPtr->voclSampler == sampler)
+		{
+			break;
+		}
+		samplerPtr = samplerPtr->next;
+	}
+
+	if (samplerPtr == NULL)
+	{
+		printf("Error, sampler does not exist!\n");
+		exit (1);
+	}
+
+	return samplerPtr;
+}
 
 void voclSamplerInitialize()
 {
-    voclSamplerNum = VOCL_CONTEXT_NUM;
-    voclSamplerPtr =
-        (struct strVOCLSampler *) malloc(voclSamplerNum * sizeof(struct strVOCLSampler));
+    voclSamplerPtr = NULL;
     voclSamplerNo = 0;
     voclSampler = 0;
 }
 
 void voclSamplerFinalize()
 {
-    if (voclSamplerPtr != NULL) {
-        free(voclSamplerPtr);
-        voclSamplerPtr = NULL;
-    }
+	struct strVOCLSampler *samplerPtr, *tmpsamplerPtr;
+	samplerPtr = voclSamplerPtr;
+	while (samplerPtr != NULL)
+	{
+		tmpsamplerPtr = samplerPtr->next;
+		free(samplerPtr);
+		samplerPtr = tmpsamplerPtr;
+	}
+
+    voclSamplerPtr = NULL;
     voclSamplerNo = 0;
     voclSampler = 0;
-    voclSamplerNum = 0;
 }
 
-vocl_sampler voclCLSampler2VOCLSampler(cl_sampler sampler, int proxyID)
+vocl_sampler voclCLSampler2VOCLSampler(cl_sampler sampler, int proxyID,
+                 int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
-    struct strVOCLSampler *samplerPtr = getVOCLSamplerPtr();
+    struct strVOCLSampler *samplerPtr = createVOCLSampler();
     samplerPtr->clSampler = sampler;
 	samplerPtr->proxyID = proxyID;
+	samplerPtr->proxyIndex = proxyIndex;
+	samplerPtr->proxyComm = proxyComm;
+	samplerPtr->proxyCommData = proxyCommData;
     samplerPtr->voclSampler = getVOCLSamplerValue();
 
     return samplerPtr->voclSampler;
 }
 
-cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxyID)
+cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxyID,
+               int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
-    /* the vocl event value indicates its location */
-    /* in the event buffer */
-    int samplerNo = (int) sampler;
+	struct strVOCLSampler *samplerPtr = getVOCLSamplerPtr(sampler);
+	*proxyID = samplerPtr->proxyID;
+	*proxyIndex = samplerPtr->proxyIndex;
+	*proxyComm = samplerPtr->proxyComm;
+	*proxyCommData = samplerPtr->proxyCommData;
 
-	*proxyID = voclSamplerPtr[samplerNo].proxyID;
-
-    return voclSamplerPtr[samplerNo].clSampler;
+    return samplerPtr->clSampler;
 }
 
+int voclReleaseSampler(vocl_sampler sampler)
+{
+	struct strVOCLSampler *samplerPtr, *preSamplerPtr, *curSamplerPtr;
+	/* the first node in the link list */
+	if (sampler == voclSamplerPtr->voclSampler)
+	{
+		samplerPtr = voclSamplerPtr;
+		voclSamplerPtr = voclSamplerPtr->next;
+		free(samplerPtr);
+
+		return 0;
+	}
+
+	samplerPtr = NULL;
+	preSamplerPtr = voclSamplerPtr;
+	curSamplerPtr = voclSamplerPtr->next;
+	while (curSamplerPtr != NULL)
+	{
+		if (sampler == curSamplerPtr->voclSampler)
+		{
+			samplerPtr = curSamplerPtr;
+			break;
+		}
+		preSamplerPtr = curSamplerPtr;
+		curSamplerPtr = curSamplerPtr->next;
+	}
+
+	if (samplerPtr == NULL)
+	{
+		printf("sampler does not exist!\n");
+		exit (1);
+	}
+
+	/* remote the current node from link list */
+	preSamplerPtr->next = curSamplerPtr->next;
+	free(curSamplerPtr);
+	
+	return 0;
+}

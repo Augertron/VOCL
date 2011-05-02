@@ -1,70 +1,96 @@
+#include <stdio.h>
 #include "vocl_structures.h"
 
 static struct strVOCLPlatformID *voclPlatformIDPtr = NULL;
 static vocl_platform_id voclPlatformID;
-static int voclPlatformIDNum;
 static int voclPlatformIDNo;
 
 static vocl_platform_id getVOCLPlatformIDValue()
 {
-    vocl_platform_id platform_id = voclPlatformID;
+    vocl_platform_id platform = voclPlatformID;
 	voclPlatformID++;
 
-    return platform_id;
+    return platform;
 }
 
-static struct strVOCLPlatformID *getVOCLPlatformIDPtr()
+static struct strVOCLPlatformID *createVOCLPlatformID()
 {
-    if (voclPlatformIDNo >= voclPlatformIDNum) {
-        voclPlatformIDNum *= 2;
-        voclPlatformIDPtr = (struct strVOCLPlatformID *) realloc(voclPlatformIDPtr,
-                                                   voclPlatformIDNum *
-                                                   sizeof(struct strVOCLPlatformID));
-    }
-    return &voclPlatformIDPtr[voclPlatformIDNo++];
+	struct strVOCLPlatformID *platformPtr;
+	platformPtr = (struct strVOCLPlatformID *)malloc(sizeof(struct strVOCLPlatformID));
+	platformPtr->next = voclPlatformIDPtr;
+	voclPlatformIDPtr = platformPtr;
+
+	return platformPtr;
 }
 
+static struct strVOCLPlatformID *getVOCLPlatformIDPtr(vocl_platform_id platform)
+{
+	struct strVOCLPlatformID *platformPtr;
+	platformPtr = voclPlatformIDPtr;
+	while (platformPtr != NULL)
+	{
+		if (platformPtr->voclPlatformID == platform)
+		{
+			break;
+		}
+		platformPtr = platformPtr->next;
+	}
+
+	if (platformPtr == NULL)
+	{
+		printf("Error, platform does not exist!\n");
+		exit (1);
+	}
+
+	return platformPtr;
+}
 
 void voclPlatformIDInitialize()
 {
-    voclPlatformIDNum = VOCL_PLATFORM_ID_NUM;
-    voclPlatformIDPtr =
-        (struct strVOCLPlatformID *) malloc(voclPlatformIDNum * sizeof(struct strVOCLPlatformID));
+    voclPlatformIDPtr = NULL;
     voclPlatformIDNo = 0;
     voclPlatformID = 0;
 }
 
 void voclPlatformIDFinalize()
 {
-    if (voclPlatformIDPtr != NULL) {
-        free(voclPlatformIDPtr);
-        voclPlatformIDPtr = NULL;
-    }
+	struct strVOCLPlatformID *platformPtr, *tmpplatformPtr;
+	platformPtr = voclPlatformIDPtr;
+	while (platformPtr != NULL)
+	{
+		tmpplatformPtr = platformPtr->next;
+		free(platformPtr);
+		platformPtr = tmpplatformPtr;
+	}
+
+    voclPlatformIDPtr = NULL;
     voclPlatformIDNo = 0;
     voclPlatformID = 0;
-    voclPlatformIDNum = 0;
 }
 
-vocl_platform_id voclCLPlatformID2VOCLPlatformID(cl_platform_id platformID, int proxyID)
+vocl_platform_id voclCLPlatformID2VOCLPlatformID(cl_platform_id platform, int proxyID,
+                     int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
-    struct strVOCLPlatformID *platformIDPtr = getVOCLPlatformIDPtr();
-    platformIDPtr->clPlatformID = platformID;
-	platformIDPtr->proxyID = proxyID;
-    platformIDPtr->voclPlatformID = getVOCLPlatformIDValue();
+    struct strVOCLPlatformID *platformPtr = createVOCLPlatformID();
+    platformPtr->clPlatformID = platform;
+	platformPtr->proxyID = proxyID;
+	platformPtr->proxyIndex = proxyIndex;
+	platformPtr->proxyComm = proxyComm;
+	platformPtr->proxyCommData = proxyCommData;
+    platformPtr->voclPlatformID = getVOCLPlatformIDValue();
 
-    return platformIDPtr->voclPlatformID;
+    return platformPtr->voclPlatformID;
 }
 
-cl_platform_id voclVOCLPlatformID2CLPlatformIDComm(vocl_platform_id platformID, int *proxyID)
-/*proxyID indicates the proxy process */
-/*that the platformID corresponds to. It is the output of this function */
+cl_platform_id voclVOCLPlatformID2CLPlatformIDComm(vocl_platform_id platform, int *proxyID,
+                   int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
-    /* the vocl platformID value indicates its location */
-    /* in the platformID buffer */
-    int platformIDNo = (int) platformID;
+	struct strVOCLPlatformID *platformPtr = getVOCLPlatformIDPtr(platform);
+	*proxyID = platformPtr->proxyID;
+	*proxyIndex = platformPtr->proxyIndex;
+	*proxyComm = platformPtr->proxyComm;
+	*proxyCommData = platformPtr->proxyCommData;
 
-	*proxyID = voclPlatformIDPtr[platformIDNo].proxyID;
-
-    return voclPlatformIDPtr[platformIDNo].clPlatformID;
+    return platformPtr->clPlatformID;
 }
 

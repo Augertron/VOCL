@@ -9,57 +9,80 @@
 #define _PRINT_NODE_NAME
 
 /* for slave process */
-static MPI_Comm proxyComm;
-static MPI_Comm proxyCommData;
+static MPI_Comm *voclProxyComm = NULL;
+static MPI_Comm *voclProxyCommData = NULL;
+static int      *voclProxyID = NULL;
 static int slaveCreated = 0;
-static int np = 1;
+static int np;
 static int errCodes[MAX_NPS];
 
-/* count for the number of OpenCL objects allocated */
-//static unsigned int voclObjCount = 0;
+/* for proxy host name process */
+extern int voclGetProxyHostNum();
+extern char *voclGetProxyHostName(int index);
+extern void voclProxyHostFinalize();
+extern void voclCreateProxyHostNameList();
 
 /* for platform ID processing */
 extern void voclPlatformIDInitialize();
 extern void voclPlatformIDFinalize();
-extern vocl_platform_id voclCLPlatformID2VOCLPlatformID(cl_platform_id platformID, int proxyID);
-extern cl_platform_id voclVOCLPlatformID2CLPlatformIDComm(vocl_platform_id platformID, int *proxyID);
+extern vocl_platform_id voclCLPlatformID2VOCLPlatformID(cl_platform_id platformID, int proxyID,
+                            int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern cl_platform_id voclVOCLPlatformID2CLPlatformIDComm(vocl_platform_id platformID, int *proxyID,
+                          int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
 
 /* for device ID processing */
 extern void voclDeviceIDInitialize();
 extern void voclDeviceIDFinalize();
-extern vocl_device_id voclCLDeviceID2VOCLDeviceID(cl_device_id deviceID, int proxyID);
-extern cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id deviceID, int *proxyID);
+extern vocl_device_id voclCLDeviceID2VOCLDeviceID(cl_device_id deviceID, int proxyID,
+                          int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id deviceID, int *proxyID,
+                        int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
 
 /* for context processing */
 extern void voclContextInitialize();
 extern void voclContextFinalize();
-extern vocl_context voclCLContext2VOCLContext(cl_context context, int proxyID);
-extern cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyID);
+extern vocl_context voclCLContext2VOCLContext(cl_context context, int proxyID,
+                          int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyID,
+                      int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
+extern int voclReleaseContext(vocl_context context);
 
 /* for command queue processing */
 extern void voclCommandQueueInitialize();
 extern void voclCommandQueueFinalize();
-extern vocl_command_queue voclCLCommandQueue2VOCLCommandQueue(cl_command_queue commandQueue, int proxyID);
-extern cl_command_queue voclVOCLCommandQueue2CLCommandQueueComm(vocl_command_queue commandQueue, int *proxyID);
+extern vocl_command_queue voclCLCommandQueue2VOCLCommandQueue(cl_command_queue commandQueue, int proxyID,
+                              int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern cl_command_queue voclVOCLCommandQueue2CLCommandQueueComm(vocl_command_queue commandQueue, int *proxyID,
+                            int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
+extern int voclReleaseCommandQueue(vocl_command_queue command_queue);
 
 /* for program processing */
 extern void voclProgramInitialize();
 extern void voclProgramFinalize();
-extern vocl_program voclCLProgram2VOCLProgram(cl_program program, int proxyID);
-extern cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyID);
+extern vocl_program voclCLProgram2VOCLProgram(cl_program program, int proxyID,
+                        int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyID,
+                      int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
+extern int voclReleaseProgram(vocl_program program);
 extern void voclStoreProgramSource(char *source, size_t sourceSize);
 
 /* for program processing */
 extern void voclMemoryInitialize();
 extern void voclMemoryFinalize();
-extern vocl_mem voclCLMemory2VOCLMemory(cl_mem memory, int proxyID);
-extern cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyID);
+extern vocl_mem voclCLMemory2VOCLMemory(cl_mem memory, int proxyID,
+                    int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyID,
+                  int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
+extern int voclReleaseMemory(vocl_mem mem);
 
 /* for program processing */
 extern void voclKernelInitialize();
 extern void voclKernelFinalize();
-extern vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyID);
-extern cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyID);
+extern vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyID,
+                       int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyID,
+                     int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
+extern int voclReleaseKernel(vocl_kernel kernel);
 
 /* kernel argument processing functions */
 extern cl_int createKernel(cl_kernel kernel);
@@ -88,20 +111,28 @@ extern void processAllReads(int proxyID);
 /* vocl event processing API functions */
 extern void voclEventInitialize();
 extern void voclEventFinalize();
-extern vocl_event voclCLEvent2VOCLEvent(cl_event event, int proxy);
+extern vocl_event voclCLEvent2VOCLEvent(cl_event event, int proxy,
+                      int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
 extern cl_event voclVOCLEvent2CLEvent(vocl_event event);
-extern cl_event voclVOCLEvent2CLEventComm(vocl_event event, int *proxyID);
+extern cl_event voclVOCLEvent2CLEventComm(vocl_event event, int *proxyID,
+                    int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
 extern void voclVOCLEvents2CLEvents(vocl_event * voclEventList, 
 				cl_event * clEventList, cl_uint eventNum);
 extern void voclVOCLEvents2CLEventsComm(vocl_event * voclEventList,
-				cl_event * clEventList, cl_uint eventNum, int *proxyID);
+				cl_event * clEventList, cl_uint eventNum, int *proxyID,
+                int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
+extern int voclReleaseEvent(vocl_event event);
 
 /* vocl sampler processing API functions */
 extern void voclSamplerInitialize();
 extern void voclSamplerFinalize();
-extern vocl_sampler voclCLSampler2VOCLSampler(cl_sampler sampler, int proxyID);
-extern cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxyID);
+extern vocl_sampler voclCLSampler2VOCLSampler(cl_sampler sampler, int proxyID,
+                        int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxyID,
+                      int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
+extern int voclReleaseSampler(vocl_sampler sampler);
 
+/*******************************************************************/
 /* for Opencl object count processing */
 static unsigned int *voclObjCountPtr = NULL;
 static unsigned int voclObjCountNum;
@@ -109,7 +140,7 @@ static unsigned int voclObjCountNo;
 
 static void voclObjCountInitialize()
 {
-    voclObjCountNum = VOCL_OBJ_COUNT_NUM;
+    voclObjCountNum = np; /* one count for each proxy process */
     voclObjCountNo = 0;
     voclObjCountPtr = (unsigned int *)malloc(sizeof(unsigned int) * voclObjCountNum);
     memset(voclObjCountPtr, 0, sizeof(unsigned int) * voclObjCountNum);
@@ -147,6 +178,7 @@ static void decreaseObjCount(int proxyID)
 //    }
 }
 /* end of opencl object count processing */
+/************************************************************************/
 
 /* send the terminating msg to the proxy */
 static void mpiFinalize()
@@ -156,11 +188,16 @@ static void mpiFinalize()
     /* send empty msg to proxy to terminate its execution */
 	for (i = 0; i < np; i++)
 	{
-    	MPI_Send(NULL, 0, MPI_BYTE, i, PROGRAM_END, proxyComm);
+    	MPI_Send(NULL, 0, MPI_BYTE, voclProxyID[i], PROGRAM_END, voclProxyComm[i]);
+        MPI_Comm_free(&voclProxyComm[i]);
+        MPI_Comm_free(&voclProxyCommData[i]);
 	}
-    MPI_Comm_free(&proxyComm);
-    MPI_Comm_free(&proxyCommData);
     MPI_Finalize();
+
+	/* free buffer for MPI communicator and proxy ID */
+	free(voclProxyComm);
+	free(voclProxyCommData);
+	free(voclProxyID);
 
 	/* release memory */
 	voclPlatformIDFinalize();
@@ -173,6 +210,7 @@ static void mpiFinalize()
     voclEventFinalize();
     voclSamplerFinalize();
 	voclObjCountFinalize();
+    voclProxyHostFinalize();
 
 	finalizeVoclWriteBufferAll();
 	finalizeVoclReadBufferAll();
@@ -185,20 +223,44 @@ static void checkSlaveProc()
 {
     struct timeval t1, t2;
     float tmpTime;
+	MPI_Info info;
+	int i;
     char proxyPathName[PROXY_PATH_NAME_LEN];
 
     if (slaveCreated == 0) {
         MPI_Init(NULL, NULL);
 
+		/* specify slave proxy directory */
         snprintf(proxyPathName, PROXY_PATH_NAME_LEN, "%s/bin/vocl_proxy", PROXY_PATH_NAME);
 
-        /* proxy comm is for transmitting data */
-        MPI_Comm_spawn(proxyPathName, MPI_ARGV_NULL, np,
-                       MPI_INFO_NULL, 0, MPI_COMM_WORLD, &proxyComm, errCodes);
+		/* proxy the environment variable for proxy host list */
+        voclCreateProxyHostNameList();
 
-        /* duplicate the communicator for data transfer */
-        MPI_Comm_dup(proxyComm, &proxyCommData);
+		/*retrieve the number of proxy hosts */
+	    np = voclGetProxyHostNum();
+
+		/* allocate buffer for MPI communicator and proxy ID */
+	    voclProxyComm = (MPI_Comm *)malloc(sizeof(MPI_Comm) * np);
+	    voclProxyCommData = (MPI_Comm *)malloc(sizeof(MPI_Comm) * np);
+	    voclProxyID   = (int *)malloc(sizeof(int) * np);
+
+        /* proxy comm is for transmitting data */
+		MPI_Info_create(&info);
+        for (i = 0; i < np; i++)
+		{
+            MPI_Info_set(info, "host", voclGetProxyHostName(i));
+            /* each proxy uses a different communicator, */
+			/* so ranks of all proxy processes are 0 */
+			voclProxyID[i] = 0;
+            MPI_Comm_spawn(proxyPathName, MPI_ARGV_NULL, 1,
+                       info, 0, MPI_COMM_WORLD, &voclProxyComm[i], errCodes);
+
+            /* duplicate the communicator for data transfer */
+            MPI_Comm_dup(voclProxyComm[i], &voclProxyCommData[i]);
+		}
+
         slaveCreated = 1;
+		MPI_Info_free(&info);
 
 #ifdef _PRINT_NODE_NAME
         {
@@ -261,19 +323,20 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_
         tmpGetPlatform[i].num_platforms = 1;
 
         /* send parameters to remote node */
-        MPI_Isend(&tmpGetPlatform[i], sizeof(struct strGetPlatformIDs), MPI_BYTE, i,
-                  GET_PLATFORM_ID_FUNC, proxyComm, request + (requestNo++));
+        MPI_Isend(&tmpGetPlatform[i], sizeof(struct strGetPlatformIDs), MPI_BYTE, voclProxyID[i],
+                  GET_PLATFORM_ID_FUNC, voclProxyComm[i], request + (requestNo++));
 	}
 
 	/*receive the number of platforms on each node */
 	for (i = 0; i < np; i++)
 	{
-        MPI_Irecv(&tmpGetPlatform[i], sizeof(struct strGetPlatformIDs), MPI_BYTE, i,
-                  GET_PLATFORM_ID_FUNC, proxyComm, request + (requestNo++));
+        MPI_Irecv(&tmpGetPlatform[i], sizeof(struct strGetPlatformIDs), MPI_BYTE, voclProxyID[i],
+                  GET_PLATFORM_ID_FUNC, voclProxyComm[i], request + (requestNo++));
 	}
 
 	/* make sure the number of platforms received */
     MPI_Waitall(requestNo, request, status);
+	requestNo = 0;
 
 	totalPlatformNum = 0;
 	for (i = 0; i < np; i++)
@@ -281,14 +344,15 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_
 	    curPlatformNum = tmpGetPlatform[i].num_platforms;
 
 		if (platforms != NULL && num_entries > 0) {
-    	    MPI_Irecv(&platforms[totalPlatformNum], sizeof(cl_platform_id) * curPlatformNum, MPI_BYTE, i,
-                   GET_PLATFORM_ID_FUNC1, proxyCommData, request);	
+    	    MPI_Irecv(&platforms[totalPlatformNum], sizeof(cl_platform_id) * curPlatformNum, MPI_BYTE, voclProxyID[i],
+                   GET_PLATFORM_ID_FUNC1, voclProxyCommData[i], request);	
 		    MPI_Wait(request, status);
 			/* convert cl platform id to vocl platform id */
 			for (j = 0; j < curPlatformNum; j++)
 			{
 				platforms[totalPlatformNum + j] =
-				    (cl_platform_id)voclCLPlatformID2VOCLPlatformID(platforms[totalPlatformNum + j], i);
+				    (cl_platform_id)voclCLPlatformID2VOCLPlatformID(platforms[totalPlatformNum + j], 
+                        voclProxyID[i], i, voclProxyComm[i], voclProxyCommData[i]);
 			}
 		}
 		totalPlatformNum += curPlatformNum;
@@ -311,7 +375,8 @@ clGetDeviceIDs(cl_platform_id platform,
                cl_uint num_entries, cl_device_id * devices, cl_uint * num_devices)
 {
     struct strGetDeviceIDs tmpGetDeviceIDs;
-	int proxyID, i;
+	int proxyID, i, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
@@ -321,7 +386,8 @@ clGetDeviceIDs(cl_platform_id platform,
 
     /* initialize structure */
 	/*convert the vocl platformID to cl platform ID */
-    tmpGetDeviceIDs.platform = voclVOCLPlatformID2CLPlatformIDComm((vocl_platform_id)platform, &proxyID);
+    tmpGetDeviceIDs.platform = voclVOCLPlatformID2CLPlatformIDComm((vocl_platform_id)platform, 
+        &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpGetDeviceIDs.device_type = device_type;
     tmpGetDeviceIDs.num_entries = num_entries;
     tmpGetDeviceIDs.devices = devices;
@@ -347,7 +413,7 @@ clGetDeviceIDs(cl_platform_id platform,
 	if (num_entries > 0 && devices != NULL) {
 		for (i = 0; i < num_entries; i++)
 		{
-			devices[i] = (cl_device_id)voclCLDeviceID2VOCLDeviceID(devices[i], proxyID);
+			devices[i] = (cl_device_id)voclCLDeviceID2VOCLDeviceID(devices[i], proxyID, proxyIndex, proxyComm, proxyCommData);
 		}
 	}
     if (num_devices != NULL) {
@@ -372,7 +438,8 @@ clCreateContext(const cl_context_properties * properties,
     MPI_Request request[3];
 	vocl_context context;
 	cl_device_id *clDevices;
-	int proxyID, i;
+	int proxyID, i, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     int requestNo = 0;
     int res;
 
@@ -384,7 +451,7 @@ clCreateContext(const cl_context_properties * properties,
 	clDevices = (cl_device_id *)malloc(sizeof(cl_device_id) * num_devices);
     for (i = 0; i < num_devices; i++)
 	{
-		clDevices[i] = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)devices[i], &proxyID);
+		clDevices[i] = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)devices[i], &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
 	}
     tmpCreateContext.user_data = user_data;
 
@@ -407,7 +474,7 @@ clCreateContext(const cl_context_properties * properties,
     increaseObjCount(proxyID);
 	
 	/*convert opencl context to vocl context */
-	context = voclCLContext2VOCLContext(tmpCreateContext.hContext, proxyID);
+	context = voclCLContext2VOCLContext(tmpCreateContext.hContext, proxyID, proxyIndex, proxyComm, proxyCommData);
 
     return (cl_context)context;
 }
@@ -426,10 +493,11 @@ clCreateCommandQueue(cl_context context,
     MPI_Request request[2];
     int requestNo = 0;
 	vocl_command_queue command_queue;
-	int proxyIDDevice, proxyIDContext;
+	int proxyIDDevice, proxyIDContext, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
 
-    tmpCreateCommandQueue.context = voclVOCLContext2CLContextComm((vocl_context)context, &proxyIDContext);
-    tmpCreateCommandQueue.device = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)device, &proxyIDDevice);
+    tmpCreateCommandQueue.context = voclVOCLContext2CLContextComm((vocl_context)context, &proxyIDContext, &proxyIndex, &proxyComm, &proxyCommData);
+    tmpCreateCommandQueue.device = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)device, &proxyIDDevice, &proxyIndex, &proxyComm, &proxyCommData);
 	if (proxyIDContext != proxyIDDevice)
 	{
 		printf("deice and context are on different GPU nodes!\n");
@@ -447,10 +515,10 @@ clCreateCommandQueue(cl_context context,
     }
 
     /* increase OpenCL object count */
-    increaseObjCount(proxyIDContext);
+    increaseObjCount(proxyIndex);
 	
 	/* convert cl command queue to vocl command queue */
-	command_queue = voclCLCommandQueue2VOCLCommandQueue(tmpCreateCommandQueue.clCommand, proxyIDContext);
+	command_queue = voclCLCommandQueue2VOCLCommandQueue(tmpCreateCommandQueue.clCommand, proxyIDContext, proxyIndex, proxyComm, proxyCommData);
 
     return (cl_command_queue)command_queue;
 }
@@ -467,14 +535,16 @@ clCreateProgramWithSource(cl_context context,
     MPI_Status status[4];
     MPI_Request request[4];
 	vocl_program program;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     int requestNo = 0;
     size_t totalLength, *lengthsArray, strStartLoc;
     cl_uint strIndex;
     char *allStrings;
 
     /* initialize structure */
-    tmpCreateProgramWithSource.context = voclVOCLContext2CLContextComm((vocl_context)context, &proxyID);
+    tmpCreateProgramWithSource.context = voclVOCLContext2CLContextComm((vocl_context)context, 
+        &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpCreateProgramWithSource.count = count;
 
     lengthsArray = (size_t *) malloc(count * sizeof(size_t));
@@ -527,10 +597,11 @@ clCreateProgramWithSource(cl_context context,
 
 
     /* increase OpenCL object count */
-    increaseObjCount(proxyID);
+    increaseObjCount(proxyIndex);
 	
 	/* convert opencl program to vocl program */
-	program = voclCLProgram2VOCLProgram(tmpCreateProgramWithSource.clProgram, proxyID);
+	program = voclCLProgram2VOCLProgram(tmpCreateProgramWithSource.clProgram, 
+        proxyID, proxyIndex, proxyComm, proxyCommData);
 	
 	/*store the source code corresponding to the program */
 	voclStoreProgramSource(allStrings, totalLength);
@@ -559,11 +630,13 @@ clBuildProgram(cl_program program,
     MPI_Status status[4];
     MPI_Request request[4];
 	cl_device_id *clDevices;
-	int proxyID, i;
+	int proxyID, i, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     int requestNo = 0;
 
     /* initialize structure */
-    tmpBuildProgram.program = voclVOCLProgram2CLProgramComm((vocl_program)program, &proxyID);
+    tmpBuildProgram.program = voclVOCLProgram2CLProgramComm((vocl_program)program, 
+        &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpBuildProgram.num_devices = num_devices;
     tmpBuildProgram.device_list = (cl_device_id *) device_list;
     tmpBuildProgram.optionLen = optionsLen;
@@ -579,7 +652,8 @@ clBuildProgram(cl_program program,
 		clDevices = (cl_device_id *)malloc(num_devices * sizeof(cl_device_id));
 		for (i = 0; i < num_devices; i++)
 		{
-			clDevices[i] = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)device_list[i], &proxyID);
+			clDevices[i] = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)device_list[i], 
+                 &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
 		}
         MPI_Isend((void *)clDevices, sizeof(cl_device_id) * num_devices, MPI_BYTE, proxyID,
                   BUILD_PROGRAM, proxyCommData, request + (requestNo++));
@@ -604,12 +678,14 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
     int kernelNameSize = strlen(kernel_name);
     MPI_Status status[3];
     MPI_Request request[3];
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
 	vocl_kernel kernel;
     int requestNo = 0;
 
     struct strCreateKernel tmpCreateKernel;
-    tmpCreateKernel.program = voclVOCLProgram2CLProgramComm((vocl_program)program, &proxyID);
+    tmpCreateKernel.program = voclVOCLProgram2CLProgramComm((vocl_program)program, 
+        &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
 
     tmpCreateKernel.kernelNameSize = kernelNameSize;
 
@@ -624,7 +700,7 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
     *errcode_ret = tmpCreateKernel.errcode_ret;
 
 	/*convert opencl kernel to vocl kernel */
-	kernel = voclCLKernel2VOCLKernel(tmpCreateKernel.kernel, proxyID);
+	kernel = voclCLKernel2VOCLKernel(tmpCreateKernel.kernel, proxyID, proxyIndex, proxyComm, proxyCommData);
 
     /* create kernel info on the local node for storing arguments */
     createKernel((cl_kernel)kernel);
@@ -648,11 +724,13 @@ clCreateBuffer(cl_context context,
     MPI_Status status[3];
     MPI_Request request[3];
 	vocl_mem memory;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     int requestNo = 0;
 
     /* initialize structure */
-    tmpCreateBuffer.context = voclVOCLContext2CLContextComm((vocl_context)context, &proxyID);
+    tmpCreateBuffer.context = voclVOCLContext2CLContextComm((vocl_context)context, 
+        &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpCreateBuffer.flags = flags;
     tmpCreateBuffer.size = size;
     tmpCreateBuffer.host_ptr_flag = 0;
@@ -675,9 +753,10 @@ clCreateBuffer(cl_context context,
     }
 
     /* increase OpenCL object count */
-    increaseObjCount(proxyID);
+    increaseObjCount(proxyIndex);
 	
-	memory = voclCLMemory2VOCLMemory(tmpCreateBuffer.deviceMem, proxyID);
+	memory = voclCLMemory2VOCLMemory(tmpCreateBuffer.deviceMem, 
+        proxyID, proxyIndex, proxyComm, proxyCommData);
 
     return (cl_mem)memory;
 }
@@ -699,7 +778,8 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
     MPI_Status status[4];
     MPI_Request request[4];
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     int requestNo = 0;
 
     int bufferNum, i, bufferIndex;
@@ -709,8 +789,8 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 
     /* initialize structure */
     tmpEnqueueWriteBuffer.command_queue = 
-		voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, &proxyID);
-    tmpEnqueueWriteBuffer.buffer = voclVOCLMemory2CLMemoryComm((vocl_mem)buffer, &proxyID);
+		voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
+    tmpEnqueueWriteBuffer.buffer = voclVOCLMemory2CLMemoryComm((vocl_mem)buffer, &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpEnqueueWriteBuffer.blocking_write = blocking_write;
     tmpEnqueueWriteBuffer.offset = offset;
     tmpEnqueueWriteBuffer.cb = cb;
@@ -747,16 +827,16 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     bufferSize = VOCL_WRITE_BUFFER_SIZE;
     remainingSize = cb - bufferNum * bufferSize;
     for (i = 0; i <= bufferNum; i++) {
-        bufferIndex = getNextWriteBufferIndex(proxyID);
+        bufferIndex = getNextWriteBufferIndex(proxyIndex);
         if (i == bufferNum) {
             bufferSize = remainingSize;
         }
 
         MPI_Isend((void *) ((char *) ptr + i * VOCL_WRITE_BUFFER_SIZE), bufferSize, MPI_BYTE,
                   proxyID, VOCL_WRITE_TAG + bufferIndex, proxyCommData,
-                  getWriteRequestPtr(proxyID, bufferIndex));
+                  getWriteRequestPtr(proxyIndex, bufferIndex));
         /* current buffer is used */
-        setWriteBufferInUse(proxyID, bufferIndex);
+        setWriteBufferInUse(proxyIndex, bufferIndex);
     }
 
     if (blocking_write == CL_TRUE || event != NULL) {
@@ -764,16 +844,16 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
                   ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
         /* for a blocking write, process all previous non-blocking ones */
         if (blocking_write == CL_TRUE) {
-            processAllWrites(proxyID);
+            processAllWrites(proxyIndex);
         }
         else if (event != NULL) {
-            processWriteBuffer(proxyID, bufferIndex, bufferNum + 1);
+            processWriteBuffer(proxyIndex, bufferIndex, bufferNum + 1);
         }
 
         MPI_Waitall(requestNo, request, status);
         if (event != NULL) {
             /* covert opencl event to vocl event */
-            voclEvent = voclCLEvent2VOCLEvent(tmpEnqueueWriteBuffer.event, proxyID);
+            voclEvent = voclCLEvent2VOCLEvent(tmpEnqueueWriteBuffer.event, proxyID, proxyIndex, proxyComm, proxyCommData);
             *event = (cl_event) voclEvent;
         }
         return tmpEnqueueWriteBuffer.res;
@@ -791,7 +871,8 @@ cl_int
 clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void *arg_value)
 {
 	cl_mem deviceMem;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     kernel_info *kernelPtr = getKernelPtr(kernel);
     if (kernelPtr->args_allocated == 0) {
         kernelPtr->args_ptr = (kernel_args *) malloc(sizeof(kernel_args) * MAX_ARGS);
@@ -812,7 +893,7 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
 		if (kernelPtr->args_flag[arg_index] == 1) /* device memory */
 		{
 			/*convert from vocl memory to cl memory */
-			deviceMem = voclVOCLMemory2CLMemoryComm(*((vocl_mem *)arg_value), &proxyID);
+			deviceMem = voclVOCLMemory2CLMemoryComm(*((vocl_mem *)arg_value), &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
         	memcpy(kernelPtr->args_ptr[kernelPtr->args_num].arg_value, (void *)&deviceMem, arg_size);
 		}
 		else
@@ -843,13 +924,16 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
     MPI_Status status[7];
     MPI_Request request[7];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     cl_event *eventList = NULL;
 
     /* initialize structure */
     kernel_info *kernelPtr = getKernelPtr(kernel);
-    tmpEnqueueNDRangeKernel.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, &proxyID);
-    tmpEnqueueNDRangeKernel.kernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, &proxyID);
+    tmpEnqueueNDRangeKernel.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, 
+                                                &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
+    tmpEnqueueNDRangeKernel.kernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, &proxyID, 
+                                         &proxyIndex, &proxyComm, &proxyCommData);
     tmpEnqueueNDRangeKernel.work_dim = work_dim;
     tmpEnqueueNDRangeKernel.num_events_in_wait_list = num_events_in_wait_list;
     tmpEnqueueNDRangeKernel.global_work_offset_flag = 0;
@@ -919,7 +1003,8 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
         /* covert opencl event to vocl event to be stored */
-        *event = (cl_event) voclCLEvent2VOCLEvent(tmpEnqueueNDRangeKernel.event, proxyID);
+        *event = (cl_event) voclCLEvent2VOCLEvent(tmpEnqueueNDRangeKernel.event, 
+                                proxyID, proxyIndex, proxyComm, proxyCommData);
     }
 
     /* delete buffer for vocl events */
@@ -950,7 +1035,8 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     int tempTag;
     int requestNo = 0;
     int i, bufferIndex, bufferNum;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     size_t bufferSize = VOCL_READ_BUFFER_SIZE, remainingSize;
     vocl_event voclEvent;
     cl_event *eventList = NULL;
@@ -959,8 +1045,10 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     remainingSize = cb - bufferNum * bufferSize;
 
     /* initialize structure */
-    tmpEnqueueReadBuffer.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, &proxyID);
-    tmpEnqueueReadBuffer.buffer = voclVOCLMemory2CLMemoryComm((vocl_mem)buffer, &proxyID);
+    tmpEnqueueReadBuffer.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, 
+                                             &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
+    tmpEnqueueReadBuffer.buffer = voclVOCLMemory2CLMemoryComm((vocl_mem)buffer, &proxyID, &proxyIndex,
+                                      &proxyComm, &proxyCommData);
     tmpEnqueueReadBuffer.blocking_read = blocking_read;
     tmpEnqueueReadBuffer.readBufferTag = ENQUEUE_READ_BUFFER1;
     tmpEnqueueReadBuffer.offset = offset;
@@ -1002,9 +1090,9 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
         if (i == bufferNum) {
             bufferSize = remainingSize;
         }
-        bufferIndex = getNextReadBufferIndex(proxyID);
+        bufferIndex = getNextReadBufferIndex(proxyIndex);
         MPI_Irecv((void *) ((char *) ptr + VOCL_READ_BUFFER_SIZE * i), bufferSize, MPI_BYTE, proxyID,
-                  VOCL_READ_TAG + bufferIndex, proxyCommData, getReadRequestPtr(proxyID, bufferIndex));
+                  VOCL_READ_TAG + bufferIndex, proxyCommData, getReadRequestPtr(proxyIndex, bufferIndex));
     }
 
     requestNo = 0;
@@ -1014,10 +1102,11 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     }
 
     if (blocking_read == CL_TRUE) {
-        processAllReads(proxyID);
+        processAllReads(proxyIndex);
         MPI_Waitall(requestNo, request, status);
         if (event != NULL) {
-            voclEvent = voclCLEvent2VOCLEvent(tmpEnqueueReadBuffer.event, proxyID);
+            voclEvent = voclCLEvent2VOCLEvent(tmpEnqueueReadBuffer.event, 
+                            proxyID, proxyIndex, proxyComm, proxyCommData);
             *event = (cl_event) voclEvent;
         }
         return tmpEnqueueReadBuffer.res;
@@ -1025,7 +1114,8 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     else {
         if (event != NULL) {
             MPI_Waitall(requestNo, request, status);
-			voclEvent = voclCLEvent2VOCLEvent(tmpEnqueueReadBuffer.event, proxyID);
+			voclEvent = voclCLEvent2VOCLEvent(tmpEnqueueReadBuffer.event, 
+                            proxyID, proxyIndex, proxyComm, proxyCommData);
             *event = (cl_event) voclEvent;
             return tmpEnqueueReadBuffer.res;
         }
@@ -1041,13 +1131,15 @@ cl_int clReleaseMemObject(cl_mem memobj)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
 
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
 
     struct strReleaseMemObject tmpReleaseMemObject;
-    tmpReleaseMemObject.memobj = voclVOCLMemory2CLMemoryComm((vocl_mem)memobj, &proxyID);
+    tmpReleaseMemObject.memobj = voclVOCLMemory2CLMemoryComm((vocl_mem)memobj, 
+                                     &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
 
     requestNo = 0;
     MPI_Isend(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE,
@@ -1057,7 +1149,10 @@ cl_int clReleaseMemObject(cl_mem memobj)
     MPI_Waitall(requestNo, request, status);
 
     /* decrease the number of OpenCL objects count */
-    decreaseObjCount(proxyID);
+    decreaseObjCount(proxyIndex);
+
+	/* release vocl memory object */
+	voclReleaseMemory((vocl_mem)memobj);
 
     return tmpReleaseMemObject.res;
 }
@@ -1067,7 +1162,8 @@ cl_int clReleaseKernel(cl_kernel kernel)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
 
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
@@ -1078,7 +1174,8 @@ cl_int clReleaseKernel(cl_kernel kernel)
 
     /* release kernel on the remote node */
     struct strReleaseKernel tmpReleaseKernel;
-    tmpReleaseKernel.kernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, &proxyID);
+    tmpReleaseKernel.kernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, 
+                                  &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     MPI_Isend(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE,
               proxyID, CL_RELEASE_KERNEL_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE,
@@ -1086,7 +1183,10 @@ cl_int clReleaseKernel(cl_kernel kernel)
     MPI_Waitall(requestNo, request, status);
 
     /* decrease the number of OpenCL objects count */
-    decreaseObjCount(proxyID);
+    decreaseObjCount(proxyIndex);
+
+	/* release vocl kernel */
+	voclReleaseKernel((vocl_kernel)kernel);
 
     return tmpReleaseKernel.res;
 }
@@ -1095,14 +1195,16 @@ cl_int clFinish(cl_command_queue hInCmdQueue)
 {
     MPI_Status status[2];
     MPI_Request request1, request2;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
 
     struct strFinish tmpFinish;
-    tmpFinish.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)hInCmdQueue, &proxyID);
-    processAllWrites(proxyID);
-    processAllReads(proxyID);
+    tmpFinish.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)hInCmdQueue, 
+                                  &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
+    processAllWrites(proxyIndex);
+    processAllReads(proxyIndex);
 
 
     MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, proxyID, FINISH_FUNC, proxyComm, &request1);
@@ -1120,10 +1222,12 @@ clGetContextInfo(cl_context context,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     struct strGetContextInfo tmpGetContextInfo;
 
-    tmpGetContextInfo.context = voclVOCLContext2CLContextComm((vocl_context)context, &proxyID);
+    tmpGetContextInfo.context = voclVOCLContext2CLContextComm((vocl_context)context, 
+                                    &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpGetContextInfo.param_name = param_name;
     tmpGetContextInfo.param_value_size = param_value_size;
     tmpGetContextInfo.param_value = param_value;
@@ -1161,10 +1265,13 @@ clGetProgramBuildInfo(cl_program program,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     struct strGetProgramBuildInfo tmpGetProgramBuildInfo;
-    tmpGetProgramBuildInfo.program = voclVOCLProgram2CLProgramComm((vocl_program)program, &proxyID);
-    tmpGetProgramBuildInfo.device = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)device, &proxyID);
+    tmpGetProgramBuildInfo.program = voclVOCLProgram2CLProgramComm((vocl_program)program, 
+                                         &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
+    tmpGetProgramBuildInfo.device = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)device, 
+                                        &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpGetProgramBuildInfo.param_name = param_name;
     tmpGetProgramBuildInfo.param_value_size = param_value_size;
     tmpGetProgramBuildInfo.param_value = param_value;
@@ -1198,9 +1305,11 @@ clGetProgramInfo(cl_program program,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     struct strGetProgramInfo tmpGetProgramInfo;
-    tmpGetProgramInfo.program = voclVOCLProgram2CLProgramComm((vocl_program)program, &proxyID);
+    tmpGetProgramInfo.program = voclVOCLProgram2CLProgramComm((vocl_program)program, 
+                                    &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpGetProgramInfo.param_name = param_name;
     tmpGetProgramInfo.param_value_size = param_value_size;
     tmpGetProgramInfo.param_value = param_value;
@@ -1231,9 +1340,11 @@ cl_int clReleaseProgram(cl_program program)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     struct strReleaseProgram tmpReleaseProgram;
-    tmpReleaseProgram.program = voclVOCLProgram2CLProgramComm((vocl_program)program, &proxyID);
+    tmpReleaseProgram.program = voclVOCLProgram2CLProgramComm((vocl_program)program, 
+                                    &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     MPI_Isend(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, proxyID,
               REL_PROGRAM_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, proxyID,
@@ -1241,7 +1352,10 @@ cl_int clReleaseProgram(cl_program program)
     MPI_Waitall(requestNo, request, status);
 
     /* decrease the number of OpenCL objects count */
-    decreaseObjCount(proxyID);
+    decreaseObjCount(proxyIndex);
+
+	/* release vocl program */
+	voclReleaseProgram((vocl_program)program);
 
     return tmpReleaseProgram.res;
 }
@@ -1251,9 +1365,11 @@ cl_int clReleaseCommandQueue(cl_command_queue command_queue)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     struct strReleaseCommandQueue tmpReleaseCommandQueue;
-    tmpReleaseCommandQueue.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, &proxyID);
+    tmpReleaseCommandQueue.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, 
+                                               &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
 
     MPI_Isend(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, proxyID,
               REL_COMMAND_QUEUE_FUNC, proxyComm, request + (requestNo++));
@@ -1262,7 +1378,10 @@ cl_int clReleaseCommandQueue(cl_command_queue command_queue)
     MPI_Waitall(requestNo, request, status);
 
     /* decrease the number of OpenCL objects count */
-    decreaseObjCount(proxyID);
+    decreaseObjCount(proxyIndex);
+
+	/* releaes vocl command queue */
+	voclReleaseCommandQueue((vocl_command_queue)command_queue);
 
     return tmpReleaseCommandQueue.res;
 }
@@ -1272,9 +1391,11 @@ cl_int clReleaseContext(cl_context context)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     struct strReleaseContext tmpReleaseContext;
-    tmpReleaseContext.context = voclVOCLContext2CLContextComm((vocl_context)context, &proxyID);
+    tmpReleaseContext.context = voclVOCLContext2CLContextComm((vocl_context)context, 
+                                    &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     MPI_Isend(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, proxyID,
               REL_CONTEXT_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, proxyID,
@@ -1282,7 +1403,10 @@ cl_int clReleaseContext(cl_context context)
     MPI_Waitall(requestNo, request, status);
 
     /* decrease the number of OpenCL objects count */
-    decreaseObjCount(proxyID);
+    decreaseObjCount(proxyIndex);
+
+	/* release vocl context */
+	voclReleaseContext((vocl_context)context);
 
     return tmpReleaseContext.res;
 }
@@ -1295,9 +1419,11 @@ clGetDeviceInfo(cl_device_id device,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     struct strGetDeviceInfo tmpGetDeviceInfo;
-    tmpGetDeviceInfo.device = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)device, &proxyID);
+    tmpGetDeviceInfo.device = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)device, 
+                                  &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpGetDeviceInfo.param_name = param_name;
     tmpGetDeviceInfo.param_value_size = param_value_size;
     tmpGetDeviceInfo.param_value = param_value;
@@ -1332,9 +1458,11 @@ clGetPlatformInfo(cl_platform_id platform,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
-    int proxyID;
+    int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     struct strGetPlatformInfo tmpGetPlatformInfo;
-    tmpGetPlatformInfo.platform = voclVOCLPlatformID2CLPlatformIDComm((vocl_platform_id)platform, &proxyID);
+    tmpGetPlatformInfo.platform = voclVOCLPlatformID2CLPlatformIDComm((vocl_platform_id)platform, 
+                                      &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpGetPlatformInfo.param_name = param_name;
     tmpGetPlatformInfo.param_value_size = param_value_size;
     tmpGetPlatformInfo.param_value = param_value;
@@ -1366,12 +1494,15 @@ cl_int clFlush(cl_command_queue hInCmdQueue)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
+
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
 
     struct strFlush tmpFlush;
-    tmpFlush.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)hInCmdQueue, &proxyID);
+    tmpFlush.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)hInCmdQueue,
+                                 &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     MPI_Isend(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, proxyID,
               FLUSH_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, proxyID,
@@ -1385,7 +1516,8 @@ cl_int clWaitForEvents(cl_uint num_events, const cl_event * event_list)
     MPI_Status status[3];
     MPI_Request request[3];
     int i, requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     cl_event *eventList = NULL;
 
     /* check whether the slave process is created. If not, create one. */
@@ -1401,7 +1533,8 @@ cl_int clWaitForEvents(cl_uint num_events, const cl_event * event_list)
     }
 
     /* convert vocl events to opencl events */
-    voclVOCLEvents2CLEventsComm((vocl_event *) event_list, eventList, num_events, &proxyID);
+    voclVOCLEvents2CLEventsComm((vocl_event *) event_list, eventList, num_events, 
+        &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
 
     MPI_Isend(&tmpWaitForEvents, sizeof(tmpWaitForEvents), MPI_BYTE, proxyID,
               WAIT_FOR_EVENT_FUNC, proxyComm, request + (requestNo++));
@@ -1429,12 +1562,14 @@ clCreateSampler(cl_context context,
     MPI_Request request[2];
     int requestNo = 0;
 	vocl_sampler sampler;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
 
     struct strCreateSampler tmpCreateSampler;
-    tmpCreateSampler.context = voclVOCLContext2CLContextComm((vocl_context)context, &proxyID);
+    tmpCreateSampler.context = voclVOCLContext2CLContextComm((vocl_context)context, 
+                                   &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpCreateSampler.normalized_coords = normalized_coords;
     tmpCreateSampler.addressing_mode = addressing_mode;
     tmpCreateSampler.filter_mode = filter_mode;
@@ -1453,10 +1588,11 @@ clCreateSampler(cl_context context,
         *errcode_ret = tmpCreateSampler.errcode_ret;
     }
 
-	sampler = voclCLSampler2VOCLSampler(tmpCreateSampler.sampler, proxyID);
+	sampler = voclCLSampler2VOCLSampler(tmpCreateSampler.sampler, 
+                  proxyID, proxyIndex, proxyComm, proxyCommData);
 
     /* increase OpenCL object count */
-    increaseObjCount(proxyID);
+    increaseObjCount(proxyIndex);
 
     return (cl_sampler)sampler;
 }
@@ -1470,11 +1606,13 @@ clGetCommandQueueInfo(cl_command_queue command_queue,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
     struct strGetCommandQueueInfo tmpGetCommandQueueInfo;
-    tmpGetCommandQueueInfo.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, &proxyID);
+    tmpGetCommandQueueInfo.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, 
+                                               &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpGetCommandQueueInfo.param_name = param_name;
     tmpGetCommandQueueInfo.param_value_size = param_value_size;
     tmpGetCommandQueueInfo.param_value = param_value;
@@ -1513,13 +1651,16 @@ void *clEnqueueMapBuffer(cl_command_queue command_queue,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     cl_event *eventList = NULL;
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
     struct strEnqueueMapBuffer tmpEnqueueMapBuffer;
-    tmpEnqueueMapBuffer.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, &proxyID);
-    tmpEnqueueMapBuffer.buffer = voclVOCLMemory2CLMemoryComm((vocl_mem)buffer, &proxyID);
+    tmpEnqueueMapBuffer.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, 
+                                            &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
+    tmpEnqueueMapBuffer.buffer = voclVOCLMemory2CLMemoryComm((vocl_mem)buffer, 
+                                     &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpEnqueueMapBuffer.blocking_map = blocking_map;
     tmpEnqueueMapBuffer.map_flags = map_flags;
     tmpEnqueueMapBuffer.offset = offset;
@@ -1558,7 +1699,8 @@ void *clEnqueueMapBuffer(cl_command_queue command_queue,
     if (event != NULL) {
 
         /* convert opencl event to vocl event */
-        *event = (cl_event) voclCLEvent2VOCLEvent(tmpEnqueueMapBuffer.event, proxyID);
+        *event = (cl_event) voclCLEvent2VOCLEvent(tmpEnqueueMapBuffer.event, 
+                                proxyID, proxyIndex, proxyComm, proxyCommData);
     }
 
     if (errcode_ret != NULL) {
@@ -1579,13 +1721,16 @@ cl_int clReleaseEvent(cl_event event)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
+
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
 
     struct strReleaseEvent tmpReleaseEvent;
     /* convert vocl event to opencl event */
-    tmpReleaseEvent.event = voclVOCLEvent2CLEventComm((vocl_event) event, &proxyID);
+    tmpReleaseEvent.event = voclVOCLEvent2CLEventComm((vocl_event) event, 
+                                &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
 
     MPI_Isend(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, proxyID,
               RELEASE_EVENT_FUNC, proxyComm, request + (requestNo++));
@@ -1594,7 +1739,10 @@ cl_int clReleaseEvent(cl_event event)
     MPI_Waitall(requestNo, request, status);
 
     /* decrease the number of OpenCL objects count */
-    decreaseObjCount(proxyID);
+    decreaseObjCount(proxyIndex);
+
+	/* release vocl event */
+	voclReleaseEvent((vocl_event)event);
 
     return tmpReleaseEvent.res;
 }
@@ -1608,13 +1756,15 @@ clGetEventProfilingInfo(cl_event event,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
 
     checkSlaveProc();
 
     struct strGetEventProfilingInfo tmpGetEventProfilingInfo;
     /*convert vocl event to opencl event */
-    tmpGetEventProfilingInfo.event = voclVOCLEvent2CLEventComm((vocl_event) event, &proxyID);
+    tmpGetEventProfilingInfo.event = voclVOCLEvent2CLEventComm((vocl_event) event, 
+                                         &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
 
     tmpGetEventProfilingInfo.param_name = param_name;
     tmpGetEventProfilingInfo.param_value_size = param_value_size;
@@ -1646,11 +1796,13 @@ cl_int clReleaseSampler(cl_sampler sampler)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
 
     checkSlaveProc();
     struct strReleaseSampler tmpReleaseSampler;
-    tmpReleaseSampler.sampler = voclVOCLSampler2CLSamplerComm((vocl_sampler)sampler, &proxyID);
+    tmpReleaseSampler.sampler = voclVOCLSampler2CLSamplerComm((vocl_sampler)sampler, 
+                                    &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     MPI_Isend(&tmpReleaseSampler, sizeof(tmpReleaseSampler), MPI_BYTE, proxyID,
               RELEASE_SAMPLER_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpReleaseSampler, sizeof(tmpReleaseSampler), MPI_BYTE, proxyID,
@@ -1658,7 +1810,10 @@ cl_int clReleaseSampler(cl_sampler sampler)
     MPI_Waitall(requestNo, request, status);
 
     /* decrease the number of OpenCL objects count */
-    decreaseObjCount(proxyID);
+    decreaseObjCount(proxyIndex);
+
+	/* release vocl sampler */
+	voclReleaseSampler((vocl_sampler)sampler);
 
     return tmpReleaseSampler.res;
 }
@@ -1673,13 +1828,16 @@ clGetKernelWorkGroupInfo(cl_kernel kernel,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
-    int proxyID;
+    int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
 
     checkSlaveProc();
 
     struct strGetKernelWorkGroupInfo tmpGetKernelWorkGroupInfo;
-    tmpGetKernelWorkGroupInfo.kernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, &proxyID);
-    tmpGetKernelWorkGroupInfo.device = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)device, &proxyID);
+    tmpGetKernelWorkGroupInfo.kernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, 
+                                           &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
+    tmpGetKernelWorkGroupInfo.device = voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id)device, 
+                                           &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpGetKernelWorkGroupInfo.param_name = param_name;
     tmpGetKernelWorkGroupInfo.param_value_size = param_value_size;
     tmpGetKernelWorkGroupInfo.param_value = param_value;
@@ -1718,11 +1876,13 @@ clCreateImage2D(cl_context context,
     MPI_Request request[3];
 	vocl_mem mem_obj;
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
 
     checkSlaveProc();
     struct strCreateImage2D tmpCreateImage2D;
-    tmpCreateImage2D.context = voclVOCLContext2CLContextComm((vocl_context)context, &proxyID);
+    tmpCreateImage2D.context = voclVOCLContext2CLContextComm((vocl_context)context, 
+                                   &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpCreateImage2D.flags = flags;
     tmpCreateImage2D.img_format.image_channel_order = image_format->image_channel_order;
     tmpCreateImage2D.img_format.image_channel_data_type =
@@ -1758,10 +1918,11 @@ clCreateImage2D(cl_context context,
         *errcode_ret = tmpCreateImage2D.errcode_ret;
     }
 
-	mem_obj = voclCLMemory2VOCLMemory(tmpCreateImage2D.mem_obj, proxyID);
+	mem_obj = voclCLMemory2VOCLMemory(tmpCreateImage2D.mem_obj, 
+                  proxyID, proxyIndex, proxyComm, proxyCommData);
 	
     /* increase OpenCL object count */
-    increaseObjCount(proxyID);
+    increaseObjCount(proxyIndex);
 
     return (cl_mem)mem_obj;
 }
@@ -1779,15 +1940,18 @@ clEnqueueCopyBuffer(cl_command_queue command_queue,
     MPI_Status status[3];
     MPI_Request request[3];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     cl_event *eventList = NULL;
 
     checkSlaveProc();
 
     struct strEnqueueCopyBuffer tmpEnqueueCopyBuffer;
     tmpEnqueueCopyBuffer.command_queue = command_queue;
-    tmpEnqueueCopyBuffer.src_buffer = voclVOCLMemory2CLMemoryComm((vocl_mem)src_buffer, &proxyID);
-    tmpEnqueueCopyBuffer.dst_buffer = voclVOCLMemory2CLMemoryComm((vocl_mem)dst_buffer, &proxyID);
+    tmpEnqueueCopyBuffer.src_buffer = voclVOCLMemory2CLMemoryComm((vocl_mem)src_buffer, 
+                                          &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
+    tmpEnqueueCopyBuffer.dst_buffer = voclVOCLMemory2CLMemoryComm((vocl_mem)dst_buffer, 
+                                          &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpEnqueueCopyBuffer.src_offset = src_offset;
     tmpEnqueueCopyBuffer.dst_offset = dst_offset;
     tmpEnqueueCopyBuffer.cb = cb;
@@ -1817,7 +1981,8 @@ clEnqueueCopyBuffer(cl_command_queue command_queue,
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
         /* convert opencl event to vocl event */
-        *event = (cl_event) voclCLEvent2VOCLEvent(tmpEnqueueCopyBuffer.event, proxyID);
+        *event = (cl_event) voclCLEvent2VOCLEvent(tmpEnqueueCopyBuffer.event, 
+                                proxyID, proxyIndex, proxyComm, proxyCommData);
     }
 
     if (num_events_in_wait_list > 0) {
@@ -1833,13 +1998,15 @@ cl_int clRetainEvent(cl_event event)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
 
     checkSlaveProc();
 
     struct strRetainEvent tmpRetainEvent;
     /*convert vocl event to opencl event */
-    tmpRetainEvent.event = voclVOCLEvent2CLEventComm((vocl_event) event, &proxyID);
+    tmpRetainEvent.event = voclVOCLEvent2CLEventComm((vocl_event) event, 
+                               &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
 
     MPI_Isend(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, proxyID,
               RETAIN_EVENT_FUNC, proxyComm, request + (requestNo++));
@@ -1854,11 +2021,14 @@ cl_int clRetainMemObject(cl_mem memobj)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
+
     checkSlaveProc();
 
     struct strRetainMemObject tmpRetainMemObject;
-    tmpRetainMemObject.memobj = voclVOCLMemory2CLMemoryComm((vocl_mem)memobj, &proxyID);
+    tmpRetainMemObject.memobj = voclVOCLMemory2CLMemoryComm((vocl_mem)memobj, 
+                                    &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     MPI_Isend(&tmpRetainMemObject, sizeof(tmpRetainMemObject), MPI_BYTE, proxyID,
               RETAIN_MEMOBJ_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpRetainMemObject, sizeof(tmpRetainMemObject), MPI_BYTE, proxyID,
@@ -1871,12 +2041,14 @@ cl_int clRetainKernel(cl_kernel kernel)
 {
     MPI_Status status[2];
     MPI_Request request[2];
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     int requestNo = 0;
     checkSlaveProc();
 
     struct strRetainKernel tmpRetainKernel;
-    tmpRetainKernel.kernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, &proxyID);
+    tmpRetainKernel.kernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, 
+                                 &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     MPI_Isend(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, proxyID,
               RETAIN_KERNEL_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, proxyID,
@@ -1890,11 +2062,13 @@ cl_int clRetainCommandQueue(cl_command_queue command_queue)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     checkSlaveProc();
 
     struct strRetainCommandQueue tmpRetainCommandQueue;
-    tmpRetainCommandQueue.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, &proxyID);
+    tmpRetainCommandQueue.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, 
+                                              &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     MPI_Isend(&tmpRetainCommandQueue, sizeof(tmpRetainCommandQueue), MPI_BYTE, proxyID,
               RETAIN_CMDQUE_FUNC, proxyComm, request + (requestNo++));
     MPI_Irecv(&tmpRetainCommandQueue, sizeof(tmpRetainCommandQueue), MPI_BYTE, proxyID,
@@ -1914,12 +2088,15 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue,
     MPI_Request request[3];
     cl_event *eventList = NULL;
     int requestNo = 0;
-	int proxyID;
+	int proxyID, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
     checkSlaveProc();
 
     struct strEnqueueUnmapMemObject tmpEnqueueUnmapMemObject;
-    tmpEnqueueUnmapMemObject.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, &proxyID);
-    tmpEnqueueUnmapMemObject.memobj = voclVOCLMemory2CLMemoryComm((vocl_mem)memobj, &proxyID);
+    tmpEnqueueUnmapMemObject.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, 
+                                                 &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
+    tmpEnqueueUnmapMemObject.memobj = voclVOCLMemory2CLMemoryComm((vocl_mem)memobj, 
+                                          &proxyID, &proxyIndex, &proxyComm, &proxyCommData);
     tmpEnqueueUnmapMemObject.mapped_ptr = mapped_ptr;
     tmpEnqueueUnmapMemObject.num_events_in_wait_list = num_events_in_wait_list;
     tmpEnqueueUnmapMemObject.event_null_flag = 0;
@@ -1945,7 +2122,8 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue,
               ENQ_UNMAP_MEMOBJ_FUNC, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
     if (event != NULL) {
-        *event = tmpEnqueueUnmapMemObject.event;
+        *event = (cl_event) voclCLEvent2VOCLEvent(tmpEnqueueUnmapMemObject.event, 
+                                proxyID, proxyIndex, proxyComm, proxyCommData);
     }
 
     if (num_events_in_wait_list > 0) {

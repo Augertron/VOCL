@@ -19,7 +19,7 @@ libvocl_la_SOURCES = $(top_srcdir)/src/vocl_opencl.c \
 					 $(top_srcdir)/src/voclKernelArgProc.c \
 					 $(top_srcdir)/src/voclEventProc.c \
 					 $(top_srcdir)/src/voclMemoryProc.c \
-					 $(top_srcdir)/src/voclObjCount.c \
+					 $(top_srcdir)/src/voclProxyNameProc.c \
 					 $(top_srcdir)/src/voclProgramProc.c \
 					 $(top_srcdir)/src/voclSamplerProc.c
 
