@@ -1,8 +1,8 @@
+#include <stdio.h>
 #include "vocl_structures.h"
 
 static struct strVOCLKernel *voclKernelPtr = NULL;
 static vocl_kernel voclKernel;
-static int voclKernelNum;
 static int voclKernelNo;
 
 static vocl_kernel getVOCLKernelValue()
@@ -13,55 +13,123 @@ static vocl_kernel getVOCLKernelValue()
     return kernel;
 }
 
-static struct strVOCLKernel *getVOCLKernelPtr()
+static struct strVOCLKernel *createVOCLKernel()
 {
-    if (voclKernelNo >= voclKernelNum) {
-        voclKernelNum *= 2;
-        voclKernelPtr = (struct strVOCLKernel *) realloc(voclKernelPtr,
-                                                   voclKernelNum *
-                                                   sizeof(struct strVOCLKernel));
-    }
-    return &voclKernelPtr[voclKernelNo++];
+	struct strVOCLKernel *kernelPtr;
+	kernelPtr = (struct strVOCLKernel *)malloc(sizeof(struct strVOCLKernel));
+	kernelPtr->next = voclKernelPtr;
+	voclKernelPtr = kernelPtr;
+
+	return kernelPtr;
 }
 
+static struct strVOCLKernel *getVOCLKernelPtr(vocl_kernel kernel)
+{
+	struct strVOCLKernel *kernelPtr;
+	kernelPtr = voclKernelPtr;
+	while (kernelPtr != NULL)
+	{
+		if (kernelPtr->voclKernel == kernel)
+		{
+			break;
+		}
+		kernelPtr = kernelPtr->next;
+	}
+
+	if (kernelPtr == NULL)
+	{
+		printf("Error, kernel does not exist!\n");
+		exit (1);
+	}
+
+	return kernelPtr;
+}
 
 void voclKernelInitialize()
 {
-    voclKernelNum = VOCL_CONTEXT_NUM;
-    voclKernelPtr =
-        (struct strVOCLKernel *) malloc(voclKernelNum * sizeof(struct strVOCLKernel));
+    voclKernelPtr = NULL;
     voclKernelNo = 0;
     voclKernel = 0;
 }
 
 void voclKernelFinalize()
 {
-    if (voclKernelPtr != NULL) {
-        free(voclKernelPtr);
-        voclKernelPtr = NULL;
-    }
+	struct strVOCLKernel *kernelPtr, *tmpkernelPtr;
+	kernelPtr = voclKernelPtr;
+	while (kernelPtr != NULL)
+	{
+		tmpkernelPtr = kernelPtr->next;
+		free(kernelPtr);
+		kernelPtr = tmpkernelPtr;
+	}
+
+    voclKernelPtr = NULL;
     voclKernelNo = 0;
     voclKernel = 0;
-    voclKernelNum = 0;
 }
 
-vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyID)
+vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyID,
+                int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
-    struct strVOCLKernel *kernelPtr = getVOCLKernelPtr();
+    struct strVOCLKernel *kernelPtr = createVOCLKernel();
     kernelPtr->clKernel = kernel;
 	kernelPtr->proxyID = proxyID;
+	kernelPtr->proxyIndex = proxyIndex;
+	kernelPtr->proxyComm = proxyComm;
+	kernelPtr->proxyCommData = proxyCommData;
     kernelPtr->voclKernel = getVOCLKernelValue();
 
     return kernelPtr->voclKernel;
 }
 
-cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyID)
+cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyID,
+              int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
-    /* the vocl kernel value indicates its location */
-    /* in the event buffer */
-    int kernelNo = (int) kernel;
-	*proxyID = voclKernelPtr[kernelNo].proxyID;
+	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+	*proxyID = kernelPtr->proxyID;
+	*proxyIndex = kernelPtr->proxyIndex;
+	*proxyComm = kernelPtr->proxyComm;
+	*proxyCommData = kernelPtr->proxyCommData;
 
-    return voclKernelPtr[kernelNo].clKernel;
+    return kernelPtr->clKernel;
 }
 
+int voclReleaseKernel(vocl_kernel kernel)
+{
+	struct strVOCLKernel *kernelPtr, *preKernelPtr, *curKernelPtr;
+	/* the first node in the link list */
+	if (kernel == voclKernelPtr->voclKernel)
+	{
+		kernelPtr = voclKernelPtr;
+		voclKernelPtr = voclKernelPtr->next;
+		free(kernelPtr);
+
+		return 0;
+	}
+
+	kernelPtr = NULL;
+	preKernelPtr = voclKernelPtr;
+	curKernelPtr = voclKernelPtr->next;
+	while (curKernelPtr != NULL)
+	{
+		if (kernel == curKernelPtr->voclKernel)
+		{
+			kernelPtr = curKernelPtr;
+			break;
+		}
+		preKernelPtr = curKernelPtr;
+		curKernelPtr = curKernelPtr->next;
+	}
+
+	if (kernelPtr == NULL)
+	{
+		printf("kernel does not exist!\n");
+		exit (1);
+	}
+
+	/* remote the current node from link list */
+	preKernelPtr->next = curKernelPtr->next;
+	free(curKernelPtr);
+	
+	return 0;
+}

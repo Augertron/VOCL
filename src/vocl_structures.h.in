@@ -5,96 +5,123 @@
 #include <mpi.h>
 #include "vocl_opencl.h"
 
-typedef @vocl_platform_id@ vocl_platform_id;
-typedef @vocl_device_id@ vocl_device_id;
-typedef @vocl_context@ vocl_context;
+typedef @vocl_platform_id@   vocl_platform_id;
+typedef @vocl_device_id@     vocl_device_id;
+typedef @vocl_context@       vocl_context;
 typedef @vocl_command_queue@ vocl_command_queue;
-typedef @vocl_mem@ vocl_mem;
-typedef @vocl_program@ vocl_program;
-typedef @vocl_kernel@ vocl_kernel;
-typedef @vocl_event@ vocl_event;
-typedef @vocl_sampler@ vocl_sampler;
+typedef @vocl_mem@           vocl_mem;
+typedef @vocl_program@       vocl_program;
+typedef @vocl_kernel@        vocl_kernel;
+typedef @vocl_event@         vocl_event;
+typedef @vocl_sampler@        vocl_sampler;
 
-//typedef uint64_t vocl_platform_id;
-//typedef uint64_t vocl_device_id;
-//typedef uint64_t vocl_context;
-//typedef uint64_t vocl_command_queue;
-//typedef uint64_t vocl_mem;
-//typedef uint64_t vocl_program;
-//typedef uint64_t vocl_kernel;
-//typedef uint64_t vocl_event;
-//typedef uint64_t vocl_sampler;
 
 /* default num for each opencl resource */
 /* but the program can automatically double */
 /* the size as required */
-#define VOCL_PLATFORM_ID_NUM 100
-#define VOCL_OBJ_COUNT_NUM   100
-#define VOCL_DEVICE_ID_NUM   200
-#define VOCL_CONTEXT_NUM     200
-#define VOCL_CMD_QUEUE_NUM   200
-#define VOCL_MEM_OBJ_NUM     1000
-#define VOCL_PROGRAM_NUM     200
-#define VOCL_KERNEL_NUM      200
+//#define VOCL_PLATFORM_ID_NUM 100
+//#define VOCL_OBJ_COUNT_NUM   100
+//#define VOCL_DEVICE_ID_NUM   200
+//#define VOCL_CONTEXT_NUM     200
+//#define VOCL_CMD_QUEUE_NUM   200
+//#define VOCL_MEM_OBJ_NUM     1000
+//#define VOCL_PROGRAM_NUM     200
+//#define VOCL_KERNEL_NUM      200
 #define VOCL_BUFF_NUM        200
-#define VOCL_EVENT_NUM       3000
-#define VOCL_SAMPLER_NUM     3000
+//#define VOCL_EVENT_NUM       3000
+//#define VOCL_SAMPLER_NUM     3000
 
 struct strVOCLPlatformID {
 	cl_platform_id       clPlatformID;
 	vocl_platform_id     voclPlatformID;
 	int                  proxyID;
+	int                  proxyIndex;
+	MPI_Comm             proxyComm;
+	MPI_Comm             proxyCommData;
+	struct strVOCLPlatformID *next;
 };
 
 struct strVOCLDeviceID {
 	vocl_device_id     voclDeviceID;
 	cl_device_id       clDeviceID;
 	int                proxyID;
+	int                proxyIndex;
+	MPI_Comm           proxyComm;
+	MPI_Comm           proxyCommData;
+	struct strVOCLDeviceID *next;
 };
 
 struct strVOCLContext {
 	vocl_context      voclContext;
 	cl_context        clContext;
 	int               proxyID;
+	int               proxyIndex;
+	MPI_Comm          proxyComm;
+	MPI_Comm          proxyCommData;
+	struct strVOCLContext *next;
 };
 
 struct strVOCLCommandQueue {
 	vocl_command_queue voclCommandQueue;
 	cl_command_queue   clCommandQueue;
 	int                proxyID;
+	int                proxyIndex;
+	MPI_Comm           proxyComm;
+	MPI_Comm           proxyCommData;
+	struct strVOCLCommandQueue *next;
 };
 
 struct strVOCLMemory {
 	vocl_mem          voclMemory;
 	cl_mem            clMemory;
 	int               proxyID;
+	int               proxyIndex;
+	MPI_Comm          proxyComm;
+	MPI_Comm          proxyCommData;
+    struct strVOCLMemory *next;
 };
 
 struct strVOCLProgram {
 	vocl_program     voclProgram;
 	cl_program       clProgram;
 	int              proxyID;
+	int              proxyIndex;
+	MPI_Comm         proxyComm;
+	MPI_Comm         proxyCommData;
     /* to store source code */
 	char             *voclSourceString;
 	size_t           sourceSize;
+	struct strVOCLProgram *next;
 };
 
 struct strVOCLKernel {
 	vocl_kernel      voclKernel;
 	cl_kernel        clKernel;
 	int              proxyID;
+	int              proxyIndex;
+	MPI_Comm         proxyComm;
+	MPI_Comm         proxyCommData;
+	struct strVOCLKernel *next;
 };
 
 struct strVOCLEvent {
 	vocl_event      voclEvent;
 	cl_event        clEvent;
 	int             proxyID;
+	int             proxyIndex;
+	MPI_Comm        proxyComm;
+	MPI_Comm        proxyCommData;
+	struct strVOCLEvent *next;
 };
 
 struct strVOCLSampler {
 	vocl_sampler   voclSampler;
 	cl_sampler     clSampler;
 	int            proxyID;
+	int            proxyIndex;
+	MPI_Comm       proxyComm;
+	MPI_Comm       proxyCommData;
+	struct strVOCLSampler *next;
 };
 
 /* structures used for buffer pool */

@@ -1,8 +1,8 @@
+#include <stdio.h>
 #include "vocl_structures.h"
 
 static struct strVOCLContext *voclContextPtr = NULL;
 static vocl_context voclContext;
-static int voclContextNum;
 static int voclContextNo;
 
 static vocl_context getVOCLContextValue()
@@ -13,55 +13,123 @@ static vocl_context getVOCLContextValue()
     return context;
 }
 
-static struct strVOCLContext *getVOCLContextPtr()
+static struct strVOCLContext *createVOCLContext()
 {
-    if (voclContextNo >= voclContextNum) {
-        voclContextNum *= 2;
-        voclContextPtr = (struct strVOCLContext *) realloc(voclContextPtr,
-                                                   voclContextNum *
-                                                   sizeof(struct strVOCLContext));
-    }
-    return &voclContextPtr[voclContextNo++];
+	struct strVOCLContext *contextPtr;
+	contextPtr = (struct strVOCLContext *)malloc(sizeof(struct strVOCLContext));
+	contextPtr->next = voclContextPtr;
+	voclContextPtr = contextPtr;
+
+	return contextPtr;
 }
 
+static struct strVOCLContext *getVOCLContextPtr(vocl_context context)
+{
+	struct strVOCLContext *contextPtr;
+	contextPtr = voclContextPtr;
+	while (contextPtr != NULL)
+	{
+		if (contextPtr->voclContext == context)
+		{
+			break;
+		}
+		contextPtr = contextPtr->next;
+	}
+
+	if (contextPtr == NULL)
+	{
+		printf("Error, context does not exist!\n");
+		exit (1);
+	}
+
+	return contextPtr;
+}
 
 void voclContextInitialize()
 {
-    voclContextNum = VOCL_CONTEXT_NUM;
-    voclContextPtr =
-        (struct strVOCLContext *) malloc(voclContextNum * sizeof(struct strVOCLContext));
+    voclContextPtr = NULL;
     voclContextNo = 0;
     voclContext = 0;
 }
 
 void voclContextFinalize()
 {
-    if (voclContextPtr != NULL) {
-        free(voclContextPtr);
-        voclContextPtr = NULL;
-    }
+	struct strVOCLContext *contextPtr, *tmpcontextPtr;
+	contextPtr = voclContextPtr;
+	while (contextPtr != NULL)
+	{
+		tmpcontextPtr = contextPtr->next;
+		free(contextPtr);
+		contextPtr = tmpcontextPtr;
+	}
+
+    voclContextPtr = NULL;
     voclContextNo = 0;
     voclContext = 0;
-    voclContextNum = 0;
 }
 
-vocl_context voclCLContext2VOCLContext(cl_context context, int proxyID)
+vocl_context voclCLContext2VOCLContext(cl_context context, int proxyID,
+                 int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
-    struct strVOCLContext *contextPtr = getVOCLContextPtr();
+    struct strVOCLContext *contextPtr = createVOCLContext();
     contextPtr->clContext = context;
 	contextPtr->proxyID = proxyID;
+	contextPtr->proxyIndex = proxyIndex;
+	contextPtr->proxyComm = proxyComm;
+	contextPtr->proxyCommData = proxyCommData;
     contextPtr->voclContext = getVOCLContextValue();
 
     return contextPtr->voclContext;
 }
 
-cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyID)
+cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyID,
+               int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
-    /* the vocl event value indicates its location */
-    /* in the event buffer */
-    int contextNo = (int) context;
-	*proxyID = voclContextPtr[contextNo].proxyID;
+	struct strVOCLContext *contextPtr = getVOCLContextPtr(context);
+	*proxyID = contextPtr->proxyID;
+	*proxyIndex = contextPtr->proxyIndex;
+	*proxyComm = contextPtr->proxyComm;
+	*proxyCommData = contextPtr->proxyCommData;
 
-    return voclContextPtr[contextNo].clContext;
+    return contextPtr->clContext;
 }
 
+int voclReleaseContext(vocl_context context)
+{
+	struct strVOCLContext *contextPtr, *preContextPtr, *curContextPtr;
+	/* the first node in the link list */
+	if (context == voclContextPtr->voclContext)
+	{
+		contextPtr = voclContextPtr;
+		voclContextPtr = voclContextPtr->next;
+		free(contextPtr);
+
+		return 0;
+	}
+
+	contextPtr = NULL;
+	preContextPtr = voclContextPtr;
+	curContextPtr = voclContextPtr->next;
+	while (curContextPtr != NULL)
+	{
+		if (context == curContextPtr->voclContext)
+		{
+			contextPtr = curContextPtr;
+			break;
+		}
+		preContextPtr = curContextPtr;
+		curContextPtr = curContextPtr->next;
+	}
+
+	if (contextPtr == NULL)
+	{
+		printf("context does not exist!\n");
+		exit (1);
+	}
+
+	/* remote the current node from link list */
+	preContextPtr->next = curContextPtr->next;
+	free(curContextPtr);
+	
+	return 0;
+}

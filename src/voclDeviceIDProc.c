@@ -1,70 +1,96 @@
+#include <stdio.h>
 #include "vocl_structures.h"
 
 static struct strVOCLDeviceID *voclDeviceIDPtr = NULL;
 static vocl_device_id voclDeviceID;
-static int voclDeviceIDNum;
 static int voclDeviceIDNo;
 
 static vocl_device_id getVOCLDeviceIDValue()
 {
-    vocl_device_id device_id = voclDeviceID;
+    vocl_device_id device = voclDeviceID;
 	voclDeviceID++;
 
-    return device_id;
+    return device;
 }
 
-static struct strVOCLDeviceID *getVOCLDeviceIDPtr()
+static struct strVOCLDeviceID *createVOCLDeviceID()
 {
-    if (voclDeviceIDNo >= voclDeviceIDNum) {
-        voclDeviceIDNum *= 2;
-        voclDeviceIDPtr = (struct strVOCLDeviceID *) realloc(voclDeviceIDPtr,
-                                                   voclDeviceIDNum *
-                                                   sizeof(struct strVOCLDeviceID));
-    }
-    return &voclDeviceIDPtr[voclDeviceIDNo++];
+	struct strVOCLDeviceID *devicePtr;
+	devicePtr = (struct strVOCLDeviceID *)malloc(sizeof(struct strVOCLDeviceID));
+	devicePtr->next = voclDeviceIDPtr;
+	voclDeviceIDPtr = devicePtr;
+
+	return devicePtr;
 }
 
+static struct strVOCLDeviceID *getVOCLDeviceIDPtr(vocl_device_id device)
+{
+	struct strVOCLDeviceID *devicePtr;
+	devicePtr = voclDeviceIDPtr;
+	while (devicePtr != NULL)
+	{
+		if (devicePtr->voclDeviceID == device)
+		{
+			break;
+		}
+		devicePtr = devicePtr->next;
+	}
+
+	if (devicePtr == NULL)
+	{
+		printf("Error, device does not exist!\n");
+		exit (1);
+	}
+
+	return devicePtr;
+}
 
 void voclDeviceIDInitialize()
 {
-    voclDeviceIDNum = VOCL_DEVICE_ID_NUM;
-    voclDeviceIDPtr =
-        (struct strVOCLDeviceID *) malloc(voclDeviceIDNum * sizeof(struct strVOCLDeviceID));
+    voclDeviceIDPtr = NULL;
     voclDeviceIDNo = 0;
     voclDeviceID = 0;
 }
 
 void voclDeviceIDFinalize()
 {
-    if (voclDeviceIDPtr != NULL) {
-        free(voclDeviceIDPtr);
-        voclDeviceIDPtr = NULL;
-    }
+	struct strVOCLDeviceID *devicePtr, *tmpdevicePtr;
+	devicePtr = voclDeviceIDPtr;
+	while (devicePtr != NULL)
+	{
+		tmpdevicePtr = devicePtr->next;
+		free(devicePtr);
+		devicePtr = tmpdevicePtr;
+	}
+
+    voclDeviceIDPtr = NULL;
     voclDeviceIDNo = 0;
     voclDeviceID = 0;
-    voclDeviceIDNum = 0;
 }
 
-vocl_device_id voclCLDeviceID2VOCLDeviceID(cl_device_id deviceID, int proxyID)
+vocl_device_id voclCLDeviceID2VOCLDeviceID(cl_device_id device, int proxyID,
+                   int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
-    struct strVOCLDeviceID *deviceIDPtr = getVOCLDeviceIDPtr();
-    deviceIDPtr->clDeviceID = deviceID;
-	deviceIDPtr->proxyID = proxyID;
-    deviceIDPtr->voclDeviceID = getVOCLDeviceIDValue();
+    struct strVOCLDeviceID *devicePtr = createVOCLDeviceID();
+    devicePtr->clDeviceID = device;
+	devicePtr->proxyID = proxyID;
+	devicePtr->proxyIndex = proxyIndex;
+	devicePtr->proxyComm = proxyComm;
+	devicePtr->proxyCommData = proxyCommData;
+    devicePtr->voclDeviceID = getVOCLDeviceIDValue();
 
-    return deviceIDPtr->voclDeviceID;
+    return devicePtr->voclDeviceID;
 }
 
-cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id deviceID, int *proxyID)
-/*comm and commData indicate the proxy process */
-/*that the event corresponds to. They are the output of this function */
+cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyID,
+                 int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
-    /* the vocl event value indicates its location */
-    /* in the event buffer */
-    int deviceIDNo = (int) deviceID;
+	struct strVOCLDeviceID *devicePtr = getVOCLDeviceIDPtr(device);
+	*proxyID = devicePtr->proxyID;
+	*proxyIndex = devicePtr->proxyIndex;
+	*proxyComm = devicePtr->proxyComm;
+	*proxyCommData = devicePtr->proxyCommData;
 
-	*proxyID = voclDeviceIDPtr[deviceIDNo].proxyID;
-
-    return voclDeviceIDPtr[deviceIDNo].clDeviceID;
+    return devicePtr->clDeviceID;
 }
 
