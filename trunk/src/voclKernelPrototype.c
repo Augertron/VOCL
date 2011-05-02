@@ -91,6 +91,7 @@ char *voclKernelPrototye(char *sourceIn, char *kernelName, unsigned int *kernelA
 
 	/* before the kernel name is the "__kernel" and "void" */
 	sourcePtr = sourceIn;
+	//printf("%s\n", sourceIn);
 	while (kernelFoundFlag == 0)
 	{
 		tokenStart = strstr(sourcePtr, "__kernel");
@@ -106,7 +107,7 @@ char *voclKernelPrototye(char *sourceIn, char *kernelName, unsigned int *kernelA
 			if (args != NULL)
 			{
 				arg = strtok(args, ",\0");
-				if (strstr(arg, "__global"))
+				if (strstr(arg, "__global") || strstr(arg, "__constant"))
 				{
 					argFlag[argIndex] = 1;
 				}
@@ -123,7 +124,7 @@ char *voclKernelPrototye(char *sourceIn, char *kernelName, unsigned int *kernelA
 					{
 						break;
 					}
-					if (strstr(arg, "__global"))
+					if (strstr(arg, "__global") || strstr(arg, "__constant"))
 					{
 						argFlag[argIndex] = 1;
 					}
