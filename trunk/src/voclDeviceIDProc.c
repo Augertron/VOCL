@@ -68,12 +68,12 @@ void voclDeviceIDFinalize()
     voclDeviceID = 0;
 }
 
-vocl_device_id voclCLDeviceID2VOCLDeviceID(cl_device_id device, int proxyID,
+vocl_device_id voclCLDeviceID2VOCLDeviceID(cl_device_id device, int proxyRank,
                    int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
     struct strVOCLDeviceID *devicePtr = createVOCLDeviceID();
     devicePtr->clDeviceID = device;
-	devicePtr->proxyID = proxyID;
+	devicePtr->proxyRank = proxyRank;
 	devicePtr->proxyIndex = proxyIndex;
 	devicePtr->proxyComm = proxyComm;
 	devicePtr->proxyCommData = proxyCommData;
@@ -82,11 +82,11 @@ vocl_device_id voclCLDeviceID2VOCLDeviceID(cl_device_id device, int proxyID,
     return devicePtr->voclDeviceID;
 }
 
-cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyID,
+cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyRank,
                  int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
 	struct strVOCLDeviceID *devicePtr = getVOCLDeviceIDPtr(device);
-	*proxyID = devicePtr->proxyID;
+	*proxyRank = devicePtr->proxyRank;
 	*proxyIndex = devicePtr->proxyIndex;
 	*proxyComm = devicePtr->proxyComm;
 	*proxyCommData = devicePtr->proxyCommData;

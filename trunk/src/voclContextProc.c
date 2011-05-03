@@ -68,12 +68,12 @@ void voclContextFinalize()
     voclContext = 0;
 }
 
-vocl_context voclCLContext2VOCLContext(cl_context context, int proxyID,
+vocl_context voclCLContext2VOCLContext(cl_context context, int proxyRank,
                  int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
     struct strVOCLContext *contextPtr = createVOCLContext();
     contextPtr->clContext = context;
-	contextPtr->proxyID = proxyID;
+	contextPtr->proxyRank = proxyRank;
 	contextPtr->proxyIndex = proxyIndex;
 	contextPtr->proxyComm = proxyComm;
 	contextPtr->proxyCommData = proxyCommData;
@@ -82,11 +82,11 @@ vocl_context voclCLContext2VOCLContext(cl_context context, int proxyID,
     return contextPtr->voclContext;
 }
 
-cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyID,
+cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyRank,
                int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
 	struct strVOCLContext *contextPtr = getVOCLContextPtr(context);
-	*proxyID = contextPtr->proxyID;
+	*proxyRank = contextPtr->proxyRank;
 	*proxyIndex = contextPtr->proxyIndex;
 	*proxyComm = contextPtr->proxyComm;
 	*proxyCommData = contextPtr->proxyCommData;

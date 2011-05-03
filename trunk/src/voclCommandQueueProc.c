@@ -69,11 +69,11 @@ void voclCommandQueueFinalize()
 }
 
 vocl_command_queue voclCLCommandQueue2VOCLCommandQueue(cl_command_queue command_queue, 
-                       int proxyID, int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
+                       int proxyRank, int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
     struct strVOCLCommandQueue *commandQueuePtr = createVOCLCommandQueue();
     commandQueuePtr->clCommandQueue = command_queue;
-	commandQueuePtr->proxyID = proxyID;
+	commandQueuePtr->proxyRank = proxyRank;
 	commandQueuePtr->proxyIndex = proxyIndex;
 	commandQueuePtr->proxyComm = proxyComm;
 	commandQueuePtr->proxyCommData = proxyCommData;
@@ -83,10 +83,10 @@ vocl_command_queue voclCLCommandQueue2VOCLCommandQueue(cl_command_queue command_
 }
 
 cl_command_queue voclVOCLCommandQueue2CLCommandQueueComm(vocl_command_queue command_queue, 
-                     int *proxyID, int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
+                     int *proxyRank, int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
 	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(command_queue);
-	*proxyID = commandQueuePtr->proxyID;
+	*proxyRank = commandQueuePtr->proxyRank;
 	*proxyIndex = commandQueuePtr->proxyIndex;
 	*proxyComm = commandQueuePtr->proxyComm;
 	*proxyCommData = commandQueuePtr->proxyCommData;

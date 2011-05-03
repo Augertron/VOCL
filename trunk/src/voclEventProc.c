@@ -67,12 +67,12 @@ void voclEventFinalize()
     voclEvent = 0;
 }
 
-vocl_event voclCLEvent2VOCLEvent(cl_event event, int proxyID, 
+vocl_event voclCLEvent2VOCLEvent(cl_event event, int proxyRank, 
                int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
     struct strVOCLEvent *eventPtr = createVOCLEvent();
     eventPtr->clEvent = event;
-	eventPtr->proxyID = proxyID;
+	eventPtr->proxyRank = proxyRank;
 	eventPtr->proxyIndex = proxyIndex;
 	eventPtr->proxyComm = proxyComm;
 	eventPtr->proxyCommData = proxyCommData;
@@ -82,7 +82,7 @@ vocl_event voclCLEvent2VOCLEvent(cl_event event, int proxyID,
 }
 
 
-cl_event voclVOCLEvent2CLEventComm(vocl_event event, int *proxyID,
+cl_event voclVOCLEvent2CLEventComm(vocl_event event, int *proxyRank,
              int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 /*comm and commData indicate the proxy process */
 /*that the event corresponds to. They are the output of this function */
@@ -90,7 +90,7 @@ cl_event voclVOCLEvent2CLEventComm(vocl_event event, int *proxyID,
     /* the vocl event value indicates its location */
     /* in the event buffer */
 	struct strVOCLEvent *eventPtr = getVOCLEventPtr(event);
-	*proxyID = eventPtr->proxyID;
+	*proxyRank = eventPtr->proxyRank;
 	*proxyIndex = eventPtr->proxyIndex;
 	*proxyComm = eventPtr->proxyComm;
 	*proxyCommData = eventPtr->proxyCommData;
@@ -113,13 +113,13 @@ static cl_event voclVOCLEvent2CLEvent(vocl_event event)
 
 /* diferent events correspond to different proxy process */
 void voclVOCLEvents2CLEventsComm(vocl_event * voclEventList,
-       cl_event * clEventList, cl_uint eventNum, int *proxyID,
+       cl_event * clEventList, cl_uint eventNum, int *proxyRank,
 	   int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
     cl_uint i;
     for (i = 0; i < eventNum; i++) {
         clEventList[i] = voclVOCLEvent2CLEventComm(voclEventList[i], 
-                             proxyID, proxyIndex, proxyComm, proxyCommData);
+                             proxyRank, proxyIndex, proxyComm, proxyCommData);
     }
 
     return;
