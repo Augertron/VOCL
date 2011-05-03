@@ -86,18 +86,24 @@ static int voclIsProxyNameExisted(char *name)
 
 void voclCreateProxyHostNameList()
 {
-	char *hostNamePtr, *fileNamePtr;
+	char *hostNamePtr;
+	char *fileNamePtr, *envPtr;
 	char *tmpNamePtr, *nameBufferPtr;
 	VOCL_HOST_NAME voclName;
+	size_t size;
 	int len;
 	FILE *pfile;
 
-	hostNamePtr = getenv("PROXY_HOST_LIST");
+	envPtr = getenv("PROXY_HOST_LIST");
 	fileNamePtr = getenv("PROXY_HOST_FILE");
 
 	/* host name is indicated directory */
-	if (hostNamePtr != NULL)
+	if (envPtr != NULL)
 	{
+		size = strlen(envPtr);
+		hostNamePtr = (char *)malloc(size * sizeof(char));
+		strcpy(hostNamePtr, envPtr);
+
 		tmpNamePtr = strtok(hostNamePtr, ",");
 		while (tmpNamePtr != NULL)
 		{
@@ -108,7 +114,10 @@ void voclCreateProxyHostNameList()
 			}
 			tmpNamePtr = strtok(NULL, ",");
 		}
+
+		free(hostNamePtr);
 	}
+
 	/* host name is indicated in a file */
 	else if (fileNamePtr != NULL)
 	{
