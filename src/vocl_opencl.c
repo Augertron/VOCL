@@ -11,7 +11,7 @@
 /* for slave process */
 static MPI_Comm *voclProxyComm = NULL;
 static MPI_Comm *voclProxyCommData = NULL;
-static int      *voclProxyID = NULL;
+static int      *voclProxyRank = NULL;
 static int slaveCreated = 0;
 static int np;
 static int errCodes[MAX_NPS];
@@ -188,7 +188,7 @@ static void mpiFinalize()
     /* send empty msg to proxy to terminate its execution */
     for (i = 0; i < np; i++)
     {
-    	MPI_Send(NULL, 0, MPI_BYTE, voclProxyID[i], PROGRAM_END, voclProxyComm[i]);
+    	MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
         MPI_Comm_free(&voclProxyComm[i]);
         MPI_Comm_free(&voclProxyCommData[i]);
     }
@@ -197,7 +197,7 @@ static void mpiFinalize()
     /* free buffer for MPI communicator and proxy ID */
     free(voclProxyComm);
     free(voclProxyCommData);
-    free(voclProxyID);
+    free(voclProxyRank);
     
     /* release memory */
     voclPlatformIDFinalize();
@@ -238,7 +238,7 @@ static void checkSlaveProc()
 		/* allocate buffer for MPI communicator and proxy ID */
 	    voclProxyComm = (MPI_Comm *)malloc(sizeof(MPI_Comm) * np);
 	    voclProxyCommData = (MPI_Comm *)malloc(sizeof(MPI_Comm) * np);
-	    voclProxyID   = (int *)malloc(sizeof(int) * np);
+	    voclProxyRank   = (int *)malloc(sizeof(int) * np);
 
         /* proxy comm is for transmitting data */
 		MPI_Info_create(&info);
@@ -247,7 +247,7 @@ static void checkSlaveProc()
             MPI_Info_set(info, "host", voclGetProxyHostName(i));
             /* each proxy uses a different communicator, */
 			/* so ranks of all proxy processes are 0 */
-			voclProxyID[i] = 0;
+			voclProxyRank[i] = 0;
             MPI_Comm_spawn(proxyPathName, MPI_ARGV_NULL, 1,
                        info, 0, MPI_COMM_WORLD, &voclProxyComm[i], errCodes);
 
@@ -316,14 +316,14 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_
         tmpGetPlatform[i].num_platforms = 1;
 
         /* send parameters to remote node */
-        MPI_Isend(&tmpGetPlatform[i], sizeof(struct strGetPlatformIDs), MPI_BYTE, voclProxyID[i],
+        MPI_Isend(&tmpGetPlatform[i], sizeof(struct strGetPlatformIDs), MPI_BYTE, voclProxyRank[i],
                   GET_PLATFORM_ID_FUNC, voclProxyComm[i], request + (requestNo++));
 	}
 
 	/*receive the number of platforms on each node */
 	for (i = 0; i < np; i++)
 	{
-        MPI_Irecv(&tmpGetPlatform[i], sizeof(struct strGetPlatformIDs), MPI_BYTE, voclProxyID[i],
+        MPI_Irecv(&tmpGetPlatform[i], sizeof(struct strGetPlatformIDs), MPI_BYTE, voclProxyRank[i],
                   GET_PLATFORM_ID_FUNC, voclProxyComm[i], request + (requestNo++));
 	}
 
@@ -337,7 +337,7 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_
         curPlatformNum = tmpGetPlatform[i].num_platforms;
 
         if (platforms != NULL && num_entries > 0) {
-    	    MPI_Irecv(&platforms[totalPlatformNum], sizeof(cl_platform_id) * curPlatformNum, MPI_BYTE, voclProxyID[i],
+    	    MPI_Irecv(&platforms[totalPlatformNum], sizeof(cl_platform_id) * curPlatformNum, MPI_BYTE, voclProxyRank[i],
                    GET_PLATFORM_ID_FUNC1, voclProxyCommData[i], request);	
 		    MPI_Wait(request, status);
 
@@ -346,7 +346,7 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_
 			{
 				platforms[totalPlatformNum + j] =
 				    (cl_platform_id)voclCLPlatformID2VOCLPlatformID(platforms[totalPlatformNum + j], 
-                        voclProxyID[i], i, voclProxyComm[i], voclProxyCommData[i]);
+                        voclProxyRank[i], i, voclProxyComm[i], voclProxyCommData[i]);
 			}
 		}
 		totalPlatformNum += curPlatformNum;
