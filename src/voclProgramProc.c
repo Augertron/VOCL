@@ -102,12 +102,12 @@ char *voclGetProgramSource(vocl_program program, size_t *sourceSize)
 	return programPtr->voclSourceString;
 }
 
-vocl_program voclCLProgram2VOCLProgram(cl_program program, int proxyID,
+vocl_program voclCLProgram2VOCLProgram(cl_program program, int proxyRank,
                  int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
     struct strVOCLProgram *programPtr = createVOCLProgram();
     programPtr->clProgram = program;
-	programPtr->proxyID = proxyID;
+	programPtr->proxyRank = proxyRank;
 	programPtr->proxyIndex = proxyIndex;
 	programPtr->proxyComm = proxyComm;
 	programPtr->proxyCommData = proxyCommData;
@@ -116,14 +116,14 @@ vocl_program voclCLProgram2VOCLProgram(cl_program program, int proxyID,
     return programPtr->voclProgram;
 }
 
-cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyID,
+cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyRank,
                int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
     /* the vocl program value indicates its location */
     /* in the event buffer */
 	struct strVOCLProgram *programPtr = getVOCLProgramPtr(program);
 
-	*proxyID = programPtr->proxyID;
+	*proxyRank = programPtr->proxyRank;
 	*proxyIndex = programPtr->proxyIndex;
 	*proxyComm = programPtr->proxyComm;
 	*proxyCommData = programPtr->proxyCommData;

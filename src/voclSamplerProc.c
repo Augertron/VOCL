@@ -68,12 +68,12 @@ void voclSamplerFinalize()
     voclSampler = 0;
 }
 
-vocl_sampler voclCLSampler2VOCLSampler(cl_sampler sampler, int proxyID,
+vocl_sampler voclCLSampler2VOCLSampler(cl_sampler sampler, int proxyRank,
                  int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
     struct strVOCLSampler *samplerPtr = createVOCLSampler();
     samplerPtr->clSampler = sampler;
-	samplerPtr->proxyID = proxyID;
+	samplerPtr->proxyRank = proxyRank;
 	samplerPtr->proxyIndex = proxyIndex;
 	samplerPtr->proxyComm = proxyComm;
 	samplerPtr->proxyCommData = proxyCommData;
@@ -82,11 +82,11 @@ vocl_sampler voclCLSampler2VOCLSampler(cl_sampler sampler, int proxyID,
     return samplerPtr->voclSampler;
 }
 
-cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxyID,
+cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxyRank,
                int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
 	struct strVOCLSampler *samplerPtr = getVOCLSamplerPtr(sampler);
-	*proxyID = samplerPtr->proxyID;
+	*proxyRank = samplerPtr->proxyRank;
 	*proxyIndex = samplerPtr->proxyIndex;
 	*proxyComm = samplerPtr->proxyComm;
 	*proxyCommData = samplerPtr->proxyCommData;

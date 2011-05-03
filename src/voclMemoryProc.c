@@ -68,12 +68,12 @@ void voclMemoryFinalize()
     voclMemory = 0;
 }
 
-vocl_mem voclCLMemory2VOCLMemory(cl_mem memory, int proxyID,
+vocl_mem voclCLMemory2VOCLMemory(cl_mem memory, int proxyRank,
              int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
     struct strVOCLMemory *memoryPtr = createVOCLMemory();
     memoryPtr->clMemory = memory;
-	memoryPtr->proxyID = proxyID;
+	memoryPtr->proxyRank = proxyRank;
 	memoryPtr->proxyIndex = proxyIndex;
 	memoryPtr->proxyComm = proxyComm;
 	memoryPtr->proxyCommData = proxyCommData;
@@ -82,11 +82,11 @@ vocl_mem voclCLMemory2VOCLMemory(cl_mem memory, int proxyID,
     return memoryPtr->voclMemory;
 }
 
-cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyID,
+cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyRank,
            int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
 	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
-	*proxyID = memoryPtr->proxyID;
+	*proxyRank = memoryPtr->proxyRank;
 	*proxyIndex = memoryPtr->proxyIndex;
 	*proxyComm = memoryPtr->proxyComm;
 	*proxyCommData = memoryPtr->proxyCommData;

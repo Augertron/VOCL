@@ -1,27 +1,17 @@
 #include "vocl_opencl.h"
 #include "vocl_structures.h"
 
-/* for sending data from local node to GPU */
-//struct strWriteBufferInfo {
-//    int isInUse;
-//    MPI_Request request;
-//};
-//
-//static struct strWriteBufferInfo voclWriteBufferInfo[VOCL_WRITE_BUFFER_NUM];
-//static int writeDataRequestNum;
-//static int curWriteBufferIndex;
-
 static struct voclWriteBuffer *voclWriteBufferPtr = NULL;
 static int voclWriteBufferNum;
 
-static void initializeWriteBuffer(int proxyID)
+static void initializeWriteBuffer(int proxyIndex)
 {
     int i = 0;
     for (i = 0; i < VOCL_WRITE_BUFFER_NUM; i++) {
-        voclWriteBufferPtr[proxyID].voclWriteBufferInfo[i].isInUse = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[i].isInUse = 0;
     }
-    voclWriteBufferPtr[proxyID].curWriteBufferIndex = 0;
-    voclWriteBufferPtr[proxyID].writeDataRequestNum = 0;
+    voclWriteBufferPtr[proxyIndex].curWriteBufferIndex = 0;
+    voclWriteBufferPtr[proxyIndex].writeDataRequestNum = 0;
 
     return;
 }
@@ -63,44 +53,44 @@ static void reallocateWriteBuffer(int origBufferNum, int newBufferNum)
 }
 
 
-void setWriteBufferInUse(int proxyID, int index)
+void setWriteBufferInUse(int proxyIndex, int index)
 {
-    voclWriteBufferPtr[proxyID].voclWriteBufferInfo[index].isInUse = 1;
+    voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 1;
 }
 
-MPI_Request *getWriteRequestPtr(int proxyID, int index)
+MPI_Request *getWriteRequestPtr(int proxyIndex, int index)
 {
-    return &voclWriteBufferPtr[proxyID].voclWriteBufferInfo[index].request;
+    return &voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].request;
 }
 
-int getNextWriteBufferIndex(int proxyID)
+int getNextWriteBufferIndex(int proxyIndex)
 {
-	if (proxyID >= voclWriteBufferNum)
+	if (proxyIndex >= voclWriteBufferNum)
 	{
 		reallocateWriteBuffer(voclWriteBufferNum, 2*voclWriteBufferNum);
 		voclWriteBufferNum *= 2;
 	}
 
-    int index = voclWriteBufferPtr[proxyID].curWriteBufferIndex;
+    int index = voclWriteBufferPtr[proxyIndex].curWriteBufferIndex;
     MPI_Status status;
 
-    if (voclWriteBufferPtr[proxyID].voclWriteBufferInfo[index].isInUse == 1) {
-        MPI_Wait(getWriteRequestPtr(proxyID, index), &status);
-        voclWriteBufferPtr[proxyID].voclWriteBufferInfo[index].isInUse = 0;
+    if (voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse == 1) {
+        MPI_Wait(getWriteRequestPtr(proxyIndex, index), &status);
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 0;
     }
 
-    if (++voclWriteBufferPtr[proxyID].curWriteBufferIndex >= VOCL_WRITE_BUFFER_NUM) {
-        voclWriteBufferPtr[proxyID].curWriteBufferIndex = 0;
+    if (++voclWriteBufferPtr[proxyIndex].curWriteBufferIndex >= VOCL_WRITE_BUFFER_NUM) {
+        voclWriteBufferPtr[proxyIndex].curWriteBufferIndex = 0;
     }
 
-    if (++voclWriteBufferPtr[proxyID].writeDataRequestNum >= VOCL_WRITE_BUFFER_NUM) {
-        voclWriteBufferPtr[proxyID].writeDataRequestNum = VOCL_WRITE_BUFFER_NUM;
+    if (++voclWriteBufferPtr[proxyIndex].writeDataRequestNum >= VOCL_WRITE_BUFFER_NUM) {
+        voclWriteBufferPtr[proxyIndex].writeDataRequestNum = VOCL_WRITE_BUFFER_NUM;
     }
 
     return index;
 }
 
-void processWriteBuffer(int proxyID, int curIndex, int bufferNum)
+void processWriteBuffer(int proxyIndex, int curIndex, int bufferNum)
 {
     int i, index, startIndex, endIndex;
     MPI_Request request[VOCL_WRITE_BUFFER_NUM];
@@ -121,27 +111,27 @@ void processWriteBuffer(int proxyID, int curIndex, int bufferNum)
     requestNo = 0;
     for (i = startIndex; i <= endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
-        request[requestNo++] = *getWriteRequestPtr(proxyID, index);
+        request[requestNo++] = *getWriteRequestPtr(proxyIndex, index);
     }
     MPI_Waitall(requestNo, request, status);
 
     for (i = startIndex; i <= endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
-        voclWriteBufferPtr[proxyID].voclWriteBufferInfo[index].isInUse = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 0;
     }
 
     return;
 }
 
-void processAllWrites(int proxyID)
+void processAllWrites(int proxyIndex)
 {
     int i, index, startIndex, endIndex;
     MPI_Request request[VOCL_WRITE_BUFFER_NUM];
     MPI_Status status[VOCL_WRITE_BUFFER_NUM];
     int requestNo;
 
-    endIndex = voclWriteBufferPtr[proxyID].curWriteBufferIndex;
-    startIndex = endIndex - voclWriteBufferPtr[proxyID].writeDataRequestNum;
+    endIndex = voclWriteBufferPtr[proxyIndex].curWriteBufferIndex;
+    startIndex = endIndex - voclWriteBufferPtr[proxyIndex].writeDataRequestNum;
     if (startIndex < 0) {
         startIndex += VOCL_WRITE_BUFFER_NUM;
         endIndex += VOCL_WRITE_BUFFER_NUM;
@@ -150,8 +140,8 @@ void processAllWrites(int proxyID)
     requestNo = 0;
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
-        if (voclWriteBufferPtr[proxyID].voclWriteBufferInfo[index].isInUse == 1) {
-            request[requestNo++] = *getWriteRequestPtr(proxyID, index);
+        if (voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse == 1) {
+            request[requestNo++] = *getWriteRequestPtr(proxyIndex, index);
         }
     }
 
@@ -161,11 +151,11 @@ void processAllWrites(int proxyID)
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
-        voclWriteBufferPtr[proxyID].voclWriteBufferInfo[index].isInUse = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 0;
     }
 
-    voclWriteBufferPtr[proxyID].curWriteBufferIndex = 0;
-    voclWriteBufferPtr[proxyID].writeDataRequestNum = 0;
+    voclWriteBufferPtr[proxyIndex].curWriteBufferIndex = 0;
+    voclWriteBufferPtr[proxyIndex].writeDataRequestNum = 0;
 
     return;
 }

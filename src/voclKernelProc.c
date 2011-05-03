@@ -68,12 +68,12 @@ void voclKernelFinalize()
     voclKernel = 0;
 }
 
-vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyID,
+vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyRank,
                 int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
     struct strVOCLKernel *kernelPtr = createVOCLKernel();
     kernelPtr->clKernel = kernel;
-	kernelPtr->proxyID = proxyID;
+	kernelPtr->proxyRank = proxyRank;
 	kernelPtr->proxyIndex = proxyIndex;
 	kernelPtr->proxyComm = proxyComm;
 	kernelPtr->proxyCommData = proxyCommData;
@@ -82,11 +82,11 @@ vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyID,
     return kernelPtr->voclKernel;
 }
 
-cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyID,
+cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
               int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
 	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
-	*proxyID = kernelPtr->proxyID;
+	*proxyRank = kernelPtr->proxyRank;
 	*proxyIndex = kernelPtr->proxyIndex;
 	*proxyComm = kernelPtr->proxyComm;
 	*proxyCommData = kernelPtr->proxyCommData;

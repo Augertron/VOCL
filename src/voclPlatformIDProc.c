@@ -68,12 +68,12 @@ void voclPlatformIDFinalize()
     voclPlatformID = 0;
 }
 
-vocl_platform_id voclCLPlatformID2VOCLPlatformID(cl_platform_id platform, int proxyID,
+vocl_platform_id voclCLPlatformID2VOCLPlatformID(cl_platform_id platform, int proxyRank,
                      int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
     struct strVOCLPlatformID *platformPtr = createVOCLPlatformID();
     platformPtr->clPlatformID = platform;
-	platformPtr->proxyID = proxyID;
+	platformPtr->proxyRank = proxyRank;
 	platformPtr->proxyIndex = proxyIndex;
 	platformPtr->proxyComm = proxyComm;
 	platformPtr->proxyCommData = proxyCommData;
@@ -82,11 +82,11 @@ vocl_platform_id voclCLPlatformID2VOCLPlatformID(cl_platform_id platform, int pr
     return platformPtr->voclPlatformID;
 }
 
-cl_platform_id voclVOCLPlatformID2CLPlatformIDComm(vocl_platform_id platform, int *proxyID,
+cl_platform_id voclVOCLPlatformID2CLPlatformIDComm(vocl_platform_id platform, int *proxyRank,
                    int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
 	struct strVOCLPlatformID *platformPtr = getVOCLPlatformIDPtr(platform);
-	*proxyID = platformPtr->proxyID;
+	*proxyRank = platformPtr->proxyRank;
 	*proxyIndex = platformPtr->proxyIndex;
 	*proxyComm = platformPtr->proxyComm;
 	*proxyCommData = platformPtr->proxyCommData;
