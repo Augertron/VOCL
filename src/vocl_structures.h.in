@@ -13,7 +13,7 @@ typedef @vocl_mem@           vocl_mem;
 typedef @vocl_program@       vocl_program;
 typedef @vocl_kernel@        vocl_kernel;
 typedef @vocl_event@         vocl_event;
-typedef @vocl_sampler@        vocl_sampler;
+typedef @vocl_sampler@       vocl_sampler;
 
 
 /* default num for buffer pool for each proxy */
@@ -28,6 +28,7 @@ struct strVOCLPlatformID {
 	int                  proxyIndex;
 	MPI_Comm             proxyComm;
 	MPI_Comm             proxyCommData;
+	int                 isOnLocalNode;
 	struct strVOCLPlatformID *next;
 };
 
@@ -38,6 +39,7 @@ struct strVOCLDeviceID {
 	int                proxyIndex;
 	MPI_Comm           proxyComm;
 	MPI_Comm           proxyCommData;
+	int               isOnLocalNode;
 	struct strVOCLDeviceID *next;
 };
 
@@ -48,6 +50,7 @@ struct strVOCLContext {
 	int               proxyIndex;
 	MPI_Comm          proxyComm;
 	MPI_Comm          proxyCommData;
+	int              isOnLocalNode;
 	struct strVOCLContext *next;
 };
 
@@ -58,6 +61,7 @@ struct strVOCLCommandQueue {
 	int                proxyIndex;
 	MPI_Comm           proxyComm;
 	MPI_Comm           proxyCommData;
+	int               isOnLocalNode;
 	struct strVOCLCommandQueue *next;
 };
 
@@ -68,6 +72,7 @@ struct strVOCLMemory {
 	int               proxyIndex;
 	MPI_Comm          proxyComm;
 	MPI_Comm          proxyCommData;
+	int              isOnLocalNode;
     struct strVOCLMemory *next;
 };
 
@@ -78,6 +83,7 @@ struct strVOCLProgram {
 	int              proxyIndex;
 	MPI_Comm         proxyComm;
 	MPI_Comm         proxyCommData;
+	int             isOnLocalNode;
     /* to store source code */
 	char             *voclSourceString;
 	size_t           sourceSize;
@@ -91,6 +97,7 @@ struct strVOCLKernel {
 	int              proxyIndex;
 	MPI_Comm         proxyComm;
 	MPI_Comm         proxyCommData;
+	int             isOnLocalNode;
 	struct strVOCLKernel *next;
 };
 
@@ -101,6 +108,7 @@ struct strVOCLEvent {
 	int             proxyIndex;
 	MPI_Comm        proxyComm;
 	MPI_Comm        proxyCommData;
+	int            isOnLocalNode;
 	struct strVOCLEvent *next;
 };
 
@@ -111,6 +119,7 @@ struct strVOCLSampler {
 	int            proxyIndex;
 	MPI_Comm       proxyComm;
 	MPI_Comm       proxyCommData;
+	int           isOnLocalNode;
 	struct strVOCLSampler *next;
 };
 
