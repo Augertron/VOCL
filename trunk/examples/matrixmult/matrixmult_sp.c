@@ -102,7 +102,7 @@ int main(int argc, char **argv)
     //get an opencl platform
     timerStart();
     err = clGetPlatformIDs(0, NULL, &numPlatforms);
-    err = clGetPlatformIDs(numPlatforms, &platformID, NULL);
+    err != clGetPlatformIDs(numPlatforms, &platformID, NULL);
     CHECK_ERR(err, "Get platform ID error!");
     timerEnd();
     strTime.getPlatform = elapsedTime();
@@ -222,7 +222,6 @@ int main(int argc, char **argv)
         err = clEnqueueWriteBuffer(hCmdQueue, deviceMem[1], CL_FALSE, 0,
                                    sizeB * sizeof(cl_float), b, 0, NULL, NULL);
         CHECK_ERR(err, "Write buffer error!");
-
         err = clSetKernelArg(hKernel, 0, sizeof(cl_mem), (void *) &deviceMem[0]);
         err |= clSetKernelArg(hKernel, 1, sizeof(cl_mem), (void *) &deviceMem[1]);
         err |= clSetKernelArg(hKernel, 2, sizeof(cl_mem), (void *) &deviceMem[2]);

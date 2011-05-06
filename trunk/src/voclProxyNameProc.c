@@ -2,11 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include "mpi.h"
+#include "vocl_opencl.h"
 
 #define MAX_PROXY_NUM 100
 typedef char VOCL_HOST_NAME[63];
 
 static VOCL_HOST_NAME *voclProxyNamePtr = NULL;
+static int *voclIsOnLocalNodePtr = NULL;
 static int voclTotalProxyNum = 0;
 static int voclProxyNo = 0;
 
@@ -25,6 +27,13 @@ static char *voclCreateProxyHostNameBuffer()
 			printf("allocate proxyHostName buffer error!\n");
 			exit(1);
 		}
+
+		voclIsOnLocalNodePtr = (int *)malloc(sizeof(int) * voclTotalProxyNum);
+		if (voclIsOnLocalNodePtr == NULL)
+		{
+			printf("allocate voclIsOnLocalNodePtr buffer error!\n");
+			exit(1);
+		}
 	}
 
 	/* if the allocate buffer is not enough, re-allocate */
@@ -34,7 +43,14 @@ static char *voclCreateProxyHostNameBuffer()
 		voclProxyNamePtr = (VOCL_HOST_NAME *)realloc(voclProxyNamePtr, sizeof(VOCL_HOST_NAME) * voclTotalProxyNum);
 		if (voclProxyNamePtr == NULL)
 		{
-			printf("allocate proxyHostName buffer error!\n");
+			printf("re-allocate proxyHostName buffer error!\n");
+			exit(1);
+		}
+
+		voclIsOnLocalNodePtr = (int *)realloc(voclIsOnLocalNodePtr, sizeof(int) * voclTotalProxyNum);
+		if (voclIsOnLocalNodePtr == NULL)
+		{
+			printf("re-allocate voclIsOnLocalNodePtr buffer error!\n");
 			exit(1);
 		}
 	}
@@ -51,6 +67,11 @@ int voclGetProxyHostNum()
 char *voclGetProxyHostName(int index)
 {
 	return (char *)voclProxyNamePtr[index];
+}
+
+int voclIsOnLocalNode(int index)
+{
+	return voclIsOnLocalNodePtr[index];
 }
 
 void voclProxyHostFinalize()
@@ -89,7 +110,7 @@ void voclCreateProxyHostNameList()
 	char *hostNamePtr;
 	char *fileNamePtr, *envPtr;
 	char *tmpNamePtr, *nameBufferPtr;
-	VOCL_HOST_NAME voclName;
+	VOCL_HOST_NAME voclName, localNodeName;
 	size_t size;
 	int len;
 	FILE *pfile;
@@ -97,6 +118,8 @@ void voclCreateProxyHostNameList()
 	envPtr = getenv("PROXY_HOST_LIST");
 	fileNamePtr = getenv("PROXY_HOST_FILE");
 
+	MPI_Get_processor_name(localNodeName, &len);
+	localNodeName[len] = '\0';
 	/* host name is indicated directory */
 	if (envPtr != NULL)
 	{
@@ -111,13 +134,21 @@ void voclCreateProxyHostNameList()
 			{
 				nameBufferPtr = (char *)voclCreateProxyHostNameBuffer();
 				strcpy(nameBufferPtr, tmpNamePtr);
+				/* check it is a local node */
+				if (strcmp(localNodeName, nameBufferPtr) == 0)
+				{
+					voclIsOnLocalNodePtr[voclProxyNo-1] = VOCL_TRUE;
+				}
+				else
+				{
+					voclIsOnLocalNodePtr[voclProxyNo-1] = VOCL_FALSE;
+				}
 			}
 			tmpNamePtr = strtok(NULL, ",");
 		}
 
 		free(hostNamePtr);
 	}
-
 	/* host name is indicated in a file */
 	else if (fileNamePtr != NULL)
 	{
@@ -137,6 +168,15 @@ void voclCreateProxyHostNameList()
 				{
 					nameBufferPtr = (char *)voclCreateProxyHostNameBuffer();
 					strcpy(nameBufferPtr, voclName);
+					/* check it is a local node */
+					if (strcmp(localNodeName, nameBufferPtr) == 0)
+					{
+						voclIsOnLocalNodePtr[voclProxyNo-1] = VOCL_TRUE;
+					}
+					else
+					{
+						voclIsOnLocalNodePtr[voclProxyNo-1] = VOCL_FALSE;
+					}
 				}
 				fscanf(pfile, "%s", voclName);
 			}
@@ -145,10 +185,10 @@ void voclCreateProxyHostNameList()
 	}
 	else /* create the slave on the local node */
 	{
-		MPI_Get_processor_name(voclName, &len);
-		voclName[len] = '\0';
 		nameBufferPtr = (char *)voclCreateProxyHostNameBuffer();
-		strcpy(nameBufferPtr, voclName);
+		strcpy(nameBufferPtr, localNodeName);
+		/*it is a local node */
+		voclIsOnLocalNodePtr[voclProxyNo-1] = VOCL_TRUE;
 	}
 
 	return;
