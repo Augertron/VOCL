@@ -509,25 +509,25 @@ int main(int argc, char *argv[])
             helperThreadOperFlag = GPU_WRITE_SINGLE;
             pthread_barrier_wait(&barrier);
         }
-
-//        if (status.MPI_TAG == SET_KERNEL_ARG) {
-//            memcpy(&tmpSetKernelArg, conMsgBuffer[index], sizeof(tmpSetKernelArg));
-//            arg_value = NULL;
-//            if (tmpSetKernelArg.arg_value != NULL) {
-//                arg_value = (char *) malloc(tmpSetKernelArg.arg_size);
-//                MPI_Irecv(arg_value, tmpSetKernelArg.arg_size, MPI_BYTE, 0,
-//                          SET_KERNEL_ARG1, parentCommData, curRequest);
-//            }
-//            MPI_Wait(curRequest, curStatus);
-//            mpiOpenCLSetKernelArg(&tmpSetKernelArg, arg_value);
-//            MPI_Isend(&tmpSetKernelArg, sizeof(tmpSetKernelArg), MPI_BYTE, 0,
-//                      SET_KERNEL_ARG, parentComm, curRequest);
-//            if (tmpSetKernelArg.arg_value != NULL) {
-//                free(arg_value);
-//            }
-//            MPI_Wait(curRequest, curStatus);
-//        }
-
+/*
+        if (status.MPI_TAG == SET_KERNEL_ARG) {
+            memcpy(&tmpSetKernelArg, conMsgBuffer[index], sizeof(tmpSetKernelArg));
+            arg_value = NULL;
+            if (tmpSetKernelArg.arg_value != NULL) {
+                arg_value = (char *) malloc(tmpSetKernelArg.arg_size);
+                MPI_Irecv(arg_value, tmpSetKernelArg.arg_size, MPI_BYTE, 0,
+                          SET_KERNEL_ARG1, parentCommData, curRequest);
+            }
+            MPI_Wait(curRequest, curStatus);
+            mpiOpenCLSetKernelArg(&tmpSetKernelArg, arg_value);
+            MPI_Isend(&tmpSetKernelArg, sizeof(tmpSetKernelArg), MPI_BYTE, 0,
+                      SET_KERNEL_ARG, parentComm, curRequest);
+            if (tmpSetKernelArg.arg_value != NULL) {
+                free(arg_value);
+            }
+            MPI_Wait(curRequest, curStatus);
+        }
+*/
         if (status.MPI_TAG == ENQUEUE_ND_RANGE_KERNEL) {
             memcpy(&tmpEnqueueNDRangeKernel, conMsgBuffer[index],
                    sizeof(tmpEnqueueNDRangeKernel));

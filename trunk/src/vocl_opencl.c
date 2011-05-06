@@ -227,11 +227,17 @@ static void mpiFinalize()
 static void checkSlaveProc()
 {
 	MPI_Info info;
-	int i;
+	int i, mpiInitFlag;
     char proxyPathName[PROXY_PATH_NAME_LEN];
 
     if (slaveCreated == 0) {
-        MPI_Init(NULL, NULL);
+		
+		/* check whether MPI_Init is already called */
+		MPI_Initialized(&mpiInitFlag); 
+		if (mpiInitFlag == 0) /* not called yet */
+		{
+        	MPI_Init(NULL, NULL);
+		}
 
 		/* specify slave proxy directory */
         snprintf(proxyPathName, PROXY_PATH_NAME_LEN, "%s/bin/vocl_proxy", PROXY_PATH_NAME);
@@ -502,8 +508,6 @@ clCreateContext(const cl_context_properties * properties,
 	/* local node, call native opencl function directly */
 	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
 	{
-		//tmpCreateContext.hContext = dlCLCreateContext(properties, num_devices, clDevices, pfn_notify,
-        //           user_data, errcode_ret);
 		dlCLCreateContext(properties, num_devices, clDevices, pfn_notify,
                    user_data, errcode_ret, &tmpCreateContext.hContext);
 	}
@@ -562,8 +566,6 @@ clCreateCommandQueue(cl_context context,
 	/* local node, call native opencl function directly */
 	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
 	{
-		//tmpCreateCommandQueue.clCommand = dlCLCreateCommandQueue(tmpCreateCommandQueue.context, 
-		//                                      tmpCreateCommandQueue.device, properties, errcode_ret);
 		dlCLCreateCommandQueue(tmpCreateCommandQueue.context, 
 	    	tmpCreateCommandQueue.device, properties, errcode_ret, &tmpCreateCommandQueue.clCommand);
 	}
@@ -650,9 +652,6 @@ clCreateProgramWithSource(cl_context context,
 
 	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
 	{
-		//tmpCreateProgramWithSource.clProgram = 
-		//	dlCLCreateProgramWithSource(tmpCreateProgramWithSource.context, 
-		//		count, strings, lengths, errcode_ret);
 		dlCLCreateProgramWithSource(tmpCreateProgramWithSource.context, 
 			count, strings, lengths, errcode_ret, &tmpCreateProgramWithSource.clProgram);
 	}
@@ -785,7 +784,6 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
 	/* local node, call native opencl function directly */
 	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
 	{
-		//tmpCreateKernel.kernel = dlCLCreateKernel(tmpCreateKernel.program, kernel_name, errcode_ret);
 		dlCLCreateKernel(tmpCreateKernel.program, kernel_name, errcode_ret, &tmpCreateKernel.kernel);
 	}
 	else
@@ -842,7 +840,6 @@ clCreateBuffer(cl_context context,
 
 	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
 	{
-		//tmpCreateBuffer.deviceMem = dlCLCreateBuffer(tmpCreateBuffer.context, flags, size, host_ptr, errcode_ret);
 		dlCLCreateBuffer(tmpCreateBuffer.context, flags, size, host_ptr, errcode_ret, &tmpCreateBuffer.deviceMem);
 	}
 	else
@@ -1858,8 +1855,6 @@ clCreateSampler(cl_context context,
                                    &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
 	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
 	{
-		//tmpCreateSampler.sampler = dlCLCreateSampler(tmpCreateSampler.context, 
-        //    normalized_coords, addressing_mode, filter_mode, errcode_ret);
 		dlCLCreateSampler(tmpCreateSampler.context, 
             normalized_coords, addressing_mode, filter_mode, errcode_ret, &tmpCreateSampler.sampler);
 	}
@@ -2231,9 +2226,6 @@ clCreateImage2D(cl_context context,
                                    &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
 	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
 	{
-		//tmpCreateImage2D.mem_obj = dlCLCreateImage2D(tmpCreateImage2D.context, 
-		//	flags, image_format, image_width, image_height, image_row_pitch,
-		//	host_ptr, errcode_ret);
 		dlCLCreateImage2D(tmpCreateImage2D.context, 
 			flags, image_format, image_width, image_height, image_row_pitch,
 			host_ptr, errcode_ret, &tmpCreateImage2D.mem_obj);
