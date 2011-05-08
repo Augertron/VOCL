@@ -181,21 +181,28 @@ static void decreaseObjCount(int proxyIndex)
 /************************************************************************/
 
 /* send the terminating msg to the proxy */
-static void mpiFinalize()
+static void voclFinalize()
 {
-    int i;
+    int i, proxyNo;
     
     /* send empty msg to proxy to terminate its execution */
+	proxyNo = 0;
     for (i = 0; i < np; i++)
     {
 		/* only for remote node */
 		if (voclIsOnLocalNode(i) == VOCL_FALSE)
 		{
 			MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
-			MPI_Comm_free(&voclProxyComm[i]);
-			MPI_Comm_free(&voclProxyCommData[i]);
+			proxyNo++;
 		}
     }
+
+	/* release communicator only if proxy processed are created */
+	if (proxyNo > 0)
+	{
+		MPI_Comm_free(&voclProxyComm[0]);
+		MPI_Comm_free(&voclProxyCommData[0]);
+	}
     MPI_Finalize();
     
     /* free buffer for MPI communicator and proxy ID */
@@ -223,11 +230,43 @@ static void mpiFinalize()
 	voclOpenclModuleRelease();
 }
 
+static void voclInitialize()
+{
+    /* initialize buffers for vocl event */
+	voclPlatformIDInitialize();
+	voclDeviceIDInitialize();
+	voclContextInitialize();
+	voclCommandQueueInitialize();
+	voclProgramInitialize();
+	voclMemoryInitialize();
+	voclKernelInitialize();
+    voclEventInitialize();
+    voclSamplerInitialize();
+	voclObjCountInitialize();
+
+    /* initialize buffer pool for gpu memory reads and writes */
+	initializeVoclWriteBufferAll();
+	initializeVoclReadBufferAll();
+
+	/* initialization for dynamic opencl function call */
+	voclOpenclModuleInitialize();
+
+    if (atexit(voclFinalize) != 0) {
+        printf("register voclFinalize error!\n");
+        exit(1);
+    }
+
+    return;
+}
+
 /* function for create the proxy process and MPI communicator */
 static void checkSlaveProc()
 {
 	MPI_Info info;
 	int i, mpiInitFlag;
+	int proxyNo = 0;
+	FILE *proxyHostNameFile;
+	char proxyHostFileName[255];
     char proxyPathName[PROXY_PATH_NAME_LEN];
 
     if (slaveCreated == 0) {
@@ -244,6 +283,7 @@ static void checkSlaveProc()
 
 		/* proxy the environment variable for proxy host list */
         voclCreateProxyHostNameList();
+
 		/*retrieve the number of proxy hosts */
 	    np = voclGetProxyHostNum();
 
@@ -252,27 +292,73 @@ static void checkSlaveProc()
 	    voclProxyCommData = (MPI_Comm *)malloc(sizeof(MPI_Comm) * np);
 	    voclProxyRank   = (int *)malloc(sizeof(int) * np);
 
-        /* proxy comm is for transmitting data */
-		MPI_Info_create(&info);
-        for (i = 0; i < np; i++)
+		/* create the internal proxy host name file for proxy creation */
+		i = 0;
+		sprintf(proxyHostFileName, "%s%d.list", "voclProxyNodeListFile", i);
+		proxyHostNameFile = fopen(proxyHostFileName, "rt");
+		/* make sure existing files are not overwritten */
+		while (proxyHostNameFile != NULL)
 		{
-			/* proxy is only created on remote node */
-			if (voclIsOnLocalNode(i) == VOCL_FALSE)
-			{
-                MPI_Info_set(info, "host", voclGetProxyHostName(i));
-                /* each proxy uses a different communicator, */
-    			/* so ranks of all proxy processes are 0 */
-    			voclProxyRank[i] = 0;
-                MPI_Comm_spawn(proxyPathName, MPI_ARGV_NULL, 1,
-                           info, 0, MPI_COMM_WORLD, &voclProxyComm[i], errCodes);
-    
-                /* duplicate the communicator for data transfer */
-                MPI_Comm_dup(voclProxyComm[i], &voclProxyCommData[i]);
-    		}
+			fclose(proxyHostNameFile);
+			i++;
+			sprintf(proxyHostFileName, "%s%d.list", "voclProxyNodeListFile", i);
+			proxyHostNameFile = fopen(proxyHostFileName, "rt");
+		}
+		proxyHostNameFile = fopen(proxyHostFileName, "wt");
+		if (proxyHostNameFile == NULL)
+		{
+			printf("Proxy host name file %s open error!\n", proxyHostFileName);
+			exit (1);
 		}
 
+		proxyNo = 0;
+		for (i = 0; i < np; i++)
+		{
+			if (voclIsOnLocalNode(i) == VOCL_FALSE)
+			{
+				fprintf(proxyHostNameFile, "%s\n", voclGetProxyHostName(i));
+				/* vocl proxy rank */
+				voclProxyRank[i] = proxyNo;
+
+				proxyNo++;
+			}
+			else
+			{
+				/* local node, no proxy process is created, so use an */
+				/* invalid value for the rank number */
+				voclProxyRank[i] = -1;
+			}
+		}
+		fclose(proxyHostNameFile);
+
+		/* if there is a remote node for proxy creation*/
+		if (proxyNo > 0)
+		{
+			MPI_Info_create(&info);
+			MPI_Info_set(info, "hostfile", proxyHostFileName);
+			/* only one communicator proxyComm[0] is used in this case */
+            MPI_Comm_spawn(proxyPathName, MPI_ARGV_NULL, proxyNo,
+                info, 0, MPI_COMM_WORLD, &voclProxyComm[0], errCodes);
+
+            /* duplicate the communicator for data msg transfer */
+            MPI_Comm_dup(voclProxyComm[0], &voclProxyCommData[0]);
+			MPI_Info_free(&info);
+
+			/* assign this communicator to that of all proxy processes */
+			for (i = 1; i < np; i++)
+			{
+				voclProxyComm[i] = voclProxyComm[0];
+				voclProxyCommData[i] = voclProxyCommData[0];
+			}
+		}
         slaveCreated = 1;
-		MPI_Info_free(&info);
+
+		/* remove the temporary proxyHostNameFile */
+		if (remove(proxyHostFileName) != 0)
+		{
+			printf("Remove file %s error!\n", proxyHostFileName);
+			exit(1);
+		}
 
 #ifdef _PRINT_NODE_NAME
         {
@@ -283,29 +369,8 @@ static void checkSlaveProc()
             printf("libHostName = %s\n", hostName);
         }
 #endif
-        /* initialize buffers for vocl event */
-		voclPlatformIDInitialize();
-		voclDeviceIDInitialize();
-		voclContextInitialize();
-		voclCommandQueueInitialize();
-		voclProgramInitialize();
-		voclMemoryInitialize();
-		voclKernelInitialize();
-        voclEventInitialize();
-        voclSamplerInitialize();
-		voclObjCountInitialize();
-
-        /* initialize buffer pool for gpu memory reads and writes */
-		initializeVoclWriteBufferAll();
-		initializeVoclReadBufferAll();
-
-		/* initialization for dynamic opencl function call */
-		voclOpenclModuleInitialize();
-
-        if (atexit(mpiFinalize) != 0) {
-            printf("register Finalize error!\n");
-            exit(1);
-        }
+        /* initialized resources needed by vocl */
+		voclInitialize();
     }
 }
 
