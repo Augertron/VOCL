@@ -458,8 +458,6 @@ int main(int argc, char *argv[])
                 MPI_Irecv(writeBufferInfoPtr->dataPtr, bufferSize, MPI_BYTE, appRank,
                           VOCL_PROXY_WRITE_TAG + bufferIndex, parentCommData,
                           getWriteRequestPtr(appRank, bufferIndex));
-				printf("proxy, tag = %d, size = %ld, appRank = %d\n", 
-						VOCL_PROXY_WRITE_TAG + bufferIndex, bufferSize, appRank);
 
                 /* save information for writing to GPU memory */
                 writeBufferInfoPtr->commandQueue = tmpEnqueueWriteBuffer.command_queue;
