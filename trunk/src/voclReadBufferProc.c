@@ -51,7 +51,7 @@ void finalizeVoclReadBufferAll()
 static void reallocateReadBuffer(int origBufferNum, int newBufferNum)
 {
 	int i;
-	voclReadBufferPtr = (struct voclReadBuffer *)malloc(sizeof(struct voclReadBuffer) * newBufferNum);
+	voclReadBufferPtr = (struct voclReadBuffer *)realloc(voclReadBufferPtr, sizeof(struct voclReadBuffer) * newBufferNum);
 	for (i = origBufferNum; i < newBufferNum; i++)
 	{
 		initializeReadBuffer(i);

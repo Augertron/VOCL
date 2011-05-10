@@ -10,73 +10,111 @@
 /* synchronization between the two threads */
 extern pthread_barrier_t barrier;
 extern int helperThreadOperFlag;
+extern int appRankNo;
 
 /*variables declared for read buffer pool */
-int readDataRequestNum = 0;
-int curReadBufferIndex;
-static struct strReadBufferInfo readBufferInfo[VOCL_PROXY_READ_BUFFER_NUM];
+//int readDataRequestNum = 0;
+//int curReadBufferIndex;
+//static struct strReadBufferInfo readBufferInfoPtr[VOCL_PROXY_READ_BUFFER_NUM];
+
+static struct voclReadBufferInfo *voclProxyReadBufferPtr = NULL;
+static int voclProxySupportAppNum;
 
 /* for sending data from GPU to local node */
-void initializeReadBuffer()
+static void initializeReadBuffer(int rank)
 {
     int i;
     for (i = 0; i < VOCL_PROXY_READ_BUFFER_NUM; i++) {
-        readBufferInfo[i].isInUse = READ_AVAILABLE;
-        readBufferInfo[i].dataPtr = (char *) malloc(VOCL_PROXY_READ_BUFFER_SIZE);
-        readBufferInfo[i].numReadBuffers = 0;
+        voclProxyReadBufferPtr[rank].readBufferInfo[i].isInUse = READ_AVAILABLE;
+        voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr = (char *) malloc(VOCL_PROXY_READ_BUFFER_SIZE);
+        voclProxyReadBufferPtr[rank].readBufferInfo[i].numReadBuffers = 0;
     }
-    curReadBufferIndex = 0;
-    readDataRequestNum = 0;
+    voclProxyReadBufferPtr[rank].curReadBufferIndex = 0;
+    voclProxyReadBufferPtr[rank].readDataRequestNum = 0;
 
     return;
 }
 
-void finalizeReadBuffer()
+static void reallocVOCLProxyReadBuffer(int origBufferNum, int newBufferNum)
 {
-    int i;
-    for (i = 0; i < VOCL_PROXY_READ_BUFFER_NUM; i++) {
-        if (readBufferInfo[i].dataPtr)
-            free(readBufferInfo[i].dataPtr);
-    }
+	int i;
+	voclProxyReadBufferPtr = (struct voclReadBufferInfo *)malloc(sizeof(struct voclReadBufferInfo) * newBufferNum);
+	for (i = origBufferNum; i < newBufferNum; i++)
+	{
+		initializeReadBuffer(i);
+	}
+}
+
+
+void initializeReadBufferAll()
+{
+	int i;
+	voclProxySupportAppNum = VOCL_PROXY_APP_NUM;
+	voclProxyReadBufferPtr = (struct voclReadBufferInfo *)malloc(sizeof(struct voclReadBufferInfo));
+	for (i = 0; i < voclProxySupportAppNum; i++)
+	{
+		initializeReadBuffer(i);
+	}
+}
+
+void finalizeReadBufferAll()
+{
+    int rank, i;
+	for (rank = 0; rank < voclProxySupportAppNum; rank++)
+	{
+		for (i = 0; i < VOCL_PROXY_READ_BUFFER_NUM; i++) {
+			if (voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr)
+			{
+				free(voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr);
+				voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr = NULL;
+			}
+		}
+	}
 
     return;
 }
 
-MPI_Request *getReadRequestPtr(int index)
+MPI_Request *getReadRequestPtr(int rank, int index)
 {
-    return &readBufferInfo[index].request;
+    return &voclProxyReadBufferPtr[rank].readBufferInfo[index].request;
 }
 
-struct strReadBufferInfo *getReadBufferInfoPtr(int index)
+struct strReadBufferInfo *getReadBufferInfoPtr(int rank, int index)
 {
-    return &readBufferInfo[index];
+    return &voclProxyReadBufferPtr[rank].readBufferInfo[index];
 }
 
-int readSendToLocal(int index)
+struct voclReadBufferInfo *getVOCLReadBufferInfoPtr(int rank)
+{
+	return &voclProxyReadBufferPtr[rank];
+}
+
+int readSendToLocal(int rank, int index)
 {
     int err;
-    err = MPI_Isend(readBufferInfo[index].dataPtr,
-                    readBufferInfo[index].size,
+    err = MPI_Isend(voclProxyReadBufferPtr[rank].readBufferInfo[index].dataPtr,
+                    voclProxyReadBufferPtr[rank].readBufferInfo[index].size,
                     MPI_BYTE,
-                    0,
-                    readBufferInfo[index].tag,
-                    readBufferInfo[index].comm, getReadRequestPtr(index));
+                    voclProxyReadBufferPtr[rank].readBufferInfo[index].appRank,
+                    voclProxyReadBufferPtr[rank].readBufferInfo[index].tag,
+                    voclProxyReadBufferPtr[rank].readBufferInfo[index].comm, 
+					getReadRequestPtr(rank, index));
 
     return err;
 }
 
-void setReadBufferFlag(int index, int flag)
+void setReadBufferFlag(int rank, int index, int flag)
 {
-    readBufferInfo[index].isInUse = flag;
+    voclProxyReadBufferPtr[rank].readBufferInfo[index].isInUse = flag;
     return;
 }
 
 /* check if any buffer is used */
-static int isReadBufferInUse()
+static int isReadBufferInUse(int rank)
 {
     int i;
     for (i = 0; i < VOCL_PROXY_READ_BUFFER_NUM; i++) {
-        if (readBufferInfo[i].isInUse != READ_AVAILABLE) {
+        if (voclProxyReadBufferPtr[rank].readBufferInfo[i].isInUse != READ_AVAILABLE) {
             /* some buffer is in use */
             return 1;
         }
@@ -86,29 +124,37 @@ static int isReadBufferInUse()
     return 0;
 }
 
-int getNextReadBufferIndex()
+int getNextReadBufferIndex(int rank)
 {
-    int index = curReadBufferIndex;
+    int index;
     MPI_Status status;
 
+	if (rank >= voclProxySupportAppNum)
+	{
+		reallocVOCLProxyReadBuffer(voclProxySupportAppNum, 2*voclProxySupportAppNum);
+		voclProxySupportAppNum *= 2;
+	}
+
+	index = voclProxyReadBufferPtr[rank].curReadBufferIndex;
+
     /* check if any buffer is used */
-    if (index == 0 && isReadBufferInUse()) {
-        processAllReads();
+    if (index == 0 && isReadBufferInUse(rank)) {
+        processAllReads(rank);
     }
 
-    if (++curReadBufferIndex >= VOCL_PROXY_READ_BUFFER_NUM) {
-        curReadBufferIndex = 0;
+    if (++voclProxyReadBufferPtr[rank].curReadBufferIndex >= VOCL_PROXY_READ_BUFFER_NUM) {
+        voclProxyReadBufferPtr[rank].curReadBufferIndex = 0;
     }
 
-    if (++readDataRequestNum >= VOCL_PROXY_READ_BUFFER_NUM) {
-        readDataRequestNum = VOCL_PROXY_READ_BUFFER_NUM;
+    if (++voclProxyReadBufferPtr[rank].readDataRequestNum >= VOCL_PROXY_READ_BUFFER_NUM) {
+        voclProxyReadBufferPtr[rank].readDataRequestNum = VOCL_PROXY_READ_BUFFER_NUM;
     }
 
     return index;
 }
 
 
-cl_int processReadBuffer(int curIndex, int bufferNum)
+cl_int processReadBuffer(int rank, int curIndex, int bufferNum)
 {
     int i, index, startIndex, endIndex;
     MPI_Status status[VOCL_PROXY_READ_BUFFER_NUM];
@@ -131,23 +177,23 @@ cl_int processReadBuffer(int curIndex, int bufferNum)
 
     for (i = startIndex; i <= endIndex; i++) {
         index = i % VOCL_PROXY_READ_BUFFER_NUM;
-        if (readBufferInfo[index].isInUse == READ_GPU_MEM ||
-            readBufferInfo[index].isInUse == READ_GPU_MEM_SUB) {
-            err = readSendToLocal(index);
-            MPI_Wait(getReadRequestPtr(index), status);
-            setReadBufferFlag(index, READ_AVAILABLE);
-            readBufferInfo[index].event = NULL;
+        if (voclProxyReadBufferPtr[rank].readBufferInfo[index].isInUse == READ_GPU_MEM ||
+            voclProxyReadBufferPtr[rank].readBufferInfo[index].isInUse == READ_GPU_MEM_SUB) {
+            err = readSendToLocal(rank, index);
+            MPI_Wait(getReadRequestPtr(rank, index), status);
+            setReadBufferFlag(rank, index, READ_AVAILABLE);
+            voclProxyReadBufferPtr[rank].readBufferInfo[index].event = NULL;
         }
     }
 
     return err;
 }
 
-int getReadBufferIndexFromEvent(cl_event event)
+int getReadBufferIndexFromEvent(int rank, cl_event event)
 {
     int index;
-    for (index = 0; index < readDataRequestNum; index++) {
-        if (event == readBufferInfo[index].event) {
+    for (index = 0; index < voclProxyReadBufferPtr[rank].readDataRequestNum; index++) {
+        if (event == voclProxyReadBufferPtr[rank].readBufferInfo[index].event) {
             return index;
         }
     }
@@ -155,7 +201,7 @@ int getReadBufferIndexFromEvent(cl_event event)
     return -1;
 }
 
-void thrSentToLocalNode(void *p)
+void thrSentToLocalNode(int rank)
 {
     int i, index, startIndex, endIndex;
     MPI_Status status[VOCL_PROXY_READ_BUFFER_NUM];
@@ -163,8 +209,8 @@ void thrSentToLocalNode(void *p)
     int requestNo;
     int err = MPI_SUCCESS;
 
-    endIndex = curReadBufferIndex;
-    startIndex = endIndex - readDataRequestNum;
+    endIndex = voclProxyReadBufferPtr[rank].curReadBufferIndex;
+    startIndex = endIndex - voclProxyReadBufferPtr[rank].readDataRequestNum;
     if (startIndex < 0) {
         startIndex += VOCL_PROXY_READ_BUFFER_NUM;
         endIndex += VOCL_PROXY_READ_BUFFER_NUM;
@@ -172,15 +218,15 @@ void thrSentToLocalNode(void *p)
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_PROXY_READ_BUFFER_NUM;
-        if (readBufferInfo[index].isInUse == READ_GPU_MEM_COMP) {
-            err = readSendToLocal(index);
+        if (voclProxyReadBufferPtr[rank].readBufferInfo[index].isInUse == READ_GPU_MEM_COMP) {
+            err = readSendToLocal(rank, index);
             if (err != MPI_SUCCESS) {
                 printf("mpi send error, %d\n", err);
             }
-            MPI_Wait(getReadRequestPtr(index), status);
+            MPI_Wait(getReadRequestPtr(rank, index), status);
         }
-        else if (readBufferInfo[index].isInUse == READ_SEND_DATA) {
-            MPI_Wait(getReadRequestPtr(index), status);
+        else if (voclProxyReadBufferPtr[rank].readBufferInfo[index].isInUse == READ_SEND_DATA) {
+            MPI_Wait(getReadRequestPtr(rank, index), status);
         }
         pthread_barrier_wait(&barrier);
     }
@@ -188,7 +234,7 @@ void thrSentToLocalNode(void *p)
     return;
 }
 
-cl_int processAllReads()
+cl_int processAllReads(int rank)
 {
     int i, index, startIndex, endIndex;
     MPI_Status status[VOCL_PROXY_READ_BUFFER_NUM];
@@ -197,12 +243,12 @@ cl_int processAllReads()
     int err = MPI_SUCCESS;
 
     /* check if any buffer is in use */
-    if (!isReadBufferInUse()) {
+    if (!isReadBufferInUse(rank)) {
         return err;
     }
 
-    endIndex = curReadBufferIndex;
-    startIndex = endIndex - readDataRequestNum;
+    endIndex = voclProxyReadBufferPtr[rank].curReadBufferIndex;
+    startIndex = endIndex - voclProxyReadBufferPtr[rank].readDataRequestNum;
     if (startIndex < 0) {
         startIndex += VOCL_PROXY_READ_BUFFER_NUM;
         endIndex += VOCL_PROXY_READ_BUFFER_NUM;
@@ -210,13 +256,15 @@ cl_int processAllReads()
 
     pthread_barrier_wait(&barrier);
     helperThreadOperFlag = GPU_MEM_READ;
+	/* used by the helper thread */
+	appRankNo = rank;
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_PROXY_READ_BUFFER_NUM;
-        if (readBufferInfo[index].isInUse == READ_GPU_MEM ||
-            readBufferInfo[index].isInUse == READ_GPU_MEM_SUB) {
-            clWaitForEvents(1, &readBufferInfo[index].event);
-            setReadBufferFlag(index, READ_GPU_MEM_COMP);
+        if (voclProxyReadBufferPtr[rank].readBufferInfo[index].isInUse == READ_GPU_MEM ||
+            voclProxyReadBufferPtr[rank].readBufferInfo[index].isInUse == READ_GPU_MEM_SUB) {
+            clWaitForEvents(1, &voclProxyReadBufferPtr[rank].readBufferInfo[index].event);
+            setReadBufferFlag(rank, index, READ_GPU_MEM_COMP);
         }
         pthread_barrier_wait(&barrier);
     }
@@ -224,11 +272,12 @@ cl_int processAllReads()
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_PROXY_READ_BUFFER_NUM;
-        readBufferInfo[index].numReadBuffers = 0;
-        setReadBufferFlag(index, READ_AVAILABLE);
+        voclProxyReadBufferPtr[rank].readBufferInfo[index].numReadBuffers = 0;
+        setReadBufferFlag(rank, index, READ_AVAILABLE);
     }
-    curReadBufferIndex = 0;
-    readDataRequestNum = 0;
+    voclProxyReadBufferPtr[rank].curReadBufferIndex = 0;
+    voclProxyReadBufferPtr[rank].readDataRequestNum = 0;
 
     return err;
 }
+
