@@ -9,12 +9,13 @@ pthread_barrier_t barrier;
 pthread_t th;
 int helperThreadOperFlag = GPU_MEM_NULL;
 int writeBufferIndexInHelperThread = 0;
+int appRankNo;
 
-extern void thrSentToLocalNode(void *p);
-extern void thrWriteToGPUMemory(void *p);
-extern cl_int writeToGPUMemory(int index);
-extern cl_int enqueuePreviousWrites();
-extern void sendReadyReadBufferToLocal();
+extern void thrSentToLocalNode(int rank);
+extern void thrWriteToGPUMemory(int rank);
+extern cl_int writeToGPUMemory(int rank, int index);
+extern cl_int enqueuePreviousWrites(int rank);
+extern void sendReadyReadBufferToLocal(int rank);
 
 void *proxyHelperThread(void *p)
 {
@@ -28,19 +29,19 @@ void *proxyHelperThread(void *p)
     pthread_barrier_wait(&barrier);
     while (helperThreadOperFlag != GPU_MEM_NULL) {
         if (helperThreadOperFlag == GPU_MEM_READ) {
-            thrSentToLocalNode(NULL);
+            thrSentToLocalNode(appRankNo);
         }
         else if (helperThreadOperFlag == GPU_MEM_WRITE) {
-            thrWriteToGPUMemory(NULL);
+            thrWriteToGPUMemory(appRankNo);
         }
         else if (helperThreadOperFlag == GPU_WRITE_SINGLE) {
-            writeToGPUMemory(writeBufferIndexInHelperThread);
+            writeToGPUMemory(appRankNo, writeBufferIndexInHelperThread);
         }
         else if (helperThreadOperFlag == GPU_ENQ_WRITE) {
-            enqueuePreviousWrites();
+            enqueuePreviousWrites(appRankNo);
         }
         else if (helperThreadOperFlag == SEND_LOCAL_PREVIOUS) {
-            sendReadyReadBufferToLocal();
+            sendReadyReadBufferToLocal(appRankNo);
         }
 
         helperThreadOperFlag = GPU_MEM_NULL;

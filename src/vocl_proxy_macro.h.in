@@ -80,6 +80,9 @@
 #define ENQ_COPY_BUFF_FUNC1         10028
 #define ENQ_UNMAP_MEMOBJ_FUNC1      10029
 
+/* number of applications supported by each proxy */
+#define VOCL_PROXY_APP_NUM 1
+
 /* flags for helper thread */
 #define GPU_MEM_READ        0
 #define GPU_MEM_WRITE       1

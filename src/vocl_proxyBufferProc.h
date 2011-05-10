@@ -12,10 +12,12 @@ struct strReadMPISendProcInfo {
 struct strWriteBufferInfo {
     /*write buffer state, defined in voclProxy.h */
     int isInUse;
+	int appRank;
     MPI_Request request;
     cl_command_queue commandQueue;
     size_t size;
     char *dataPtr;
+	//int buffIndex;
     size_t offset;
     cl_mem mem;
     cl_int blocking_write;
@@ -26,17 +28,34 @@ struct strWriteBufferInfo {
     struct strReadMPISendProcInfo sendProcInfo;
 };
 
+struct voclWriteBufferInfo {
+	int writeDataRequestNum;
+	int curWriteBufferIndex;
+	int allWritesAreEnqueuedFlag;
+	int allReadBuffersAreCovered;
+	struct strWriteBufferInfo writeBufferInfo[VOCL_PROXY_WRITE_BUFFER_NUM];
+};
+
 struct strReadBufferInfo {
     /* read buffer state, defined in voclProxy.h */
     int isInUse;
     MPI_Request request;
     MPI_Comm comm;
     int tag;
+	int dest;
+	int appRank; /* indicate which app proc to send */
     size_t size;
     char *dataPtr;
+	//int buffIndex;
     cl_event event;
 
     int numReadBuffers;
+};
+
+struct voclReadBufferInfo {
+	int readDataRequestNum;
+	int curReadBufferIndex;
+	struct strReadBufferInfo readBufferInfo[VOCL_PROXY_READ_BUFFER_NUM];
 };
 
 #endif

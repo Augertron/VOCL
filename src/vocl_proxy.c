@@ -61,35 +61,39 @@ extern int writeBufferIndexInHelperThread;
 extern int helperThreadOperFlag;
 extern pthread_barrier_t barrier;
 extern pthread_t th;
+extern int appRankNo;
 
 /* variables from write buffer pool */
-extern int totalRequestNum;
-extern int allWritesAreEnqueuedFlag;
-extern int allReadBuffersAreCovered;
+//extern int totalRequestNum;
+//extern int allWritesAreEnqueuedFlag;
+//extern int allReadBuffersAreCovered;
 
 /* functions from write buffer pool */
-extern void initializeWriteBuffer();
-extern void increaseWriteBufferCount();
-extern void finalizeWriteBuffer();
-extern void setWriteBufferFlag(int index, int flag);
-extern int getNextWriteBufferIndex();
-extern MPI_Request *getWriteRequestPtr(int index);
-extern struct strWriteBufferInfo *getWriteBufferInfoPtr(int index);
-extern cl_int processWriteBuffer(int curIndex, int bufferNum);
-extern cl_int processAllWrites();
-extern int getWriteBufferIndexFromEvent(cl_event event);
+extern void initializeWriteBufferAll();
+extern void increaseWriteBufferCount(int rank);
+extern void finalizeWriteBufferAll();
+extern void setWriteBufferFlag(int rank, int index, int flag);
+extern void voclResetWriteEnqueueFlag(int rank);
+extern int voclGetWriteEnqueueFlag(int rank);
+extern void voclResetReadBufferCoveredFlag(int rank);
+extern int getNextWriteBufferIndex(int rank);
+extern MPI_Request *getWriteRequestPtr(int rank, int index);
+extern struct strWriteBufferInfo *getWriteBufferInfoPtr(int rank, int index);
+extern cl_int processWriteBuffer(int rank, int curIndex, int bufferNum);
+extern cl_int processAllWrites(int rank);
+extern int getWriteBufferIndexFromEvent(int rank, cl_event event);
 
 /* functions from read buffer pool */
-extern void initializeReadBuffer();
-extern void finalizeReadBuffer();
-extern MPI_Request *getReadRequestPtr(int index);
-extern struct strReadBufferInfo *getReadBufferInfoPtr(int index);
-extern int readSendToLocal(int index);
-extern void setReadBufferFlag(int index, int flag);
-extern int getNextReadBufferIndex();
-extern cl_int processReadBuffer(int curIndex, int bufferNum);
-extern int getReadBufferIndexFromEvent(cl_event event);
-extern cl_int processAllReads();
+extern void initializeReadBufferAll();
+extern void finalizeReadBufferAll();
+extern MPI_Request *getReadRequestPtr(int rank, int index);
+extern struct strReadBufferInfo *getReadBufferInfoPtr(int rank, int index);
+extern int readSendToLocal(int rank, int index);
+extern void setReadBufferFlag(int rank, int index, int flag);
+extern int getNextReadBufferIndex(int rank);
+extern cl_int processReadBuffer(int rank, int curIndex, int bufferNum);
+extern int getReadBufferIndexFromEvent(int rank, cl_event event);
+extern cl_int processAllReads(int rank);
 
 /*functions for calling actual OpenCL function */
 extern void mpiOpenCLGetPlatformIDs(struct strGetPlatformIDs *tmpGetPlatform,
@@ -166,7 +170,7 @@ int main(int argc, char *argv[])
     CPU_SET(8, &set);
     sched_setaffinity(0, sizeof(set), &set);
 
-    int rank, i;
+    int rank, i, appRank;
     cl_int err;
     MPI_Status status;
     MPI_Request request;
@@ -193,6 +197,7 @@ int main(int argc, char *argv[])
     char *conMsgBuffer[CMSG_NUM];
     int bufferNum, bufferIndex;
     size_t bufferSize, remainingSize;
+	int totalRequestNum;
 
     /* variables used by OpenCL API function */
     cl_platform_id *platforms;
@@ -227,8 +232,8 @@ int main(int argc, char *argv[])
     curRequest = (MPI_Request *) malloc(sizeof(MPI_Request) * TOTAL_MSG_NUM);
 
     /* initialize write and read buffer pools */
-    initializeWriteBuffer();
-    initializeReadBuffer();
+    initializeWriteBufferAll();
+    initializeReadBufferAll();
 
     /* create a helper thread */
     pthread_barrier_init(&barrier, NULL, 2);
@@ -237,13 +242,16 @@ int main(int argc, char *argv[])
     for (i = 0; i < CMSG_NUM; i++) {
         /* allocate some number of buffers to receive control messages */
         conMsgBuffer[i] = (char *) malloc(MAX_CMSG_SIZE);
-        MPI_Irecv(conMsgBuffer[i], MAX_CMSG_SIZE, MPI_BYTE, 0, MPI_ANY_TAG,
+        MPI_Irecv(conMsgBuffer[i], MAX_CMSG_SIZE, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG,
                   parentComm, conMsgRequest + i);
     }
+	totalRequestNum = CMSG_NUM;
 
     while (1) {
         /* wait for any msg from the master process */
         MPI_Waitany(totalRequestNum, conMsgRequest, &index, &status);
+
+		appRank = status.MPI_SOURCE;
 
         if (status.MPI_TAG == GET_PLATFORM_ID_FUNC) {
             memcpy((void *) &tmpGetPlatformID, (const void *) conMsgBuffer[index],
@@ -258,11 +266,11 @@ int main(int argc, char *argv[])
 
             mpiOpenCLGetPlatformIDs(&tmpGetPlatformID, platforms);
             requestNo = 0;
-            MPI_Isend(&tmpGetPlatformID, sizeof(tmpGetPlatformID), MPI_BYTE, 0,
+            MPI_Isend(&tmpGetPlatformID, sizeof(tmpGetPlatformID), MPI_BYTE, appRank,
                       GET_PLATFORM_ID_FUNC, parentComm, curRequest + (requestNo++));
             if (tmpGetPlatformID.platforms != NULL && tmpGetPlatformID.num_entries > 0) {
                 MPI_Isend((void *) platforms,
-                          sizeof(cl_platform_id) * tmpGetPlatformID.num_platforms, MPI_BYTE, 0,
+                          sizeof(cl_platform_id) * tmpGetPlatformID.num_platforms, MPI_BYTE, appRank,
                           GET_PLATFORM_ID_FUNC1, parentCommData, curRequest + (requestNo++));
             }
 
@@ -282,10 +290,10 @@ int main(int argc, char *argv[])
             mpiOpenCLGetDeviceIDs(&tmpGetDeviceIDs, devices);
             requestNo = 0;
             if (num_entries > 0 && tmpGetDeviceIDs.devices != NULL) {
-                MPI_Isend(devices, sizeof(cl_device_id) * num_entries, MPI_BYTE, 0,
+                MPI_Isend(devices, sizeof(cl_device_id) * num_entries, MPI_BYTE, appRank,
                           GET_DEVICE_ID_FUNC1, parentCommData, curRequest + (requestNo++));
             }
-            MPI_Isend(&tmpGetDeviceIDs, sizeof(tmpGetDeviceIDs), MPI_BYTE, 0,
+            MPI_Isend(&tmpGetDeviceIDs, sizeof(tmpGetDeviceIDs), MPI_BYTE, appRank,
                       GET_DEVICE_ID_FUNC, parentComm, curRequest + (requestNo++));
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -303,13 +311,13 @@ int main(int argc, char *argv[])
                     (cl_device_id *) malloc(sizeof(cl_device_id) *
                                             tmpCreateContext.num_devices);
                 MPI_Irecv(devices, sizeof(cl_device_id) * tmpCreateContext.num_devices,
-                          MPI_BYTE, 0, CREATE_CONTEXT_FUNC1, parentCommData, curRequest);
+                          MPI_BYTE, appRank, CREATE_CONTEXT_FUNC1, parentCommData, curRequest);
                 MPI_Wait(curRequest, curStatus);
             }
 
             mpiOpenCLCreateContext(&tmpCreateContext, devices);
 
-            MPI_Isend(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, 0,
+            MPI_Isend(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, appRank,
                       CREATE_CONTEXT_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -322,7 +330,7 @@ int main(int argc, char *argv[])
             memcpy(&tmpCreateCommandQueue, conMsgBuffer[index], sizeof(tmpCreateCommandQueue));
             mpiOpenCLCreateCommandQueue(&tmpCreateCommandQueue);
 
-            MPI_Isend(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, 0,
+            MPI_Isend(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, appRank,
                       CREATE_COMMAND_QUEUE_FUNC, parentComm, curRequest);
             MPI_Wait(curRequest, curStatus);
         }
@@ -337,16 +345,16 @@ int main(int argc, char *argv[])
             fileBuffer = (char *) malloc(fileSize * sizeof(char));
 
             requestNo = 0;
-            MPI_Irecv(lengthsArray, count * sizeof(size_t), MPI_BYTE, 0,
+            MPI_Irecv(lengthsArray, count * sizeof(size_t), MPI_BYTE, appRank,
                       CREATE_PROGRMA_WITH_SOURCE1, parentCommData, curRequest + (requestNo++));
-            MPI_Irecv(fileBuffer, fileSize, MPI_BYTE, 0,
+            MPI_Irecv(fileBuffer, fileSize, MPI_BYTE, appRank,
                       CREATE_PROGRMA_WITH_SOURCE2, parentCommData, curRequest + (requestNo++));
             MPI_Waitall(requestNo, curRequest, curStatus);
 
             mpiOpenCLCreateProgramWithSource(&tmpCreateProgramWithSource, fileBuffer,
                                              lengthsArray);
             MPI_Isend(&tmpCreateProgramWithSource, sizeof(tmpCreateProgramWithSource),
-                      MPI_BYTE, 0, CREATE_PROGRMA_WITH_SOURCE, parentComm, curRequest);
+                      MPI_BYTE, appRank, CREATE_PROGRMA_WITH_SOURCE, parentComm, curRequest);
 
             free(fileBuffer);
             free(lengthsArray);
@@ -360,7 +368,7 @@ int main(int argc, char *argv[])
             if (tmpBuildProgram.optionLen > 0) {
                 buildOptionBuffer =
                     (char *) malloc((tmpBuildProgram.optionLen + 1) * sizeof(char));
-                MPI_Irecv(buildOptionBuffer, tmpBuildProgram.optionLen, MPI_BYTE, 0,
+                MPI_Irecv(buildOptionBuffer, tmpBuildProgram.optionLen, MPI_BYTE, appRank,
                           BUILD_PROGRAM1, parentCommData, curRequest + (requestNo++));
                 buildOptionBuffer[tmpBuildProgram.optionLen] = '\0';
             }
@@ -371,7 +379,7 @@ int main(int argc, char *argv[])
                     (cl_device_id *) malloc(sizeof(cl_device_id) *
                                             tmpBuildProgram.num_devices);
                 MPI_Irecv(devices, sizeof(cl_device_id) * tmpBuildProgram.num_devices,
-                          MPI_BYTE, 0, BUILD_PROGRAM, parentCommData,
+                          MPI_BYTE, appRank, BUILD_PROGRAM, parentCommData,
                           curRequest + (requestNo++));
             }
             if (requestNo > 0) {
@@ -379,7 +387,7 @@ int main(int argc, char *argv[])
             }
 
             mpiOpenCLBuildProgram(&tmpBuildProgram, buildOptionBuffer, devices);
-            MPI_Isend(&tmpBuildProgram, sizeof(tmpBuildProgram), MPI_BYTE, 0,
+            MPI_Isend(&tmpBuildProgram, sizeof(tmpBuildProgram), MPI_BYTE, appRank,
                       BUILD_PROGRAM, parentComm, curRequest);
 
             if (tmpBuildProgram.optionLen > 0) {
@@ -394,12 +402,12 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == CREATE_KERNEL) {
             memcpy(&tmpCreateKernel, conMsgBuffer[index], sizeof(tmpCreateKernel));
             kernelName = (char *) malloc((tmpCreateKernel.kernelNameSize + 1) * sizeof(char));
-            MPI_Irecv(kernelName, tmpCreateKernel.kernelNameSize, MPI_CHAR, 0,
+            MPI_Irecv(kernelName, tmpCreateKernel.kernelNameSize, MPI_CHAR, appRank,
                       CREATE_KERNEL1, parentCommData, curRequest);
             kernelName[tmpCreateKernel.kernelNameSize] = '\0';
             MPI_Wait(curRequest, curStatus);
             mpiOpenCLCreateKernel(&tmpCreateKernel, kernelName);
-            MPI_Isend(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, 0,
+            MPI_Isend(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, appRank,
                       CREATE_KERNEL, parentComm, curRequest);
 
             free(kernelName);
@@ -411,12 +419,12 @@ int main(int argc, char *argv[])
             host_ptr = NULL;
             if (tmpCreateBuffer.host_ptr_flag == 1) {
                 host_ptr = malloc(tmpCreateBuffer.size);
-                MPI_Irecv(host_ptr, tmpCreateBuffer.size, MPI_BYTE, 0,
+                MPI_Irecv(host_ptr, tmpCreateBuffer.size, MPI_BYTE, appRank,
                           CREATE_BUFFER_FUNC1, parentCommData, curRequest);
                 MPI_Wait(curRequest, curStatus);
             }
             mpiOpenCLCreateBuffer(&tmpCreateBuffer, host_ptr);
-            MPI_Isend(&tmpCreateBuffer, sizeof(tmpCreateBuffer), MPI_BYTE, 0,
+            MPI_Isend(&tmpCreateBuffer, sizeof(tmpCreateBuffer), MPI_BYTE, appRank,
                       CREATE_BUFFER_FUNC, parentComm, curRequest);
 
             if (tmpCreateBuffer.host_ptr_flag == 1) {
@@ -434,7 +442,7 @@ int main(int argc, char *argv[])
                 event_wait_list =
                     (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
                 MPI_Irecv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
-                          MPI_BYTE, 0, tmpEnqueueWriteBuffer.tag, parentCommData,
+                          MPI_BYTE, appRank, tmpEnqueueWriteBuffer.tag, parentCommData,
                           curRequest + (requestNo++));
             }
 
@@ -445,11 +453,13 @@ int main(int argc, char *argv[])
             for (i = 0; i <= bufferNum; i++) {
                 if (i == bufferNum)
                     bufferSize = remainingSize;
-                bufferIndex = getNextWriteBufferIndex();
-                writeBufferInfoPtr = getWriteBufferInfoPtr(bufferIndex);
-                MPI_Irecv(writeBufferInfoPtr->dataPtr, bufferSize, MPI_BYTE, 0,
+                bufferIndex = getNextWriteBufferIndex(appRank);
+                writeBufferInfoPtr = getWriteBufferInfoPtr(appRank, bufferIndex);
+                MPI_Irecv(writeBufferInfoPtr->dataPtr, bufferSize, MPI_BYTE, appRank,
                           VOCL_PROXY_WRITE_TAG + bufferIndex, parentCommData,
-                          getWriteRequestPtr(bufferIndex));
+                          getWriteRequestPtr(appRank, bufferIndex));
+				printf("proxy, tag = %d, size = %ld, appRank = %d\n", 
+						VOCL_PROXY_WRITE_TAG + bufferIndex, bufferSize, appRank);
 
                 /* save information for writing to GPU memory */
                 writeBufferInfoPtr->commandQueue = tmpEnqueueWriteBuffer.command_queue;
@@ -462,10 +472,11 @@ int main(int argc, char *argv[])
                 writeBufferInfoPtr->eventWaitList = event_wait_list;
 
                 /* set flag to indicate buffer is being used */
-                setWriteBufferFlag(bufferIndex, WRITE_RECV_DATA);
-                increaseWriteBufferCount();
+                setWriteBufferFlag(appRank, bufferIndex, WRITE_RECV_DATA);
+                increaseWriteBufferCount(appRank);
             }
-            allWritesAreEnqueuedFlag = 0;
+			voclResetWriteEnqueueFlag(appRank);
+            //voclProxyWriteBufferPtr[appRank].allWritesAreEnqueuedFlag = 0;
 
             if (tmpEnqueueWriteBuffer.blocking_write == CL_TRUE) {
                 if (requestNo > 0) {
@@ -474,14 +485,14 @@ int main(int argc, char *argv[])
                 }
 
                 /* process all previous write and read */
-                tmpEnqueueWriteBuffer.res = processAllWrites();
+                tmpEnqueueWriteBuffer.res = processAllWrites(appRank);
                 tmpEnqueueWriteBuffer.event = writeBufferInfoPtr->event;
 
-                if (num_events_in_wait_list > 0) {
+                /* if (num_events_in_wait_list > 0) {
                     free(event_wait_list);
-                }
+                } */
 
-                MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0,
+                MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, appRank,
                           ENQUEUE_WRITE_BUFFER, parentComm, curRequest + (requestNo++));
             }
             else if (tmpEnqueueWriteBuffer.event_null_flag == 0) {
@@ -489,11 +500,11 @@ int main(int argc, char *argv[])
                     MPI_Waitall(requestNo, curRequest, curStatus);
                     requestNo = 0;
                 }
-                tmpEnqueueWriteBuffer.res = processWriteBuffer(bufferIndex, bufferNum + 1);
+                tmpEnqueueWriteBuffer.res = processWriteBuffer(appRank, bufferIndex, bufferNum + 1);
                 tmpEnqueueWriteBuffer.event = writeBufferInfoPtr->event;
                 writeBufferInfoPtr->numWriteBuffers = bufferNum + 1;
 
-                MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, 0,
+                MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, appRank,
                           ENQUEUE_WRITE_BUFFER, parentComm, curRequest + (requestNo++));
             }
 
@@ -507,6 +518,7 @@ int main(int argc, char *argv[])
             writeBufferIndexInHelperThread = status.MPI_TAG - VOCL_PROXY_WRITE_TAG;
             pthread_barrier_wait(&barrier);
             helperThreadOperFlag = GPU_WRITE_SINGLE;
+			appRankNo = appRank;
             pthread_barrier_wait(&barrier);
         }
 /*
@@ -515,12 +527,12 @@ int main(int argc, char *argv[])
             arg_value = NULL;
             if (tmpSetKernelArg.arg_value != NULL) {
                 arg_value = (char *) malloc(tmpSetKernelArg.arg_size);
-                MPI_Irecv(arg_value, tmpSetKernelArg.arg_size, MPI_BYTE, 0,
+                MPI_Irecv(arg_value, tmpSetKernelArg.arg_size, MPI_BYTE, appRank,
                           SET_KERNEL_ARG1, parentCommData, curRequest);
             }
             MPI_Wait(curRequest, curStatus);
             mpiOpenCLSetKernelArg(&tmpSetKernelArg, arg_value);
-            MPI_Isend(&tmpSetKernelArg, sizeof(tmpSetKernelArg), MPI_BYTE, 0,
+            MPI_Isend(&tmpSetKernelArg, sizeof(tmpSetKernelArg), MPI_BYTE, appRank,
                       SET_KERNEL_ARG, parentComm, curRequest);
             if (tmpSetKernelArg.arg_value != NULL) {
                 free(arg_value);
@@ -539,7 +551,7 @@ int main(int argc, char *argv[])
                 event_wait_list =
                     (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
                 MPI_Irecv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
-                          MPI_BYTE, 0, ENQUEUE_ND_RANGE_KERNEL1, parentCommData,
+                          MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL1, parentCommData,
                           curRequest + (requestNo++));
             }
 
@@ -551,21 +563,21 @@ int main(int argc, char *argv[])
 
             if (tmpEnqueueNDRangeKernel.global_work_offset_flag == 1) {
                 global_work_offset = (size_t *) malloc(work_dim * sizeof(size_t));
-                MPI_Irecv(global_work_offset, work_dim * sizeof(size_t), MPI_BYTE, 0,
+                MPI_Irecv(global_work_offset, work_dim * sizeof(size_t), MPI_BYTE, appRank,
                           ENQUEUE_ND_RANGE_KERNEL1, parentCommData,
                           curRequest + (requestNo++));
             }
 
             if (tmpEnqueueNDRangeKernel.global_work_size_flag == 1) {
                 global_work_size = (size_t *) malloc(work_dim * sizeof(size_t));
-                MPI_Irecv(global_work_size, work_dim * sizeof(size_t), MPI_BYTE, 0,
+                MPI_Irecv(global_work_size, work_dim * sizeof(size_t), MPI_BYTE, appRank,
                           ENQUEUE_ND_RANGE_KERNEL2, parentCommData,
                           curRequest + (requestNo++));
             }
 
             if (tmpEnqueueNDRangeKernel.local_work_size_flag == 1) {
                 local_work_size = (size_t *) malloc(work_dim * sizeof(size_t));
-                MPI_Irecv(local_work_size, work_dim * sizeof(size_t), MPI_BYTE, 0,
+                MPI_Irecv(local_work_size, work_dim * sizeof(size_t), MPI_BYTE, appRank,
                           ENQUEUE_ND_RANGE_KERNEL3, parentCommData,
                           curRequest + (requestNo++));
             }
@@ -575,7 +587,7 @@ int main(int argc, char *argv[])
                     (kernel_args *) malloc(tmpEnqueueNDRangeKernel.args_num *
                                            sizeof(kernel_args));
                 MPI_Irecv(args_ptr, tmpEnqueueNDRangeKernel.args_num * sizeof(kernel_args),
-                          MPI_BYTE, 0, ENQUEUE_ND_RANGE_KERNEL4, parentCommData,
+                          MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL4, parentCommData,
                           curRequest + (requestNo++));
             }
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -583,9 +595,11 @@ int main(int argc, char *argv[])
             /* if there are data received, but not write to */
             /* the GPU memory yet, use the helper thread to */
             /* wait MPI receive complete and write to the GPU memory */
-            if (allWritesAreEnqueuedFlag == 0) {
+            if (voclGetWriteEnqueueFlag(appRank) == 0) {
                 pthread_barrier_wait(&barrier);
                 helperThreadOperFlag = GPU_ENQ_WRITE;
+				/* used by the helper thread */
+				appRankNo = appRank;
                 pthread_barrier_wait(&barrier);
                 pthread_barrier_wait(&barrier);
             }
@@ -595,7 +609,7 @@ int main(int argc, char *argv[])
                                           global_work_offset,
                                           global_work_size, local_work_size, args_ptr);
 
-            MPI_Isend(&tmpEnqueueNDRangeKernel, sizeof(tmpEnqueueNDRangeKernel), MPI_BYTE, 0,
+            MPI_Isend(&tmpEnqueueNDRangeKernel, sizeof(tmpEnqueueNDRangeKernel), MPI_BYTE, appRank,
                       ENQUEUE_ND_RANGE_KERNEL, parentComm, curRequest);
 
             if (tmpEnqueueNDRangeKernel.global_work_offset_flag == 1) {
@@ -629,7 +643,7 @@ int main(int argc, char *argv[])
                 event_wait_list =
                     (cl_event *) malloc(num_events_in_wait_list * sizeof(cl_event));
                 MPI_Irecv(event_wait_list, num_events_in_wait_list * sizeof(cl_event),
-                          MPI_BYTE, 0, ENQUEUE_READ_BUFFER1, parentCommData, curRequest);
+                          MPI_BYTE, appRank, ENQUEUE_READ_BUFFER1, parentCommData, curRequest);
                 MPI_Wait(curRequest, curStatus);
             }
 
@@ -637,12 +651,13 @@ int main(int argc, char *argv[])
             bufferNum = (tmpEnqueueReadBuffer.cb - 1) / VOCL_PROXY_READ_BUFFER_SIZE;
             remainingSize = tmpEnqueueReadBuffer.cb - bufferSize * bufferNum;
             for (i = 0; i <= bufferNum; i++) {
-                bufferIndex = getNextReadBufferIndex();
+                bufferIndex = getNextReadBufferIndex(appRank);
                 if (i == bufferNum)
                     bufferSize = remainingSize;
-                readBufferInfoPtr = getReadBufferInfoPtr(bufferIndex);
+                readBufferInfoPtr = getReadBufferInfoPtr(appRank, bufferIndex);
                 readBufferInfoPtr->comm = parentCommData;
                 readBufferInfoPtr->tag = VOCL_PROXY_READ_TAG + bufferIndex;
+				readBufferInfoPtr->dest = appRank;
                 readBufferInfoPtr->size = bufferSize;
                 tmpEnqueueReadBuffer.res =
                     clEnqueueReadBuffer(tmpEnqueueReadBuffer.command_queue,
@@ -653,28 +668,27 @@ int main(int argc, char *argv[])
                                         readBufferInfoPtr->dataPtr,
                                         tmpEnqueueReadBuffer.num_events_in_wait_list,
                                         event_wait_list, &readBufferInfoPtr->event);
-                setReadBufferFlag(bufferIndex, READ_GPU_MEM);
+                setReadBufferFlag(appRank, bufferIndex, READ_GPU_MEM);
             }
             readBufferInfoPtr->numReadBuffers = bufferNum + 1;
 
             /* some new read requests are issued */
-            allReadBuffersAreCovered = 0;
+			voclResetReadBufferCoveredFlag(appRank);
 
             if (tmpEnqueueReadBuffer.blocking_read == CL_FALSE) {
                 if (tmpEnqueueReadBuffer.event_null_flag == 0) {
                     tmpEnqueueReadBuffer.event = readBufferInfoPtr->event;
-                    MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0,
+                    MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, appRank,
                               ENQUEUE_READ_BUFFER, parentComm, curRequest);
                     MPI_Wait(curRequest, curStatus);
                 }
             }
             else {      /* blocking, reading is complete, send data to local node */
-
-                tmpEnqueueReadBuffer.res = processAllReads();
+                tmpEnqueueReadBuffer.res = processAllReads(appRank);
                 if (tmpEnqueueReadBuffer.event_null_flag == 0) {
                     tmpEnqueueReadBuffer.event = readBufferInfoPtr->event;
                 }
-                MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, 0,
+                MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, appRank,
                           ENQUEUE_READ_BUFFER, parentComm, curRequest);
 
                 MPI_Wait(curRequest, curStatus);
@@ -684,7 +698,7 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == RELEASE_MEM_OBJ) {
             memcpy(&tmpReleaseMemObject, conMsgBuffer[index], sizeof(tmpReleaseMemObject));
             mpiOpenCLReleaseMemObject(&tmpReleaseMemObject);
-            MPI_Isend(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE, 0,
+            MPI_Isend(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE, appRank,
                       RELEASE_MEM_OBJ, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -693,7 +707,7 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == CL_RELEASE_KERNEL_FUNC) {
             memcpy(&tmpReleaseKernel, conMsgBuffer[index], sizeof(tmpReleaseKernel));
             mpiOpenCLReleaseKernel(&tmpReleaseKernel);
-            MPI_Isend(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE, 0,
+            MPI_Isend(&tmpReleaseKernel, sizeof(tmpReleaseKernel), MPI_BYTE, appRank,
                       CL_RELEASE_KERNEL_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -701,10 +715,10 @@ int main(int argc, char *argv[])
 
         if (status.MPI_TAG == FINISH_FUNC) {
             memcpy(&tmpFinish, conMsgBuffer[index], sizeof(tmpFinish));
-            processAllWrites();
-            processAllReads();
+            processAllWrites(appRank);
+            processAllReads(appRank);
             mpiOpenCLFinish(&tmpFinish);
-            MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, 0,
+            MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, appRank,
                       FINISH_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -719,11 +733,11 @@ int main(int argc, char *argv[])
             }
             mpiOpenCLGetContextInfo(&tmpGetContextInfo, param_value);
             requestNo = 0;
-            MPI_Isend(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, 0,
+            MPI_Isend(&tmpGetContextInfo, sizeof(tmpGetContextInfo), MPI_BYTE, appRank,
                       GET_CONTEXT_INFO_FUNC, parentComm, curRequest + (requestNo++));
 
             if (param_value_size > 0 && tmpGetContextInfo.param_value != NULL) {
-                MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
+                MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
                           GET_CONTEXT_INFO_FUNC1, parentCommData, curRequest + (requestNo++));
             }
 
@@ -743,11 +757,11 @@ int main(int argc, char *argv[])
             }
             mpiOpenCLGetProgramBuildInfo(&tmpGetProgramBuildInfo, param_value);
             requestNo = 0;
-            MPI_Isend(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, 0,
+            MPI_Isend(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, appRank,
                       GET_BUILD_INFO_FUNC, parentComm, curRequest + (requestNo++));
 
             if (param_value_size > 0 && tmpGetProgramBuildInfo.param_value != NULL) {
-                MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
+                MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
                           GET_BUILD_INFO_FUNC1, parentCommData, curRequest + (requestNo++));
             }
 
@@ -767,11 +781,11 @@ int main(int argc, char *argv[])
             }
             mpiOpenCLGetProgramInfo(&tmpGetProgramInfo, param_value);
             requestNo = 0;
-            MPI_Isend(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, 0,
+            MPI_Isend(&tmpGetProgramInfo, sizeof(tmpGetProgramInfo), MPI_BYTE, appRank,
                       GET_PROGRAM_INFO_FUNC, parentComm, curRequest + (requestNo++));
 
             if (param_value_size > 0 && tmpGetProgramInfo.param_value != NULL) {
-                MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
+                MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
                           GET_PROGRAM_INFO_FUNC1, parentCommData, curRequest + (requestNo++));
             }
 
@@ -785,7 +799,7 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == REL_PROGRAM_FUNC) {
             memcpy(&tmpReleaseProgram, conMsgBuffer[index], sizeof(tmpReleaseProgram));
             mpiOpenCLReleaseProgram(&tmpReleaseProgram);
-            MPI_Isend(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, 0,
+            MPI_Isend(&tmpReleaseProgram, sizeof(tmpReleaseProgram), MPI_BYTE, appRank,
                       REL_PROGRAM_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -795,7 +809,7 @@ int main(int argc, char *argv[])
             memcpy(&tmpReleaseCommandQueue, conMsgBuffer[index],
                    sizeof(tmpReleaseCommandQueue));
             mpiOpenCLReleaseCommandQueue(&tmpReleaseCommandQueue);
-            MPI_Isend(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, 0,
+            MPI_Isend(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, appRank,
                       REL_COMMAND_QUEUE_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -804,7 +818,7 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == REL_CONTEXT_FUNC) {
             memcpy(&tmpReleaseContext, conMsgBuffer[index], sizeof(tmpReleaseContext));
             mpiOpenCLReleaseContext(&tmpReleaseContext);
-            MPI_Isend(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, 0,
+            MPI_Isend(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, appRank,
                       REL_CONTEXT_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -819,10 +833,10 @@ int main(int argc, char *argv[])
             }
             mpiOpenCLGetDeviceInfo(&tmpGetDeviceInfo, param_value);
             requestNo = 0;
-            MPI_Isend(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, 0,
+            MPI_Isend(&tmpGetDeviceInfo, sizeof(tmpGetDeviceInfo), MPI_BYTE, appRank,
                       GET_DEVICE_INFO_FUNC, parentComm, curRequest + (requestNo++));
             if (param_value_size > 0 && tmpGetDeviceInfo.param_value != NULL) {
-                MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
+                MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
                           GET_DEVICE_INFO_FUNC1, parentCommData, curRequest + (requestNo++));
             }
 
@@ -841,11 +855,11 @@ int main(int argc, char *argv[])
             }
             mpiOpenCLGetPlatformInfo(&tmpGetPlatformInfo, param_value);
             requestNo = 0;
-            MPI_Isend(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, 0,
+            MPI_Isend(&tmpGetPlatformInfo, sizeof(tmpGetPlatformInfo), MPI_BYTE, appRank,
                       GET_PLATFORM_INFO_FUNC, parentComm, curRequest + (requestNo++));
 
             if (param_value_size > 0 && tmpGetPlatformInfo.param_value != NULL) {
-                MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
+                MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
                           GET_PLATFORM_INFO_FUNC1, parentCommData, curRequest + (requestNo++));
             }
 
@@ -858,7 +872,7 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == FLUSH_FUNC) {
             memcpy(&tmpFlush, conMsgBuffer[index], sizeof(tmpFlush));
             mpiOpenCLFlush(&tmpFlush);
-            MPI_Isend(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, 0,
+            MPI_Isend(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, appRank,
                       FLUSH_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -869,24 +883,24 @@ int main(int argc, char *argv[])
             memcpy(&tmpWaitForEvents, conMsgBuffer[index], sizeof(tmpWaitForEvents));
             num_events = tmpWaitForEvents.num_events;
             event_list = (cl_event *) malloc(sizeof(cl_event) * num_events);
-            MPI_Irecv(event_list, sizeof(cl_event) * num_events, MPI_BYTE, 0,
+            MPI_Irecv(event_list, sizeof(cl_event) * num_events, MPI_BYTE, appRank,
                       WAIT_FOR_EVENT_FUNC1, parentCommData, curRequest + (requestNo++));
             MPI_Waitall(requestNo, curRequest, curStatus);
             requestNo = 0;
             mpiOpenCLWaitForEvents(&tmpWaitForEvents, event_list);
 
             for (i = 0; i < num_events; i++) {
-                bufferIndex = getReadBufferIndexFromEvent(event_list[i]);
+                bufferIndex = getReadBufferIndexFromEvent(appRank, event_list[i]);
                 if (bufferIndex >= 0) {
-                    readBufferInfoPtr = getReadBufferInfoPtr(bufferIndex);
-                    processReadBuffer(bufferIndex, readBufferInfoPtr->numReadBuffers);
+                    readBufferInfoPtr = getReadBufferInfoPtr(appRank, bufferIndex);
+                    processReadBuffer(appRank, bufferIndex, readBufferInfoPtr->numReadBuffers);
                     readBufferInfoPtr->numReadBuffers = 0;
                 }
 
-                bufferIndex = getWriteBufferIndexFromEvent(event_list[i]);
+                bufferIndex = getWriteBufferIndexFromEvent(appRank, event_list[i]);
                 if (bufferIndex >= 0) {
-                    writeBufferInfoPtr = getWriteBufferInfoPtr(bufferIndex);
-                    processWriteBuffer(bufferIndex, writeBufferInfoPtr->numWriteBuffers);
+                    writeBufferInfoPtr = getWriteBufferInfoPtr(appRank, bufferIndex);
+                    processWriteBuffer(appRank, bufferIndex, writeBufferInfoPtr->numWriteBuffers);
                     writeBufferInfoPtr->numWriteBuffers = 0;
                 }
             }
@@ -901,7 +915,7 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == CREATE_SAMPLER_FUNC) {
             memcpy(&tmpCreateSampler, conMsgBuffer[index], sizeof(tmpCreateSampler));
             mpiOpenCLCreateSampler(&tmpCreateSampler);
-            MPI_Isend(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, 0,
+            MPI_Isend(&tmpCreateSampler, sizeof(tmpCreateSampler), MPI_BYTE, appRank,
                       CREATE_SAMPLER_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -917,11 +931,11 @@ int main(int argc, char *argv[])
                 param_value = malloc(param_value_size);
             }
             mpiOpenCLGetCommandQueueInfo(&tmpGetCommandQueueInfo, param_value);
-            MPI_Isend(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, 0,
+            MPI_Isend(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, appRank,
                       GET_CMD_QUEUE_INFO_FUNC, parentComm, curRequest + (requestNo++));
 
             if (param_value_size > 0 && tmpGetCommandQueueInfo.param_value != NULL) {
-                MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
+                MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
                           GET_CMD_QUEUE_INFO_FUNC1, parentCommData,
                           curRequest + (requestNo++));
             }
@@ -942,11 +956,11 @@ int main(int argc, char *argv[])
                 event_wait_list =
                     (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
                 MPI_Irecv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
-                          MPI_BYTE, 0, ENQUEUE_MAP_BUFF_FUNC1, parentCommData,
+                          MPI_BYTE, appRank, ENQUEUE_MAP_BUFF_FUNC1, parentCommData,
                           curRequest + (requestNo++));
             }
             mpiOpenCLEnqueueMapBuffer(&tmpEnqueueMapBuffer, event_wait_list);
-            MPI_Isend(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, 0,
+            MPI_Isend(&tmpEnqueueMapBuffer, sizeof(tmpEnqueueMapBuffer), MPI_BYTE, appRank,
                       ENQUEUE_MAP_BUFF_FUNC, parentComm, curRequest + (requestNo++));
 
             if (num_events_in_wait_list > 0) {
@@ -958,7 +972,7 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == RELEASE_EVENT_FUNC) {
             memcpy(&tmpReleaseEvent, conMsgBuffer[index], sizeof(tmpReleaseEvent));
             mpiOpenCLReleaseEvent(&tmpReleaseEvent);
-            MPI_Isend(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, 0,
+            MPI_Isend(&tmpReleaseEvent, sizeof(tmpReleaseEvent), MPI_BYTE, appRank,
                       RELEASE_EVENT_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -974,11 +988,11 @@ int main(int argc, char *argv[])
                 param_value = malloc(param_value_size);
             }
             mpiOpenCLGetEventProfilingInfo(&tmpGetEventProfilingInfo, param_value);
-            MPI_Isend(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, 0,
+            MPI_Isend(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, appRank,
                       GET_EVENT_PROF_INFO_FUNC, parentComm, curRequest + (requestNo++));
 
             if (param_value_size > 0 && tmpGetEventProfilingInfo.param_value != NULL) {
-                MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
+                MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
                           GET_EVENT_PROF_INFO_FUNC1, parentCommData,
                           curRequest + (requestNo++));
             }
@@ -992,7 +1006,7 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == RELEASE_SAMPLER_FUNC) {
             memcpy(&tmpReleaseSampler, conMsgBuffer[index], sizeof(tmpReleaseSampler));
             mpiOpenCLReleaseSampler(&tmpReleaseSampler);
-            MPI_Isend(&tmpReleaseSampler, sizeof(tmpReleaseSampler), MPI_BYTE, 0,
+            MPI_Isend(&tmpReleaseSampler, sizeof(tmpReleaseSampler), MPI_BYTE, appRank,
                       RELEASE_SAMPLER_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -1009,16 +1023,19 @@ int main(int argc, char *argv[])
             }
             mpiOpenCLGetKernelWorkGroupInfo(&tmpGetKernelWorkGroupInfo, param_value);
             MPI_Isend(&tmpGetKernelWorkGroupInfo, sizeof(tmpGetKernelWorkGroupInfo), MPI_BYTE,
-                      0, GET_KERNEL_WGP_INFO_FUNC, parentComm, curRequest + (requestNo++));
+                      appRank, GET_KERNEL_WGP_INFO_FUNC, parentComm, curRequest + (requestNo++));
 
             if (param_value_size > 0 && tmpGetKernelWorkGroupInfo.param_value != NULL) {
-                MPI_Isend(param_value, param_value_size, MPI_BYTE, 0,
+                MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
                           GET_KERNEL_WGP_INFO_FUNC1, parentCommData,
                           curRequest + (requestNo++));
-                free(param_value);
             }
 
             MPI_Waitall(requestNo, curRequest, curStatus);
+			if (param_value_size > 0 && tmpGetKernelWorkGroupInfo.param_value != NULL)
+			{
+				free(param_value);
+			}
         }
 
         if (status.MPI_TAG == CREATE_IMAGE_2D_FUNC) {
@@ -1028,11 +1045,11 @@ int main(int argc, char *argv[])
             host_ptr = NULL;
             if (host_buff_size > 0) {
                 host_ptr = malloc(host_buff_size);
-                MPI_Irecv(host_ptr, host_buff_size, MPI_BYTE, 0,
+                MPI_Irecv(host_ptr, host_buff_size, MPI_BYTE, appRank,
                           CREATE_IMAGE_2D_FUNC1, parentCommData, curRequest + (requestNo++));
             }
             mpiOpenCLCreateImage2D(&tmpCreateImage2D, host_ptr);
-            MPI_Isend(&tmpCreateImage2D, sizeof(tmpCreateImage2D), MPI_BYTE, 0,
+            MPI_Isend(&tmpCreateImage2D, sizeof(tmpCreateImage2D), MPI_BYTE, appRank,
                       CREATE_IMAGE_2D_FUNC, parentComm, curRequest + (requestNo++));
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -1050,11 +1067,11 @@ int main(int argc, char *argv[])
                 event_wait_list =
                     (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
                 MPI_Irecv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
-                          MPI_BYTE, 0, ENQ_COPY_BUFF_FUNC1, parentCommData,
+                          MPI_BYTE, appRank, ENQ_COPY_BUFF_FUNC1, parentCommData,
                           curRequest + (requestNo++));
             }
             mpiOpenCLEnqueueCopyBuffer(&tmpEnqueueCopyBuffer, event_wait_list);
-            MPI_Isend(&tmpEnqueueCopyBuffer, sizeof(tmpEnqueueCopyBuffer), MPI_BYTE, 0,
+            MPI_Isend(&tmpEnqueueCopyBuffer, sizeof(tmpEnqueueCopyBuffer), MPI_BYTE, appRank,
                       ENQ_COPY_BUFF_FUNC, parentComm, curRequest + (requestNo++));
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -1066,7 +1083,7 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == RETAIN_EVENT_FUNC) {
             memcpy(&tmpRetainEvent, conMsgBuffer[index], sizeof(tmpRetainEvent));
             mpiOpenCLRetainEvent(&tmpRetainEvent);
-            MPI_Isend(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, 0,
+            MPI_Isend(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, appRank,
                       RETAIN_EVENT_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -1075,7 +1092,7 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == RETAIN_MEMOBJ_FUNC) {
             memcpy(&tmpRetainMemObject, conMsgBuffer[index], sizeof(tmpRetainMemObject));
             mpiOpenCLRetainMemObject(&tmpRetainMemObject);
-            MPI_Isend(&tmpRetainMemObject, sizeof(tmpRetainMemObject), MPI_BYTE, 0,
+            MPI_Isend(&tmpRetainMemObject, sizeof(tmpRetainMemObject), MPI_BYTE, appRank,
                       RETAIN_MEMOBJ_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -1083,10 +1100,10 @@ int main(int argc, char *argv[])
 
         if (status.MPI_TAG == RETAIN_KERNEL_FUNC) {
             requestNo = 0;
-            MPI_Irecv(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, 0,
+            MPI_Irecv(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, appRank,
                       RETAIN_KERNEL_FUNC, parentComm, curRequest + (requestNo++));
             mpiOpenCLRetainKernel(&tmpRetainKernel);
-            MPI_Isend(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, 0,
+            MPI_Isend(&tmpRetainKernel, sizeof(tmpRetainKernel), MPI_BYTE, appRank,
                       RETAIN_KERNEL_FUNC, parentComm, curRequest + (requestNo++));
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -1095,7 +1112,7 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == RETAIN_CMDQUE_FUNC) {
             memcpy(&tmpRetainCommandQueue, conMsgBuffer[index], sizeof(tmpRetainCommandQueue));
             mpiOpenCLRetainCommandQueue(&tmpRetainCommandQueue);
-            MPI_Isend(&tmpRetainCommandQueue, sizeof(tmpRetainCommandQueue), MPI_BYTE, 0,
+            MPI_Isend(&tmpRetainCommandQueue, sizeof(tmpRetainCommandQueue), MPI_BYTE, appRank,
                       RETAIN_CMDQUE_FUNC, parentComm, curRequest);
 
             MPI_Wait(curRequest, curStatus);
@@ -1111,11 +1128,11 @@ int main(int argc, char *argv[])
                 event_wait_list =
                     (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
                 MPI_Irecv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
-                          MPI_BYTE, 0, ENQ_UNMAP_MEMOBJ_FUNC1, parentCommData,
+                          MPI_BYTE, appRank, ENQ_UNMAP_MEMOBJ_FUNC1, parentCommData,
                           curRequest + (requestNo++));
             }
             mpiOpenCLEnqueueUnmapMemObject(&tmpEnqueueUnmapMemObject, event_wait_list);
-            MPI_Isend(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE, 0,
+            MPI_Isend(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE, appRank,
                       ENQ_UNMAP_MEMOBJ_FUNC, parentComm, curRequest + (requestNo++));
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -1129,7 +1146,7 @@ int main(int argc, char *argv[])
         }
 
         /* issue it for later call of this function */
-        MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, 0, MPI_ANY_TAG,
+        MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG,
                   parentComm, conMsgRequest + index);
 
     }
@@ -1149,8 +1166,8 @@ int main(int argc, char *argv[])
     pthread_barrier_destroy(&barrier);
 
     /* release the write and read buffer pool */
-    finalizeWriteBuffer();
-    finalizeReadBuffer();
+    finalizeWriteBufferAll();
+    finalizeReadBufferAll();
 
     MPI_Comm_free(&parentComm);
     MPI_Comm_free(&parentCommData);
