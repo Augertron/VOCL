@@ -384,7 +384,6 @@ int main(int argc, char ** argv)
 		timerStart();
 		for (i = 0; i < numIterations; i++)
 		{
-			printf("iter = %d\n", i);
 			//Initialize DP matrices
 			memset(pathFlag, 0, DPMatrixSize * sizeof(char));
 			memset(extFlag,  0, DPMatrixSize * sizeof(char));
@@ -413,7 +412,6 @@ int main(int argc, char ** argv)
 			CHECK_ERR(err, "copy blosum62 to device");
 
 			err  = clSetKernelArg(hMatchStringKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
-			printf("Here111\n");
 			err |= clSetKernelArg(hMatchStringKernel, 1, sizeof(cl_mem), (void *)&extFlagD);
 			err |= clSetKernelArg(hMatchStringKernel, 2, sizeof(cl_mem), (void *)&nGapDistD);
 			err |= clSetKernelArg(hMatchStringKernel, 3, sizeof(cl_mem), (void *)&hGapDistD);

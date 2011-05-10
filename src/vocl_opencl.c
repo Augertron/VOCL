@@ -1037,7 +1037,6 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
         MPI_Isend((void *) ((char *) ptr + i * VOCL_WRITE_BUFFER_SIZE), bufferSize, MPI_BYTE,
                   proxyRank, VOCL_WRITE_TAG + bufferIndex, proxyCommData,
                   getWriteRequestPtr(proxyIndex, bufferIndex));
-		printf("lib, tag = %d, size = %ld\n", VOCL_WRITE_TAG + bufferIndex, bufferSize);
         /* current buffer is used */
         setWriteBufferInUse(proxyIndex, bufferIndex);
     }
