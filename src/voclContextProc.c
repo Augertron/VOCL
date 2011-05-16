@@ -94,6 +94,25 @@ cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyRank,
     return contextPtr->clContext;
 }
 
+void voclUpdateVOCLContext(vocl_context voclContext, int proxyRank, int proxyIndex,
+		MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_device_id deviceID)
+{
+	struct strVOCLContext *contextPtr = getVOCLContextPtr(voclContext);
+	int err;
+
+	/* release previous context */
+	clReleaseContext(voclContext);
+
+	contextPtr->proxyRank = proxyRank;
+	contextPtr->proxyIndex = proxyIndex;
+	contextPtr->proxyComm = proxyComm;
+	contextPtr->proxyCommData = proxyCommData;
+
+	contextPtr->clContext = voclMigCreateContext(0, 1, &deviceID, NULL, NULL, &err);
+
+	return;
+}
+
 int voclReleaseContext(vocl_context context)
 {
 	struct strVOCLContext *contextPtr, *preContextPtr, *curContextPtr;

@@ -55,6 +55,8 @@ extern vocl_command_queue voclCLCommandQueue2VOCLCommandQueue(cl_command_queue c
 extern cl_command_queue voclVOCLCommandQueue2CLCommandQueueComm(vocl_command_queue commandQueue, int *proxyRank,
                             int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
 extern int voclReleaseCommandQueue(vocl_command_queue command_queue);
+extern void voclStoreCmdQueueProperties(vocl_command_queue command_queue, 
+				cl_command_queue_properties properties, vocl_context context, vocl_device_id device);
 
 /* for program processing */
 extern void voclProgramInitialize();
@@ -64,7 +66,9 @@ extern vocl_program voclCLProgram2VOCLProgram(cl_program program, int proxyRank,
 extern cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyRank,
                       int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
 extern int voclReleaseProgram(vocl_program program);
-extern void voclStoreProgramSource(char *source, size_t sourceSize);
+extern void voclStoreProgramSource(vocl_program program, char *source, size_t sourceSize);
+extern void voclStoreProgramContext(vocl_program program, vocl_context context);
+extern vocl_context voclGetContextFromProgram(vocl_program program);
 
 /* for program processing */
 extern void voclMemoryInitialize();
@@ -74,6 +78,8 @@ extern vocl_mem voclCLMemory2VOCLMemory(cl_mem memory, int proxyRank,
 extern cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyRank,
                   int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
 extern int voclReleaseMemory(vocl_mem mem);
+extern void voclStoreMemoryParameters(vocl_mem memory, cl_mem_flags flags, 
+       			size_t size, vocl_context context);
 
 /* for program processing */
 extern void voclKernelInitialize();
@@ -83,6 +89,8 @@ extern vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyRank,
 extern cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
                      int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
 extern int voclReleaseKernel(vocl_kernel kernel);
+extern void voclStoreKernelProgramContext(vocl_kernel kernel, vocl_program program, vocl_context context);
+
 
 /* kernel argument processing functions */
 extern cl_int createKernel(cl_kernel kernel);
@@ -131,6 +139,9 @@ extern vocl_sampler voclCLSampler2VOCLSampler(cl_sampler sampler, int proxyRank,
 extern cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxyRank,
                       int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData);
 extern int voclReleaseSampler(vocl_sampler sampler);
+
+/* handle migration */
+extern int voclCheckTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue);
 
 /*******************************************************************/
 /* for Opencl object count processing */
@@ -653,6 +664,7 @@ clCreateCommandQueue(cl_context context,
 
 	/* convert cl command queue to vocl command queue */
 	command_queue = voclCLCommandQueue2VOCLCommandQueue(tmpCreateCommandQueue.clCommand, proxyRankContext, proxyIndex, proxyComm, proxyCommData);
+	voclStoreCmdQueueProperties(command_queue, properties, context, device);
 
     return (cl_command_queue)command_queue;
 }
@@ -746,8 +758,9 @@ clCreateProgramWithSource(cl_context context,
 		proxyRank, proxyIndex, proxyComm, proxyCommData);
 
 	/*store the source code corresponding to the program */
-	voclStoreProgramSource(allStrings, totalLength);
-	
+	voclStoreProgramSource(program, allStrings, totalLength);
+	voclStoreProgramContext(program, context);
+
 	free(allStrings);
 	free(lengthsArray);
 
@@ -835,6 +848,7 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
 	int proxyRank, proxyIndex;
 	MPI_Comm proxyComm, proxyCommData;
 	vocl_kernel kernel;
+	vocl_context context;
     int requestNo = 0;
     struct strCreateKernel tmpCreateKernel;
     int kernelNameSize = strlen(kernel_name);
@@ -873,6 +887,11 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
 
 	/*convert opencl kernel to vocl kernel */
 	kernel = voclCLKernel2VOCLKernel(tmpCreateKernel.kernel, proxyRank, proxyIndex, proxyComm, proxyCommData);
+	voclStoreKernelName(kernel, (char *)kernel_name);
+	
+	/* get context from the vocl program */
+	context = voclGetContextFromProgram(program);
+	voclStoreKernelProgramContext(kernel, program, context);
 
 	/* create kernel info on the local node for storing arguments */
 	createKernel((cl_kernel)kernel);
@@ -935,6 +954,8 @@ clCreateBuffer(cl_context context,
 	
 	memory = voclCLMemory2VOCLMemory(tmpCreateBuffer.deviceMem, 
         proxyRank, proxyIndex, proxyComm, proxyCommData);
+	/* store memory parameters for possible migration */
+	voclStoreMemoryParameters(memory, flags, size, context);
 
     return (cl_mem)memory;
 }
@@ -969,6 +990,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     tmpEnqueueWriteBuffer.command_queue = 
 		voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
     tmpEnqueueWriteBuffer.buffer = voclVOCLMemory2CLMemoryComm((vocl_mem)buffer, &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
+	voclSetMemWrittenFlag((vocl_mem)buffer, 1);
 
     if (num_events_in_wait_list > 0) {
 		eventList = (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
@@ -1077,21 +1099,6 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
 	MPI_Comm proxyComm, proxyCommData;
 	cl_kernel clKernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
     kernel_info *kernelPtr = getKernelPtr(kernel);
-
-	/* local gpu, call native opencl function */
-	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
-	{
-		if (kernelPtr->args_flag[arg_index] == 1) /*device memory */
-		{
-			deviceMem = voclVOCLMemory2CLMemoryComm(*((vocl_mem *)arg_value), &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
-			return dlCLSetKernelArg(clKernel, arg_index, arg_size, (void *)&deviceMem);
-		}
-		else
-		{
-			return dlCLSetKernelArg(clKernel, arg_index, arg_size, arg_value);
-		}
-	}
-
 	/* for a remote gpu */
     if (kernelPtr->args_allocated == 0) {
         kernelPtr->args_ptr = (kernel_args *) malloc(sizeof(kernel_args) * MAX_ARGS);
@@ -1101,6 +1108,24 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
     kernelPtr->args_ptr[kernelPtr->args_num].arg_index = arg_index;
     kernelPtr->args_ptr[kernelPtr->args_num].arg_size = arg_size;
     kernelPtr->args_ptr[kernelPtr->args_num].arg_null_flag = 1;
+
+	/* local gpu, call native opencl function */
+	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
+	{
+		if (kernelPtr->args_flag[arg_index] == 1) /*device memory */
+		{
+			/* add gpu memory usage */
+			kernelPtr->globalMemSize += voclGetVOCLMemorySize(*((vocl_mem *)arg_value));
+			kernelPtr->args_ptr[kernelPtr->args_num].memory = (cl_mem)(*((vocl_mem *)arg_value));
+			deviceMem = voclVOCLMemory2CLMemoryComm(*((vocl_mem *)arg_value), &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
+			return dlCLSetKernelArg(clKernel, arg_index, arg_size, (void *)&deviceMem);
+		}
+		else
+		{
+			return dlCLSetKernelArg(clKernel, arg_index, arg_size, arg_value);
+		}
+	}
+
     if (arg_value != NULL) {
 	    /*check whether the argument is the device memory */
 		if (arg_index >= kernelPtr->kernel_arg_num)
@@ -1112,6 +1137,8 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
 		if (kernelPtr->args_flag[arg_index] == 1) /* device memory */
 		{
 			/*convert from vocl memory to cl memory */
+			kernelPtr->globalMemSize += voclGetVOCLMemorySize(*((vocl_mem *)arg_value));
+			kernelPtr->args_ptr[kernelPtr->args_num].memory = (cl_mem)(*((vocl_mem *)arg_value));
 			deviceMem = voclVOCLMemory2CLMemoryComm(*((vocl_mem *)arg_value), &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
         	memcpy(kernelPtr->args_ptr[kernelPtr->args_num].arg_value, (void *)&deviceMem, arg_size);
 		}
@@ -1146,13 +1173,27 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 	int proxyRank, proxyIndex;
 	MPI_Comm proxyComm, proxyCommData;
     cl_event *eventList = NULL;
+	int taskMigrationNeeded;
+
+	/*check to see whether migration is needed based on GPU memory usage*/
+	/*GPU memory usage information can be obtained based on kernel arguments */
+	taskMigrationNeeded = voclCheckTaskMigration(kernel, command_queue);
+	//taskMigrationNeeded = 1;
+	if (taskMigrationNeeded) /* if necessary */
+	{
+		voclTaskMigration(kernel, command_queue);
+	}
 
     /* initialize structure */
+	printf("Kernel1, %ld\n", (vocl_kernel)kernel);
     kernel_info *kernelPtr = getKernelPtr(kernel);
+	printf("Kernel2\n");
     tmpEnqueueNDRangeKernel.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, 
                                                 &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
+	printf("Kernel3\n");
     tmpEnqueueNDRangeKernel.kernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, &proxyRank, 
                                          &proxyIndex, &proxyComm, &proxyCommData);
+	printf("Kernel4\n");
 
     if (num_events_in_wait_list > 0) {
 		eventList = (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
@@ -1407,7 +1448,7 @@ cl_int clReleaseMemObject(cl_mem memobj)
 		decreaseObjCount(proxyIndex);
 
 		/* release vocl memory object */
-		voclReleaseMemory((vocl_mem)memobj);
+		//voclReleaseMemory((vocl_mem)memobj);
 	}
 
     return tmpReleaseMemObject.res;
@@ -1445,10 +1486,10 @@ cl_int clReleaseKernel(cl_kernel kernel)
 
 		/* release kernel and parameter buffers related */
 		/* to the kernel */
-		releaseKernelPtr(kernel);
+		//releaseKernelPtr(kernel);
 
 		/* release vocl kernel */
-		voclReleaseKernel((vocl_kernel)kernel);
+		//voclReleaseKernel((vocl_kernel)kernel);
 	}
 
     return tmpReleaseKernel.res;
@@ -1656,7 +1697,7 @@ cl_int clReleaseProgram(cl_program program)
 		/* decrease the number of OpenCL objects count */
 		decreaseObjCount(proxyIndex);
 		/* release vocl program */
-		voclReleaseProgram((vocl_program)program);
+		//voclReleaseProgram((vocl_program)program);
 	}
 
     return tmpReleaseProgram.res;
@@ -1688,7 +1729,7 @@ cl_int clReleaseCommandQueue(cl_command_queue command_queue)
 		decreaseObjCount(proxyIndex);
 
 		/* releaes vocl command queue */
-		voclReleaseCommandQueue((vocl_command_queue)command_queue);
+		//voclReleaseCommandQueue((vocl_command_queue)command_queue);
 	}
 
     return tmpReleaseCommandQueue.res;
@@ -1720,7 +1761,7 @@ cl_int clReleaseContext(cl_context context)
 		decreaseObjCount(proxyIndex);
 
 		/* release vocl context */
-		voclReleaseContext((vocl_context)context);
+		//voclReleaseContext((vocl_context)context);
 	}
 
     return tmpReleaseContext.res;
@@ -2125,7 +2166,7 @@ cl_int clReleaseEvent(cl_event event)
 		decreaseObjCount(proxyIndex);
 
 		/* release vocl event */
-		voclReleaseEvent((vocl_event)event);
+		//voclReleaseEvent((vocl_event)event);
 	}
     return tmpReleaseEvent.res;
 }
@@ -2208,7 +2249,7 @@ cl_int clReleaseSampler(cl_sampler sampler)
 		decreaseObjCount(proxyIndex);
 
 		/* release vocl sampler */
-		voclReleaseSampler((vocl_sampler)sampler);
+		//voclReleaseSampler((vocl_sampler)sampler);
 	}
 
     return tmpReleaseSampler.res;

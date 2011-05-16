@@ -40,6 +40,7 @@ struct strVOCLDeviceID {
 	MPI_Comm           proxyComm;
 	MPI_Comm           proxyCommData;
 	int               isOnLocalNode;
+	
 	struct strVOCLDeviceID *next;
 };
 
@@ -62,6 +63,10 @@ struct strVOCLCommandQueue {
 	MPI_Comm           proxyComm;
 	MPI_Comm           proxyCommData;
 	int               isOnLocalNode;
+	/* properties used for migration */
+	cl_command_queue_properties properties;
+	vocl_context       context;
+	vocl_device_id     deviceID;
 	struct strVOCLCommandQueue *next;
 };
 
@@ -73,6 +78,13 @@ struct strVOCLMemory {
 	MPI_Comm          proxyComm;
 	MPI_Comm          proxyCommData;
 	int              isOnLocalNode;
+
+	/* used for migration */
+	cl_mem_flags      flags;
+	size_t            size;
+	int               isWritten; /* 1: not written, 1, written */
+	vocl_context      context;
+
     struct strVOCLMemory *next;
 };
 
@@ -84,9 +96,12 @@ struct strVOCLProgram {
 	MPI_Comm         proxyComm;
 	MPI_Comm         proxyCommData;
 	int             isOnLocalNode;
-    /* to store source code */
+    /* to store source code for migration*/
 	char             *voclSourceString;
 	size_t           sourceSize;
+	char             *buildOptions;
+	vocl_context     context;
+
 	struct strVOCLProgram *next;
 };
 
@@ -98,6 +113,12 @@ struct strVOCLKernel {
 	MPI_Comm         proxyComm;
 	MPI_Comm         proxyCommData;
 	int             isOnLocalNode;
+
+	/*used for migration */
+	char             *kernelName;
+	vocl_program     program;
+	vocl_context     context;
+
 	struct strVOCLKernel *next;
 };
 
@@ -108,7 +129,6 @@ struct strVOCLEvent {
 	int             proxyIndex;
 	MPI_Comm        proxyComm;
 	MPI_Comm        proxyCommData;
-	int            isOnLocalNode;
 	struct strVOCLEvent *next;
 };
 
@@ -119,7 +139,6 @@ struct strVOCLSampler {
 	int            proxyIndex;
 	MPI_Comm       proxyComm;
 	MPI_Comm       proxyCommData;
-	int           isOnLocalNode;
 	struct strVOCLSampler *next;
 };
 

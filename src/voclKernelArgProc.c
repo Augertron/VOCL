@@ -29,6 +29,7 @@ cl_int createKernel(cl_kernel kernel)
     kernel_info *kernelPtr;
     kernelPtr = (kernel_info *) malloc(sizeof(kernel_info));
     kernelPtr->kernel = kernel;
+	kernelPtr->globalMemSize = 0;
     kernelPtr->args_num = 0;
     kernelPtr->args_allocated = 0;
     kernelPtr->args_ptr = NULL;

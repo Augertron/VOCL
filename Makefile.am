@@ -22,7 +22,9 @@ libvocl_la_SOURCES = $(top_srcdir)/src/vocl_opencl.c \
 					 $(top_srcdir)/src/voclProxyNameProc.c \
 					 $(top_srcdir)/src/voclProgramProc.c \
 					 $(top_srcdir)/src/voclSamplerProc.c \
-					 $(top_srcdir)/src/voclDynamicOpenCLLoad.c
+					 $(top_srcdir)/src/voclDynamicOpenCLLoad.c \
+					 $(top_srcdir)/src/voclMigOpencl.c \
+					 $(top_srcdir)/src/voclMigration.c
 
 
 bin_PROGRAMS = vocl_proxy bandwidth matrixmult_sp matrixmult_dp nbody_sp nbody_dp swat matrixtrans_sp matrixtrans_dp

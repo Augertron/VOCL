@@ -11,6 +11,7 @@ typedef struct strKernelArgs {
     size_t arg_size;
     char arg_value[64];
     cl_char arg_null_flag;
+	cl_mem memory; /* used for migration */
 } kernel_args;
 
 typedef struct strKernelInfo {
@@ -18,6 +19,7 @@ typedef struct strKernelInfo {
     cl_uint args_num;
     cl_bool args_allocated;
 	char *args_flag;
+	size_t globalMemSize;
 	unsigned int kernel_arg_num;
     kernel_args *args_ptr;
     struct strKernelInfo *next;
