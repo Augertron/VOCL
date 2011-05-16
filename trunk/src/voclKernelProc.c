@@ -17,6 +17,7 @@ static struct strVOCLKernel *createVOCLKernel()
 {
 	struct strVOCLKernel *kernelPtr;
 	kernelPtr = (struct strVOCLKernel *)malloc(sizeof(struct strVOCLKernel));
+	kernelPtr->kernelName = NULL;
 	kernelPtr->next = voclKernelPtr;
 	voclKernelPtr = kernelPtr;
 
@@ -59,6 +60,10 @@ void voclKernelFinalize()
 	while (kernelPtr != NULL)
 	{
 		tmpkernelPtr = kernelPtr->next;
+		if (kernelPtr->kernelName != NULL)
+		{
+			free(kernelPtr->kernelName);
+		}
 		free(kernelPtr);
 		kernelPtr = tmpkernelPtr;
 	}
@@ -82,6 +87,29 @@ vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyRank,
     return kernelPtr->voclKernel;
 }
 
+void voclStoreKernelName(vocl_kernel kernel, char *kernelName)
+{
+	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+	int len = strlen(kernelName) + 1;
+	kernelPtr->kernelName = (char *)malloc(len);
+	strcpy(kernelPtr->kernelName, kernelName);
+
+	return;
+}
+
+void voclStoreKernelProgramContext(vocl_kernel kernel, vocl_program program, vocl_context context)
+{
+	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+	kernelPtr->program = program;
+	kernelPtr->context = context;
+}
+
+vocl_program voclGetProgramFromKernel(vocl_kernel kernel)
+{
+	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+	return kernelPtr->program;
+}
+
 cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
               int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
@@ -92,6 +120,29 @@ cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
 	*proxyCommData = kernelPtr->proxyCommData;
 
     return kernelPtr->clKernel;
+}
+
+void voclUpdateVOCLKernel(vocl_kernel voclKernel, int proxyRank, int proxyIndex,
+		MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_program program)
+{
+	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(voclKernel);
+	int err;
+
+	/* release previous kernel */
+	clReleaseKernel(voclKernel);
+
+	kernelPtr->proxyRank = proxyRank;
+	kernelPtr->proxyIndex = proxyIndex;
+	kernelPtr->proxyComm = proxyComm;
+	kernelPtr->proxyCommData = proxyCommData;
+
+	kernelPtr->clKernel = voclMigCreateKernel(program, kernelPtr->kernelName, &err);
+	if (err != CL_SUCCESS)
+	{
+		printf("create kernel error!\n", err);
+	}
+
+	return;
 }
 
 int voclReleaseKernel(vocl_kernel kernel)

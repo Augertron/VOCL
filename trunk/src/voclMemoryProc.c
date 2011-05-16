@@ -17,6 +17,7 @@ static struct strVOCLMemory *createVOCLMemory()
 {
 	struct strVOCLMemory *memPtr;
 	memPtr = (struct strVOCLMemory *)malloc(sizeof(struct strVOCLMemory));
+	memPtr->isWritten = 0;
 	memPtr->next = voclMemoryPtr;
 	voclMemoryPtr = memPtr;
 
@@ -82,6 +83,23 @@ vocl_mem voclCLMemory2VOCLMemory(cl_mem memory, int proxyRank,
     return memoryPtr->voclMemory;
 }
 
+void voclStoreMemoryParameters(vocl_mem memory, cl_mem_flags flags, 
+		size_t size, vocl_context context)
+{
+	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+	memoryPtr->flags = flags;
+	memoryPtr->size  = size;
+	memoryPtr->context  = context;
+
+	return;
+}
+
+size_t voclGetVOCLMemorySize(vocl_mem memory)
+{
+	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+	return memoryPtr->size;
+}
+
 cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyRank,
            int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
@@ -92,6 +110,39 @@ cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyRank,
 	*proxyCommData = memoryPtr->proxyCommData;
 
     return memoryPtr->clMemory;
+}
+
+void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
+		MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context)
+{
+	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(voclMemory);
+	int err;
+
+	/*release previous memory */
+	clReleaseMemObject(voclMemory);
+
+	memoryPtr->proxyRank = proxyRank;
+	memoryPtr->proxyIndex = proxyIndex;
+	memoryPtr->proxyComm = proxyComm;
+	memoryPtr->proxyCommData = proxyCommData;
+
+	memoryPtr->clMemory = voclMigCreateBuffer(context, memoryPtr->flags, 
+							memoryPtr->size, NULL, &err);
+
+	return;
+}
+
+void voclSetMemWrittenFlag(vocl_mem memory, int flag)
+{
+	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+	memoryPtr->isWritten = flag;
+	return;
+}
+
+int voclGetMemWrittenFlag(vocl_mem memory)
+{
+	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+	return memoryPtr->isWritten;
 }
 
 int voclReleaseMemory(vocl_mem memory)

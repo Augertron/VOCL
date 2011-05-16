@@ -22,6 +22,7 @@ static struct strVOCLProgram *createVOCLProgram()
 	programPtr->next = voclProgramPtr;
 	programPtr->voclSourceString = NULL;
 	programPtr->sourceSize = 0;
+	programPtr->buildOptions = NULL;
 	voclProgramPtr = programPtr;
 
 	return programPtr;
@@ -68,6 +69,11 @@ void voclProgramFinalize()
 		{
 			free(programPtr->voclSourceString);
 		}
+		if (programPtr->buildOptions != NULL)
+		{
+			free(programPtr->buildOptions);
+		}
+
 		free(programPtr);
 		programPtr = tmpprogramPtr;
 	}
@@ -77,10 +83,10 @@ void voclProgramFinalize()
     voclProgram = 0;
 }
 
-void voclStoreProgramSource(char *source, size_t sourceSize)
+void voclStoreProgramSource(vocl_program program, char *source, size_t sourceSize)
 {
 	struct strVOCLProgram *programPtr;
-	programPtr = voclProgramPtr;
+	programPtr = getVOCLProgramPtr(program);
 	if (programPtr->voclSourceString != NULL)
 	{
 		free(programPtr->voclSourceString);
@@ -91,6 +97,50 @@ void voclStoreProgramSource(char *source, size_t sourceSize)
 	programPtr->voclSourceString[sourceSize] = '\0';
 	programPtr->sourceSize = sourceSize;
 	return;
+}
+
+void voclStoreProgramBuildOptions(vocl_program program, char *buildOptions)
+{
+	struct strVOCLProgram *programPtr;
+	int optionLen;
+	programPtr = getVOCLProgramPtr(program);
+	optionLen = strlen(buildOptions);
+	if (optionLen > 0)
+	{
+		if (programPtr->buildOptions != NULL)
+		{
+			free(programPtr->buildOptions);
+		}
+		programPtr->buildOptions = (char *)malloc(sizeof(char) * (optionLen+1));
+		memcpy(programPtr->buildOptions, buildOptions, sizeof(char) * optionLen);
+		/* null terminated string */
+		programPtr->buildOptions[optionLen] = '\0';
+	}
+
+	return;
+}
+
+char *voclGetProgramBuildOptions(vocl_program program)
+{
+	struct strVOCLProgram *programPtr;
+	programPtr = getVOCLProgramPtr(program);
+	return programPtr->buildOptions;
+}
+
+
+void voclStoreProgramContext(vocl_program program, vocl_context context)
+{
+	struct strVOCLProgram *programPtr;
+	programPtr = getVOCLProgramPtr(program);
+	programPtr->context = context;
+	return;
+}
+
+vocl_context voclGetContextFromProgram(vocl_program program)
+{
+	struct strVOCLProgram *programPtr;
+	programPtr = getVOCLProgramPtr(program);
+	return programPtr->context;
 }
 
 char *voclGetProgramSource(vocl_program program, size_t *sourceSize)
@@ -129,6 +179,30 @@ cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyRank,
 	*proxyCommData = programPtr->proxyCommData;
 
     return programPtr->clProgram;
+}
+
+void voclUpdateVOCLProgram(vocl_program voclProgram, int proxyRank, int proxyIndex,
+		MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context)
+{
+	struct strVOCLProgram *programPtr = getVOCLProgramPtr(voclProgram);
+	char *cSource;
+	size_t sourceSize;
+	int err;
+
+	/*release previous program */
+	clReleaseProgram(voclProgram);
+
+	programPtr->proxyRank = proxyRank;
+	programPtr->proxyIndex = proxyIndex;
+	programPtr->proxyComm = proxyComm;
+	programPtr->proxyCommData = proxyCommData;
+
+	cSource = voclGetProgramSource(voclProgram, &sourceSize);
+
+	programPtr->clProgram = voclMigCreateProgramWithSource(context, 1,
+								&cSource, &sourceSize, &err);
+	
+	return;
 }
 
 int voclReleaseProgram(vocl_program program)

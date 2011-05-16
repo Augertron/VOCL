@@ -82,6 +82,29 @@ vocl_command_queue voclCLCommandQueue2VOCLCommandQueue(cl_command_queue command_
     return commandQueuePtr->voclCommandQueue;
 }
 
+void voclStoreCmdQueueProperties(vocl_command_queue cmdQueue, cl_command_queue_properties properties,
+				vocl_context context, vocl_device_id deviceID)
+{
+	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(cmdQueue);
+	commandQueuePtr->properties = properties;
+	commandQueuePtr->context = context;
+	commandQueuePtr->deviceID = deviceID;
+
+	return;
+}
+
+vocl_device_id voclGetCommandQueueDeviceID(vocl_command_queue cmdQueue)
+{
+	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(cmdQueue);
+	return commandQueuePtr->deviceID;
+}
+
+vocl_context voclGetCommandQueueContext(vocl_command_queue cmdQueue)
+{
+	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(cmdQueue);
+	return commandQueuePtr->context;
+}
+
 cl_command_queue voclVOCLCommandQueue2CLCommandQueueComm(vocl_command_queue command_queue, 
                      int *proxyRank, int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
 {
@@ -92,6 +115,25 @@ cl_command_queue voclVOCLCommandQueue2CLCommandQueueComm(vocl_command_queue comm
 	*proxyCommData = commandQueuePtr->proxyCommData;
 
     return commandQueuePtr->clCommandQueue;
+}
+
+void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, int proxyRank, int proxyIndex,
+                               MPI_Comm comm, MPI_Comm commData, vocl_context context, vocl_device_id device)
+{
+	struct strVOCLCommandQueue *cmdQueuePtr = getVOCLCommandQueuePtr(voclCmdQueue);
+	int err;
+
+	/*release previous command */
+	//clReleaseCommandQueue(voclCmdQueue);
+
+	cmdQueuePtr->proxyRank = proxyRank;
+	cmdQueuePtr->proxyIndex = proxyIndex;
+	cmdQueuePtr->proxyComm = comm;
+	cmdQueuePtr->proxyCommData = commData;
+	cmdQueuePtr->clCommandQueue = voclMigCreateCommandQueue(context, device, 
+									cmdQueuePtr->properties, &err);
+
+	return;
 }
 
 int voclReleaseCommandQueue(vocl_command_queue command_queue)

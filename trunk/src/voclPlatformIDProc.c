@@ -94,3 +94,16 @@ cl_platform_id voclVOCLPlatformID2CLPlatformIDComm(vocl_platform_id platform, in
     return platformPtr->clPlatformID;
 }
 
+void voclUpdateVOCLPlatformID(vocl_platform_id voclPlatform, int proxyRank,
+		int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData, cl_platform_id clPlatform)
+{
+	struct strVOCLPlatformID *platformPtr = getVOCLPlatformIDPtr(voclPlatform);
+    platformPtr->clPlatformID = clPlatform;
+	platformPtr->proxyRank = proxyRank;
+	platformPtr->proxyIndex = proxyIndex;
+	platformPtr->proxyComm = proxyComm;
+	platformPtr->proxyCommData = proxyCommData;
+
+	return;
+}
+

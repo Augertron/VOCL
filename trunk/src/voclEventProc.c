@@ -98,6 +98,19 @@ cl_event voclVOCLEvent2CLEventComm(vocl_event event, int *proxyRank,
     return eventPtr->clEvent;
 }
 
+void voclUpdateVOCLEvent(vocl_event voclEvent, int proxyRank, int proxyIndex,
+		MPI_Comm proxyComm, MPI_Comm proxyCommData, cl_event clEvent)
+{
+	struct strVOCLEvent *eventPtr = getVOCLEventPtr(voclEvent);
+    eventPtr->clEvent = clEvent;
+    eventPtr->proxyRank = proxyRank;
+    eventPtr->proxyIndex = proxyIndex;
+    eventPtr->proxyComm = proxyComm;
+    eventPtr->proxyCommData = proxyCommData;
+	
+	return;
+}
+
 static cl_event voclVOCLEvent2CLEvent(vocl_event event)
 /*comm and commData indicate the proxy process */
 /*that the event corresponds to. They are the output of this function */

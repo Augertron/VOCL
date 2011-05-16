@@ -94,3 +94,14 @@ cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyRa
     return devicePtr->clDeviceID;
 }
 
+void voclUpdateVOCLDeviceID(vocl_device_id voclDevice, int proxyRank,
+		int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData, cl_device_id clDevice)
+{
+	struct strVOCLDeviceID *devicePtr = getVOCLDeviceIDPtr(voclDevice);
+	devicePtr->clDeviceID = clDevice;
+	devicePtr->proxyRank = proxyRank;
+	devicePtr->proxyIndex = proxyIndex;
+	devicePtr->proxyComm = proxyComm;
+	devicePtr->proxyCommData = proxyCommData;
+}
+
