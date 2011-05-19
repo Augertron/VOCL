@@ -280,13 +280,13 @@ int main(int argc, char **argv)
     strTime.numReleaseMemObj += 3;
 
     timerStart();
-      for (i = 0; i < hA; i++)
-      {
-              for (j = 0; j < 1; j++)
-              {
-                      printf("c[%d][%d] = %lf\n", i, j, c[i * wB + j]);
-              }
-      }
+//   for (i = 0; i < hA; i++)
+//   {
+//           for (j = 0; j < 1; j++)
+//           {
+//                   printf("c[%d][%d] = %lf\n", i, j, c[i * wB + j]);
+//           }
+//   }
     timerEnd();
     strTime.printMatrix = elapsedTime();
 

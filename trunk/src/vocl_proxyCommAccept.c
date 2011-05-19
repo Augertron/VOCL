@@ -110,9 +110,7 @@ void *proxyCommAcceptThread(void *p)
 
 	while(voclProxyTerminateFlag == 0)
 	{
-		printf("Here1\n");
 		MPI_Comm_accept(voclPortName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &comm);
-		printf("Here2\n");
 		index = voclGetAppIndex();
 		appComm[index] = comm;
 		MPI_Comm_dup(appComm[index], &appCommData[index]);
