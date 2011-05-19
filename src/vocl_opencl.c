@@ -183,7 +183,6 @@ static void increaseObjCount(int proxyIndex)
     }
   
     voclObjCountPtr[proxyIndex]++;
-	printf("increaseObjNum = %d\n",  voclObjCountPtr[proxyIndex]);
 }
 
 static void decreaseObjCount(int proxyIndex)
@@ -191,7 +190,6 @@ static void decreaseObjCount(int proxyIndex)
 	/* all proxy processes share the sam counter */
 	proxyIndex = 0;
     voclObjCountPtr[proxyIndex]--;
-	printf("proxyIndex = %d, voclCount = %d\n", proxyIndex, voclObjCountPtr[proxyIndex]);
     if (voclObjCountPtr[proxyIndex] == 0)
     {
 		voclFinalize();
@@ -211,8 +209,6 @@ void voclFinalize()
 		/* only for remote node */
 		if (voclIsOnLocalNode(i) == VOCL_FALSE)
 		{
-			printf("voclProxyRank = %d, voclProxyComm = %x\n", 
-					voclProxyRank[i], voclProxyComm[i]);
 			MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
 			MPI_Comm_free(&voclProxyComm[i]);
 			MPI_Comm_free(&voclProxyCommData[i]);
@@ -330,7 +326,6 @@ static void checkSlaveProc()
 			sprintf(serviceName, "voclCloud%s", voclGetProxyHostName(i));
 
 			err = MPI_Lookup_name(serviceName, MPI_INFO_NULL, portName);
-			printf("lib, serviceName: %s, portName: %s\n", serviceName, portName);
 			/* establish inter communicator */
 			err = MPI_Comm_connect(portName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &voclProxyComm[i]);
 			if (err != MPI_SUCCESS)
@@ -339,7 +334,6 @@ static void checkSlaveProc()
 				exit (1);
 			}
 			/* duplicate the communicator */
-			printf("voclProxyComm = %x\n", voclProxyComm[i]);
 			err = MPI_Comm_dup(voclProxyComm[i], &voclProxyCommData[i]);
 			if (err != MPI_SUCCESS)
 			{
@@ -674,9 +668,6 @@ clCreateProgramWithSource(cl_context context,
     tmpCreateProgramWithSource.context = voclVOCLContext2CLContextComm((vocl_context)context, 
         &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
 
-	printf("proxyRank = %d, proxyIndex = %d, proxyComm = %x, proxyCommData = %x\n",
-			proxyRank, proxyIndex, proxyComm, proxyCommData);
-
 	tmpCreateProgramWithSource.count = count;
 
 	lengthsArray = (size_t *) malloc(count * sizeof(size_t));
@@ -711,8 +702,6 @@ clCreateProgramWithSource(cl_context context,
 
 	tmpCreateProgramWithSource.lengths = totalLength;
 
-	printf("lib, fileSize = %ld\n", totalLength);
-
 	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
 	{
 		dlCLCreateProgramWithSource(tmpCreateProgramWithSource.context, 
@@ -724,19 +713,14 @@ clCreateProgramWithSource(cl_context context,
 		MPI_Isend(&tmpCreateProgramWithSource,
 				  sizeof(tmpCreateProgramWithSource),
 				  MPI_BYTE, proxyRank, CREATE_PROGRMA_WITH_SOURCE, proxyComm, request + (requestNo++));
-		printf("lib, createProgram, here1!\n");
 		MPI_Isend(lengthsArray, sizeof(size_t) * count, MPI_BYTE, proxyRank,
 				  CREATE_PROGRMA_WITH_SOURCE1, proxyCommData, request + (requestNo++));
-		printf("lib, createProgram, here2!\n");
 		MPI_Isend((void *) allStrings, totalLength * sizeof(char), MPI_BYTE, proxyRank,
 				  CREATE_PROGRMA_WITH_SOURCE2, proxyCommData, request + (requestNo++));
-		printf("lib, createProgram, here3!\n");
 		MPI_Irecv(&tmpCreateProgramWithSource,
 				  sizeof(tmpCreateProgramWithSource),
 				  MPI_BYTE, proxyRank, CREATE_PROGRMA_WITH_SOURCE, proxyComm, request + (requestNo++));
-		printf("lib, createProgram, here4!\n");
 		MPI_Waitall(requestNo, request, status);
-		printf("lib, createProgram, here5!\n");
 		if (errcode_ret != NULL) {
 			*errcode_ret = tmpCreateProgramWithSource.errcode_ret;
 		}
@@ -1177,15 +1161,11 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 	}
 
     /* initialize structure */
-	printf("Kernel1, %ld\n", (vocl_kernel)kernel);
     kernel_info *kernelPtr = getKernelPtr(kernel);
-	printf("Kernel2\n");
     tmpEnqueueNDRangeKernel.command_queue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue)command_queue, 
                                                 &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
-	printf("Kernel3\n");
     tmpEnqueueNDRangeKernel.kernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, &proxyRank, 
                                          &proxyIndex, &proxyComm, &proxyCommData);
-	printf("Kernel4\n");
 
     if (num_events_in_wait_list > 0) {
 		eventList = (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);

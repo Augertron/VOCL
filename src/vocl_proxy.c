@@ -243,7 +243,6 @@ int main(int argc, char *argv[])
 	sprintf(serviceName, "voclCloud%s", voclProxyHostName);
 	/* open a port on each node */
 	MPI_Open_port(MPI_INFO_NULL, voclPortName);
-	printf("serviceName: %s, portName: %s\n", serviceName, voclPortName);
 	err = MPI_Publish_name(serviceName, MPI_INFO_NULL, voclPortName);
 
     curStatus = (MPI_Status *) malloc(sizeof(MPI_Status) * TOTAL_MSG_NUM);
@@ -265,7 +264,6 @@ int main(int argc, char *argv[])
 	pthread_create(&thAppComm, NULL, proxyCommAcceptThread, NULL);
 
 	/* voclTotalRequestNum is set in the Comm accept file */
-	printf("proxy, voclTotalRequestNum = %d\n", voclTotalRequestNum);
     while (1) {
         /* wait for any msg from the master process */
         MPI_Waitany(voclTotalRequestNum, conMsgRequest, &index, &status);
@@ -273,10 +271,6 @@ int main(int argc, char *argv[])
 		appRank = status.MPI_SOURCE;
 		commIndex = index / CMSG_NUM;
 		appIndex = commIndex;
-
-		printf("requestNum = %d, appIndex = %d, comm = %x, commData = %x, tag = %d\n", 
-				voclTotalRequestNum, appIndex, appComm[commIndex], appCommData[commIndex], 
-				status.MPI_TAG);
 
         if (status.MPI_TAG == GET_PLATFORM_ID_FUNC) {
             memcpy((void *) &tmpGetPlatformID, (const void *) conMsgBuffer[index],
@@ -480,8 +474,6 @@ int main(int argc, char *argv[])
                     bufferSize = remainingSize;
                 bufferIndex = getNextWriteBufferIndex(appIndex);
                 writeBufferInfoPtr = getWriteBufferInfoPtr(appIndex, bufferIndex);
-				printf("appIndex = %d, bufferIndex = %d, buffPtr = %x\n",
-						appIndex, bufferIndex, writeBufferInfoPtr->dataPtr);
                 MPI_Irecv(writeBufferInfoPtr->dataPtr, bufferSize, MPI_BYTE, appRank,
                           VOCL_PROXY_WRITE_TAG + bufferIndex, appCommData[commIndex],
                           getWriteRequestPtr(appIndex, bufferIndex));
