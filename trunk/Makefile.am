@@ -33,7 +33,8 @@ vocl_proxy_SOURCES = $(top_srcdir)/src/vocl_proxy.c \
 					 $(top_srcdir)/src/vocl_proxyFunctions.c \
 					 $(top_srcdir)/src/vocl_proxyHelperThread.c \
 					 $(top_srcdir)/src/vocl_proxyReadBufferProc.c \
-					 $(top_srcdir)/src/vocl_proxyWriteBufferProc.c
+					 $(top_srcdir)/src/vocl_proxyWriteBufferProc.c \
+					 $(top_srcdir)/src/vocl_proxyCommAccept.c
 
 bandwidth_SOURCES = $(top_srcdir)/examples/bandwidth/bandwidth.c \
 	$(top_srcdir)/examples/bandwidth/bw_timer.c

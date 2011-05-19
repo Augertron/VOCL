@@ -9,7 +9,7 @@ pthread_barrier_t barrier;
 pthread_t th;
 int helperThreadOperFlag = GPU_MEM_NULL;
 int writeBufferIndexInHelperThread = 0;
-int appRankNo;
+int voclProxyAppIndex;
 
 extern void thrSentToLocalNode(int rank);
 extern void thrWriteToGPUMemory(int rank);
@@ -29,19 +29,19 @@ void *proxyHelperThread(void *p)
     pthread_barrier_wait(&barrier);
     while (helperThreadOperFlag != GPU_MEM_NULL) {
         if (helperThreadOperFlag == GPU_MEM_READ) {
-            thrSentToLocalNode(appRankNo);
+            thrSentToLocalNode(voclProxyAppIndex);
         }
         else if (helperThreadOperFlag == GPU_MEM_WRITE) {
-            thrWriteToGPUMemory(appRankNo);
+            thrWriteToGPUMemory(voclProxyAppIndex);
         }
         else if (helperThreadOperFlag == GPU_WRITE_SINGLE) {
-            writeToGPUMemory(appRankNo, writeBufferIndexInHelperThread);
+            writeToGPUMemory(voclProxyAppIndex, writeBufferIndexInHelperThread);
         }
         else if (helperThreadOperFlag == GPU_ENQ_WRITE) {
-            enqueuePreviousWrites(appRankNo);
+            enqueuePreviousWrites(voclProxyAppIndex);
         }
         else if (helperThreadOperFlag == SEND_LOCAL_PREVIOUS) {
-            sendReadyReadBufferToLocal(appRankNo);
+            sendReadyReadBufferToLocal(voclProxyAppIndex);
         }
 
         helperThreadOperFlag = GPU_MEM_NULL;

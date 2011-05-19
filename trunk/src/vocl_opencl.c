@@ -14,6 +14,7 @@ static MPI_Comm *voclProxyCommData = NULL;
 static int      *voclProxyRank = NULL;
 static int slaveCreated = 0;
 static int np;
+static  int MPIexternalInit = 0;
 static int errCodes[MAX_NPS];
 
 /* for proxy host name process */
@@ -148,12 +149,15 @@ extern int voclCheckTaskMigration(vocl_kernel kernel, vocl_command_queue command
 static unsigned int *voclObjCountPtr = NULL;
 static unsigned int voclObjCountNum;
 static unsigned int voclObjCountNo;
+static void voclInitialize();
+static void voclFinalize();
 
 static void voclObjCountInitialize()
 {
     voclObjCountNum = np; /* one count for each proxy process */
     voclObjCountNo = 0;
     voclObjCountPtr = (unsigned int *)malloc(sizeof(unsigned int) * voclObjCountNum);
+	memset(voclObjCountPtr, 0, voclObjCountNum * sizeof(unsigned int));
 }
 
 static void voclObjCountFinalize()
@@ -169,51 +173,56 @@ static void voclObjCountFinalize()
 
 static void increaseObjCount(int proxyIndex)
 {
-//    if (nproxyIndex >= voclObjCountNum)
-//    {
-//        voclObjCountPtr = (unsigned int *)realloc(voclObjCountPtr, sizeof(unsigned int) * 2 * voclObjCountNum);
-//        memset(&voclObjCountNum[voclObjCountNum], 0, voclObjCountNum * sizeof(unsigned int));
-//        voclObjCountNum *= 2;
-//    }
-//  
-//    voclObjCountNum[proxyIndex]++;
+	/* all proxy processes share the sam counter */
+	proxyIndex = 0;
+    if (proxyIndex >= voclObjCountNum)
+    {
+        voclObjCountPtr = (unsigned int *)realloc(voclObjCountPtr, sizeof(unsigned int) * 2 * voclObjCountNum);
+        memset(&voclObjCountPtr[voclObjCountNum], 0, voclObjCountNum * sizeof(unsigned int));
+        voclObjCountNum *= 2;
+    }
+  
+    voclObjCountPtr[proxyIndex]++;
+	printf("increaseObjNum = %d\n",  voclObjCountPtr[proxyIndex]);
 }
 
 static void decreaseObjCount(int proxyIndex)
 {
-//    voclObjCountNum[proxyIndex]--;
-//    if (voclObjCountNum[proxyIndex] == )
-//    {
-//        MPI_Send(NULL, 0, MPI_BYTE, proxyIndex, PROGRAM_END, proxyComm);
-//    }
+	/* all proxy processes share the sam counter */
+	proxyIndex = 0;
+    voclObjCountPtr[proxyIndex]--;
+	printf("proxyIndex = %d, voclCount = %d\n", proxyIndex, voclObjCountPtr[proxyIndex]);
+    if (voclObjCountPtr[proxyIndex] == 0)
+    {
+		voclFinalize();
+        //MPI_Send(NULL, 0, MPI_BYTE, proxyIndex, PROGRAM_END, proxyComm);
+    }
 }
 /* end of opencl object count processing */
 /************************************************************************/
 
 /* send the terminating msg to the proxy */
-static void voclFinalize()
+void voclFinalize()
 {
-    int i, proxyNo;
-    
+    int i;
     /* send empty msg to proxy to terminate its execution */
-	proxyNo = 0;
     for (i = 0; i < np; i++)
     {
 		/* only for remote node */
 		if (voclIsOnLocalNode(i) == VOCL_FALSE)
 		{
+			printf("voclProxyRank = %d, voclProxyComm = %x\n", 
+					voclProxyRank[i], voclProxyComm[i]);
 			MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
-			proxyNo++;
+			MPI_Comm_free(&voclProxyComm[i]);
+			MPI_Comm_free(&voclProxyCommData[i]);
 		}
     }
 
-	/* release communicator only if proxy processed are created */
-	if (proxyNo > 0)
+	if (MPIexternalInit == 0)
 	{
-		MPI_Comm_free(&voclProxyComm[0]);
-		MPI_Comm_free(&voclProxyCommData[0]);
+    	MPI_Finalize();
 	}
-    MPI_Finalize();
     
     /* free buffer for MPI communicator and proxy ID */
     free(voclProxyComm);
@@ -240,7 +249,7 @@ static void voclFinalize()
 	voclOpenclModuleRelease();
 }
 
-static void voclInitialize()
+void voclInitialize()
 {
     /* initialize buffers for vocl event */
 	voclPlatformIDInitialize();
@@ -261,114 +270,87 @@ static void voclInitialize()
 	/* initialization for dynamic opencl function call */
 	voclOpenclModuleInitialize();
 
-    if (atexit(voclFinalize) != 0) {
-        printf("register voclFinalize error!\n");
-        exit(1);
-    }
+//    if (atexit(voclFinalize) != 0) {
+//        printf("register voclFinalize error!\n");
+//        exit(1);
+//    }
 
     return;
 }
+
 
 /* function for create the proxy process and MPI communicator */
 static void checkSlaveProc()
 {
 	MPI_Info info;
-	int i, mpiInitFlag;
+	int i, mpiInitFlag, err, rank;
+	int proxyNum;
 	int proxyNo = 0;
 	FILE *proxyHostNameFile;
 	char proxyHostFileName[255];
     char proxyPathName[PROXY_PATH_NAME_LEN];
+	char serviceName[256];
+	char portName[MPI_MAX_PORT_NAME];
 
     if (slaveCreated == 0) {
+		/* has connnected to some proxy processes */
+        slaveCreated = 1;
 		
 		/* check whether MPI_Init is already called */
-		MPI_Initialized(&mpiInitFlag); 
-		if (mpiInitFlag == 0) /* not called yet */
+		MPI_Initialized(&MPIexternalInit); 
+		if (MPIexternalInit == 0) /* not called yet */
 		{
         	MPI_Init(NULL, NULL);
 		}
 
 		/* specify slave proxy directory */
-        snprintf(proxyPathName, PROXY_PATH_NAME_LEN, "%s/bin/vocl_proxy", PROXY_PATH_NAME);
+        //snprintf(proxyPathName, PROXY_PATH_NAME_LEN, "%s/bin/vocl_proxy", PROXY_PATH_NAME);
 
 		/* proxy the environment variable for proxy host list */
         voclCreateProxyHostNameList();
 
-		/*retrieve the number of proxy hosts */
-	    np = voclGetProxyHostNum();
+		/*retrieve the number of proxy hosts, but currently, each application process */
+		/* connects to only one proxy process */
+	    proxyNum = voclGetProxyHostNum();
+
+		/* currently each app uses only one proxy process */
+		np = 1;
 
 		/* allocate buffer for MPI communicator and proxy ID */
 	    voclProxyComm = (MPI_Comm *)malloc(sizeof(MPI_Comm) * np);
 	    voclProxyCommData = (MPI_Comm *)malloc(sizeof(MPI_Comm) * np);
 	    voclProxyRank   = (int *)malloc(sizeof(int) * np);
 
-		/* create the internal proxy host name file for proxy creation */
-		i = 0;
-		sprintf(proxyHostFileName, "%s%d.list", "voclProxyNodeListFile", i);
-		proxyHostNameFile = fopen(proxyHostFileName, "rt");
-		/* make sure existing files are not overwritten */
-		while (proxyHostNameFile != NULL)
-		{
-			fclose(proxyHostNameFile);
-			i++;
-			sprintf(proxyHostFileName, "%s%d.list", "voclProxyNodeListFile", i);
-			proxyHostNameFile = fopen(proxyHostFileName, "rt");
-		}
-		proxyHostNameFile = fopen(proxyHostFileName, "wt");
-		if (proxyHostNameFile == NULL)
-		{
-			printf("Proxy host name file %s open error!\n", proxyHostFileName);
-			exit (1);
-		}
-
-		proxyNo = 0;
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		/* use connect to establish communicator, the proxy is computed from the  */
+		/* rank of the app process */
 		for (i = 0; i < np; i++)
 		{
-			if (voclIsOnLocalNode(i) == VOCL_FALSE)
+			voclSetIndex2NodeMapping(i, (rank+i)%proxyNum);
+			sprintf(serviceName, "voclCloud%s", voclGetProxyHostName(i));
+
+			err = MPI_Lookup_name(serviceName, MPI_INFO_NULL, portName);
+			printf("lib, serviceName: %s, portName: %s\n", serviceName, portName);
+			/* establish inter communicator */
+			err = MPI_Comm_connect(portName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &voclProxyComm[i]);
+			if (err != MPI_SUCCESS)
 			{
-				fprintf(proxyHostNameFile, "%s\n", voclGetProxyHostName(i));
-				/* vocl proxy rank */
-				voclProxyRank[i] = proxyNo;
-
-				proxyNo++;
+				printf("MPI_Comm_connect error, %d\n", err);
+				exit (1);
 			}
-			else
+			/* duplicate the communicator */
+			printf("voclProxyComm = %x\n", voclProxyComm[i]);
+			err = MPI_Comm_dup(voclProxyComm[i], &voclProxyCommData[i]);
+			if (err != MPI_SUCCESS)
 			{
-				/* local node, no proxy process is created, so use an */
-				/* invalid value for the rank number */
-				voclProxyRank[i] = -1;
+				printf("MPI_Comm_dup error, %d\n", err);
+				exit (1);
 			}
+			/* since MPI_COMM_SELF, rankes of all proxy processes are 0 */
+			voclProxyRank[i] = 0;
 		}
-		fclose(proxyHostNameFile);
 
-		/* if there is a remote node for proxy creation*/
-		if (proxyNo > 0)
-		{
-			MPI_Info_create(&info);
-			MPI_Info_set(info, "hostfile", proxyHostFileName);
-			/* only one communicator proxyComm[0] is used in this case */
-            MPI_Comm_spawn(proxyPathName, MPI_ARGV_NULL, proxyNo,
-                info, 0, MPI_COMM_WORLD, &voclProxyComm[0], errCodes);
-
-            /* duplicate the communicator for data msg transfer */
-            MPI_Comm_dup(voclProxyComm[0], &voclProxyCommData[0]);
-			MPI_Info_free(&info);
-
-			/* assign this communicator to that of all proxy processes */
-			for (i = 1; i < np; i++)
-			{
-				voclProxyComm[i] = voclProxyComm[0];
-				voclProxyCommData[i] = voclProxyCommData[0];
-			}
-		}
-        slaveCreated = 1;
-
-		/* remove the temporary proxyHostNameFile */
-		if (remove(proxyHostFileName) != 0)
-		{
-			printf("Remove file %s error!\n", proxyHostFileName);
-			exit(1);
-		}
+		/* assign this communicator to that of all proxy processes */
 
 #ifdef _PRINT_NODE_NAME
         {
@@ -390,7 +372,7 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_
 {
     MPI_Status *status;
     MPI_Request *request;
-    int requestNo, i, j;
+    int requestNo, i, j, rank, proxyIndex;
 	int curPlatformNum, totalPlatformNum;
     struct strGetPlatformIDs *tmpGetPlatform;
 
@@ -412,7 +394,7 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_
             tmpGetPlatform[i].num_entries = num_entries;
             tmpGetPlatform[i].platforms = platforms;
             tmpGetPlatform[i].num_platforms = 1;
-    
+
             /* send parameters to remote node */
             MPI_Isend(&tmpGetPlatform[i], sizeof(struct strGetPlatformIDs), MPI_BYTE, voclProxyRank[i],
                       GET_PLATFORM_ID_FUNC, voclProxyComm[i], request + (requestNo++));
@@ -692,6 +674,9 @@ clCreateProgramWithSource(cl_context context,
     tmpCreateProgramWithSource.context = voclVOCLContext2CLContextComm((vocl_context)context, 
         &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
 
+	printf("proxyRank = %d, proxyIndex = %d, proxyComm = %x, proxyCommData = %x\n",
+			proxyRank, proxyIndex, proxyComm, proxyCommData);
+
 	tmpCreateProgramWithSource.count = count;
 
 	lengthsArray = (size_t *) malloc(count * sizeof(size_t));
@@ -726,6 +711,8 @@ clCreateProgramWithSource(cl_context context,
 
 	tmpCreateProgramWithSource.lengths = totalLength;
 
+	printf("lib, fileSize = %ld\n", totalLength);
+
 	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
 	{
 		dlCLCreateProgramWithSource(tmpCreateProgramWithSource.context, 
@@ -737,14 +724,19 @@ clCreateProgramWithSource(cl_context context,
 		MPI_Isend(&tmpCreateProgramWithSource,
 				  sizeof(tmpCreateProgramWithSource),
 				  MPI_BYTE, proxyRank, CREATE_PROGRMA_WITH_SOURCE, proxyComm, request + (requestNo++));
+		printf("lib, createProgram, here1!\n");
 		MPI_Isend(lengthsArray, sizeof(size_t) * count, MPI_BYTE, proxyRank,
 				  CREATE_PROGRMA_WITH_SOURCE1, proxyCommData, request + (requestNo++));
+		printf("lib, createProgram, here2!\n");
 		MPI_Isend((void *) allStrings, totalLength * sizeof(char), MPI_BYTE, proxyRank,
 				  CREATE_PROGRMA_WITH_SOURCE2, proxyCommData, request + (requestNo++));
+		printf("lib, createProgram, here3!\n");
 		MPI_Irecv(&tmpCreateProgramWithSource,
 				  sizeof(tmpCreateProgramWithSource),
 				  MPI_BYTE, proxyRank, CREATE_PROGRMA_WITH_SOURCE, proxyComm, request + (requestNo++));
+		printf("lib, createProgram, here4!\n");
 		MPI_Waitall(requestNo, request, status);
+		printf("lib, createProgram, here5!\n");
 		if (errcode_ret != NULL) {
 			*errcode_ret = tmpCreateProgramWithSource.errcode_ret;
 		}
