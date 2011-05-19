@@ -10,7 +10,7 @@
 /* synchronization between the two threads */
 extern pthread_barrier_t barrier;
 extern int helperThreadOperFlag;
-extern int appRankNo = -1;
+extern int voclProxyAppIndex;
 
 /*MPI request for control messages, the latter part is shared*/
 /*by the Write data request */
@@ -64,7 +64,7 @@ static void initializeWriteBuffer(int index)
 static void reallocVOCLProxyWriteBuffer(int origBufferNum, int newBufferNum)
 {
 	int i;
-	voclProxyWriteBufferPtr = (struct voclWriteBufferInfo *)malloc(sizeof(struct voclWriteBufferInfo) * newBufferNum);
+	voclProxyWriteBufferPtr = (struct voclWriteBufferInfo *)realloc(voclProxyWriteBufferPtr, sizeof(struct voclWriteBufferInfo) * newBufferNum);
 	for (i = origBufferNum; i < newBufferNum; i++)
 	{
 		initializeWriteBuffer(i);
@@ -87,7 +87,6 @@ void increaseWriteBufferCount(int appRank)
     if (++voclProxyWriteBufferPtr[appRank].writeDataRequestNum > VOCL_PROXY_WRITE_BUFFER_NUM) {
         voclProxyWriteBufferPtr[appRank].writeDataRequestNum = VOCL_PROXY_WRITE_BUFFER_NUM;
     }
-    //voclProxyWriteBufferPtr[appRank].totalRequestNum = CMSG_NUM;
 
     return;
 }
@@ -198,7 +197,7 @@ int getNextWriteBufferIndex(int rank)
         pthread_barrier_wait(&barrier);
         helperThreadOperFlag = SEND_LOCAL_PREVIOUS;
 		/* used by the helper thread */
-		appRankNo = rank;
+		voclProxyAppIndex = rank;
         pthread_barrier_wait(&barrier);
         pthread_barrier_wait(&barrier);
     }
@@ -314,7 +313,7 @@ cl_int processAllWrites(int rank)
     pthread_barrier_wait(&barrier);
     helperThreadOperFlag = GPU_MEM_WRITE;
 	/* used in the helper thread */
-	appRankNo = rank;
+	voclProxyAppIndex = rank;
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_PROXY_WRITE_BUFFER_NUM;

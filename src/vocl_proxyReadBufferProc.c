@@ -10,7 +10,7 @@
 /* synchronization between the two threads */
 extern pthread_barrier_t barrier;
 extern int helperThreadOperFlag;
-extern int appRankNo;
+extern int voclProxyAppIndex;
 
 /*variables declared for read buffer pool */
 //int readDataRequestNum = 0;
@@ -257,7 +257,7 @@ cl_int processAllReads(int rank)
     pthread_barrier_wait(&barrier);
     helperThreadOperFlag = GPU_MEM_READ;
 	/* used by the helper thread */
-	appRankNo = rank;
+	voclProxyAppIndex = rank;
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_PROXY_READ_BUFFER_NUM;

@@ -9,6 +9,7 @@ typedef char VOCL_HOST_NAME[63];
 
 static VOCL_HOST_NAME *voclProxyNamePtr = NULL;
 static int *voclIsOnLocalNodePtr = NULL;
+static int *voclIndexToNodeMapping = NULL;
 static int voclTotalProxyNum = 0;
 static int voclProxyNo = 0;
 
@@ -34,6 +35,14 @@ static char *voclCreateProxyHostNameBuffer()
 			printf("allocate voclIsOnLocalNodePtr buffer error!\n");
 			exit(1);
 		}
+
+		voclIndexToNodeMapping = (int *)malloc(sizeof(int) * voclTotalProxyNum);
+		if (voclIndexToNodeMapping == NULL)
+		{
+			printf("allocate voclIndexToNodeMapping buffer error!\n");
+			exit(1);
+		}
+		
 	}
 
 	/* if the allocate buffer is not enough, re-allocate */
@@ -53,10 +62,16 @@ static char *voclCreateProxyHostNameBuffer()
 			printf("re-allocate voclIsOnLocalNodePtr buffer error!\n");
 			exit(1);
 		}
+
+		voclIndexToNodeMapping = (int *)realloc(voclIndexToNodeMapping, sizeof(int) * voclTotalProxyNum);
+		if (voclIndexToNodeMapping == NULL)
+		{
+			printf("re-allocate voclIndexToNodeMapping buffer error!\n");
+			exit(1);
+		}
 	}
 
 	return voclProxyNamePtr[voclProxyNo++];
-
 }
 
 int voclGetProxyHostNum()
@@ -64,14 +79,25 @@ int voclGetProxyHostNum()
 	return voclProxyNo;
 }
 
+void voclSetIndex2NodeMapping(int index, int node)
+{
+	voclIndexToNodeMapping[index] = node;
+	return;
+}
+
+int voclGetIndex2NodeMapping(int index)
+{
+	return voclIndexToNodeMapping[index];
+}
+
 char *voclGetProxyHostName(int index)
 {
-	return (char *)voclProxyNamePtr[index];
+	return (char *)voclProxyNamePtr[voclIndexToNodeMapping[index]];
 }
 
 int voclIsOnLocalNode(int index)
 {
-	return voclIsOnLocalNodePtr[index];
+	return voclIsOnLocalNodePtr[voclIndexToNodeMapping[index]];
 }
 
 void voclProxyHostFinalize()
@@ -82,6 +108,18 @@ void voclProxyHostFinalize()
 	{
 		free(voclProxyNamePtr);
 		voclProxyNamePtr = NULL;
+	}
+
+	if (voclIsOnLocalNodePtr)
+	{
+		free(voclIsOnLocalNodePtr);
+		voclIsOnLocalNodePtr = NULL;
+	}
+
+	if (voclIndexToNodeMapping)
+	{
+		free(voclIndexToNodeMapping);
+		voclIndexToNodeMapping = NULL;
 	}
 
 	return;
@@ -95,7 +133,7 @@ static int voclIsProxyNameExisted(char *name)
 
 	for (i = 0; i < proxyNum; i++)
 	{
-		namePtr = voclGetProxyHostName(i);
+		namePtr = (char *)voclProxyNamePtr[i];
 		if (strcmp(name, namePtr) == 0)
 		{
 			return 1;
