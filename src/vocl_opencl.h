@@ -11,7 +11,6 @@ extern "C" {
 #define MAX_NPS 100
 
 /* for kernel arguments */
-#define MAX_ARGS 100
 #define MAX_TAG 65535
 
 /* vocl true and false */
@@ -70,7 +69,12 @@ extern "C" {
 #define RETAIN_KERNEL_FUNC          47
 #define RETAIN_CMDQUE_FUNC          48
 #define ENQ_UNMAP_MEMOBJ_FUNC       49
-#define PROGRAM_END                 50
+#define MIG_MEM_WRITE_REQUEST       50
+#define MIG_MEM_READ_REQUEST        51
+#define MIG_MEM_WRITE_CMPLD         52
+#define MIG_MEM_READ_CMPLD          53
+#define MIG_GET_PROXY_RANK          54
+#define PROGRAM_END                 55
 
 #define CMSG_NUM                    50
 #define DATAMSG_NUM                 100

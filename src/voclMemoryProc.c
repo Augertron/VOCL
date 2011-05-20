@@ -112,6 +112,12 @@ cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyRank,
     return memoryPtr->clMemory;
 }
 
+cl_mem voclVOCLMemory2CLMemory(vocl_mem memory)
+{
+	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+    return memoryPtr->clMemory;
+}
+
 void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
 		MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context)
 {
@@ -120,7 +126,7 @@ void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
 
 	/*release previous memory */
 	clReleaseMemObject(voclMemory);
-
+	printf("voclMemUpdate, voclMem = %ld\n", voclMemory);
 	memoryPtr->proxyRank = proxyRank;
 	memoryPtr->proxyIndex = proxyIndex;
 	memoryPtr->proxyComm = proxyComm;

@@ -103,8 +103,12 @@ void finalizeWriteBufferAll()
 				free(voclProxyWriteBufferPtr[rank].writeBufferInfo[i].eventWaitList);
 		}
 	}
-	free(voclProxyWriteBufferPtr);
-	voclProxyWriteBufferPtr = NULL;
+
+	if (voclProxyWriteBufferPtr)
+	{
+		free(voclProxyWriteBufferPtr);
+		voclProxyWriteBufferPtr = NULL;
+	}
 
     return;
 }

@@ -44,7 +44,12 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define RETAIN_KERNEL_FUNC          47
 #define RETAIN_CMDQUE_FUNC          48
 #define ENQ_UNMAP_MEMOBJ_FUNC       49
-#define PROGRAM_END                 50
+#define MIG_MEM_WRITE_REQUEST       50
+#define MIG_MEM_READ_REQUEST        51
+#define MIG_MEM_WRITE_CMPLD         52
+#define MIG_MEM_READ_CMPLD          53
+#define MIG_GET_PROXY_RANK          54
+#define PROGRAM_END                 55
 
 #define CMSG_NUM                    50   /* number of buffers for control messages */
 #define DMSG_NUM      				100  /* number of buffers for data messages */
@@ -101,6 +106,7 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 
 #define VOCL_PROXY_READ_TAG  4000
 #define VOCL_PROXY_WRITE_TAG 5000
+#define VOCL_PROXY_MIG_TAG   6000
 
 /* states of write buffer pool */
 #define WRITE_AVAILABLE 	0
@@ -114,5 +120,20 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define READ_GPU_MEM_SUB	2
 #define READ_GPU_MEM_COMP 	3
 #define READ_SEND_DATA  	4
+
+/* macros for migration */
+#define VOCL_MIG_BUF_NUM 8
+#define VOCL_MIG_BUF_SIZE 67108864
+
+/* migration buffer states */
+#define MIG_WRT_AVAILABLE 0
+#define MIG_WRT_MPIRECV  1
+#define MIG_WRT_WRTGPU   2
+
+#define MIG_READ_AVAILABLE 0
+#define MIG_READ_RDGPU     1
+#define MIG_READ_MPISEND   2
+
+
 
 #endif

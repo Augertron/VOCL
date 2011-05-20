@@ -1,5 +1,7 @@
 #ifndef __VOCL_PROXY_BUFFER_PROC_H__
 #define __VOCL_PROXY_BUFFER_PROC_H__
+#include <CL/opencl.h>
+#include "mpi.h"
 
 /* used to record the GPU memory reads that are completed */
 /* before the current GPU memory write. Then the MPI_Isend */
@@ -56,6 +58,32 @@ struct voclReadBufferInfo {
 	int readDataRequestNum;
 	int curReadBufferIndex;
 	struct strReadBufferInfo readBufferInfo[VOCL_PROXY_READ_BUFFER_NUM];
+};
+
+struct strMigWriteBufferInfo {
+	cl_command_queue cmdQueue;
+	cl_mem memory;
+	size_t size;
+	size_t offset;
+	cl_event event;
+	int  source;
+	int  tag;
+	MPI_Comm comm;
+	MPI_Request request;
+	int  useFlag;
+	char *ptr;
+};
+
+struct strMigReadBufferInfo {
+	size_t   size;
+	size_t   offset;
+	cl_event event;
+	int      dest;
+	int      tag;
+	MPI_Comm comm;
+	MPI_Request request;
+	int      useFlag;
+	char     *ptr;
 };
 
 #endif

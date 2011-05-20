@@ -171,7 +171,7 @@ static void voclObjCountFinalize()
     }
 }
 
-static void increaseObjCount(int proxyIndex)
+void increaseObjCount(int proxyIndex)
 {
 	/* all proxy processes share the sam counter */
 	proxyIndex = 0;
@@ -185,7 +185,7 @@ static void increaseObjCount(int proxyIndex)
     voclObjCountPtr[proxyIndex]++;
 }
 
-static void decreaseObjCount(int proxyIndex)
+void decreaseObjCount(int proxyIndex)
 {
 	/* all proxy processes share the sam counter */
 	proxyIndex = 0;
@@ -193,7 +193,6 @@ static void decreaseObjCount(int proxyIndex)
     if (voclObjCountPtr[proxyIndex] == 0)
     {
 		voclFinalize();
-        //MPI_Send(NULL, 0, MPI_BYTE, proxyIndex, PROGRAM_END, proxyComm);
     }
 }
 /* end of opencl object count processing */
@@ -203,11 +202,16 @@ static void decreaseObjCount(int proxyIndex)
 void voclFinalize()
 {
     int i;
+	//debug===============================
+	int rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	//------------------------------------
     /* send empty msg to proxy to terminate its execution */
     for (i = 0; i < np; i++)
     {
 		/* only for remote node */
 		if (voclIsOnLocalNode(i) == VOCL_FALSE)
+		//if (voclIsOnLocalNode(i) == VOCL_FALSE && rank == 1)
 		{
 			MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
 			MPI_Comm_free(&voclProxyComm[i]);
@@ -1075,41 +1079,26 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
 	MPI_Comm proxyComm, proxyCommData;
 	cl_kernel clKernel = voclVOCLKernel2CLKernelComm((vocl_kernel)kernel, &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
     kernel_info *kernelPtr = getKernelPtr(kernel);
-	/* for a remote gpu */
-    if (kernelPtr->args_allocated == 0) {
-        kernelPtr->args_ptr = (kernel_args *) malloc(sizeof(kernel_args) * MAX_ARGS);
-        kernelPtr->args_allocated = 1;
-    }
+
+	/* if argument buffer is not enough, extend it */
+	if (kernelPtr->args_num >= kernelPtr->maxArgNum)
+	{
+		kernelPtr->maxArgNum *= 2;
+		kernelPtr->args_ptr = (kernel_args *)realloc(kernelPtr->args_ptr, sizeof(kernel_args) * kernelPtr->maxArgNum);
+	}
 
     kernelPtr->args_ptr[kernelPtr->args_num].arg_index = arg_index;
     kernelPtr->args_ptr[kernelPtr->args_num].arg_size = arg_size;
     kernelPtr->args_ptr[kernelPtr->args_num].arg_null_flag = 1;
 
-	/* local gpu, call native opencl function */
-	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
+	if (arg_index >= kernelPtr->kernel_arg_num)
 	{
-		if (kernelPtr->args_flag[arg_index] == 1) /*device memory */
-		{
-			/* add gpu memory usage */
-			kernelPtr->globalMemSize += voclGetVOCLMemorySize(*((vocl_mem *)arg_value));
-			kernelPtr->args_ptr[kernelPtr->args_num].memory = (cl_mem)(*((vocl_mem *)arg_value));
-			deviceMem = voclVOCLMemory2CLMemoryComm(*((vocl_mem *)arg_value), &proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
-			return dlCLSetKernelArg(clKernel, arg_index, arg_size, (void *)&deviceMem);
-		}
-		else
-		{
-			return dlCLSetKernelArg(clKernel, arg_index, arg_size, arg_value);
-		}
+		printf("arg_index %d is larger than arg_num %d\n", arg_index, kernelPtr->kernel_arg_num);
+		exit (1);
 	}
 
-    if (arg_value != NULL) {
-	    /*check whether the argument is the device memory */
-		if (arg_index >= kernelPtr->kernel_arg_num)
-		{
-			printf("arg_index %d is larger than arg_num %d\n", arg_index, kernelPtr->kernel_arg_num);
-			exit(1);
-		}
-
+	if (arg_value != NULL)
+	{
 		if (kernelPtr->args_flag[arg_index] == 1) /* device memory */
 		{
 			/*convert from vocl memory to cl memory */
@@ -1123,8 +1112,22 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
         	memcpy(kernelPtr->args_ptr[kernelPtr->args_num].arg_value, arg_value, arg_size);
 		}
         kernelPtr->args_ptr[kernelPtr->args_num].arg_null_flag = 0;
-    }
-    kernelPtr->args_num++;
+	}
+	kernelPtr->args_num++;
+
+	/* local gpu, call native opencl function */
+	if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
+	{
+		if (kernelPtr->args_flag[arg_index] == 1) /*device memory */
+		{
+			/* add gpu memory usage */
+			return dlCLSetKernelArg(clKernel, arg_index, arg_size, (void *)&deviceMem);
+		}
+		else
+		{
+			return dlCLSetKernelArg(clKernel, arg_index, arg_size, arg_value);
+		}
+	}
 
     return 0;
 }
@@ -1154,7 +1157,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 	/*check to see whether migration is needed based on GPU memory usage*/
 	/*GPU memory usage information can be obtained based on kernel arguments */
 	taskMigrationNeeded = voclCheckTaskMigration(kernel, command_queue);
-	//taskMigrationNeeded = 1;
+	taskMigrationNeeded = 1;
 	if (taskMigrationNeeded) /* if necessary */
 	{
 		voclTaskMigration(kernel, command_queue);

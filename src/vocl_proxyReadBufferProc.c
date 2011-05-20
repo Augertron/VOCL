@@ -38,7 +38,7 @@ static void initializeReadBuffer(int rank)
 static void reallocVOCLProxyReadBuffer(int origBufferNum, int newBufferNum)
 {
 	int i;
-	voclProxyReadBufferPtr = (struct voclReadBufferInfo *)malloc(sizeof(struct voclReadBufferInfo) * newBufferNum);
+	voclProxyReadBufferPtr = (struct voclReadBufferInfo *)realloc(voclProxyReadBufferPtr, sizeof(struct voclReadBufferInfo) * newBufferNum);
 	for (i = origBufferNum; i < newBufferNum; i++)
 	{
 		initializeReadBuffer(i);
