@@ -327,6 +327,33 @@ struct strEnqueueUnmapMemObject {
     cl_int res;
 };
 
+/* for task migration between GPUs */
+struct strMigGPUMemoryWrite {
+	cl_command_queue cmdQueue;
+	cl_mem memory;
+	size_t size;
+	int    source;
+};
+
+struct strMigGPUMemoryRead {
+	cl_command_queue cmdQueue;
+	cl_mem memory;
+	size_t size;
+	int    dest;
+};
+
+struct strMigGPUMemoryWriteCmpd {
+	int source;
+	int retCode;
+};
+
+struct strMigGPUMemoryReadCmpd {
+	int dest;
+	int retCode;
+};
+
+
+
 union CMSG_UNION {
     struct strGetPlatformIDs tmpGetPlatformID;
     struct strGetDeviceIDs tmpGetDeviceIDs;
@@ -367,6 +394,10 @@ union CMSG_UNION {
     struct strRetainKernel tmpRetainKernel;
     struct strRetainCommandQueue tmpRetainCommandQueue;
     struct strEnqueueUnmapMemObject tmpEnqueueUnmapMemObject;
+	struct strMigGPUMemoryWrite tmpMigGPUMemWrite;
+	struct strMigGPUMemoryRead tmpMigGPUMemRead;
+    struct strMigGPUMemoryWriteCmpd tmpMigWriteCmpd;
+    struct strMigGPUMemoryReadCmpd tmpMigReadCmpd;
 } CONTROL_MSG_UNION;
 
 #endif

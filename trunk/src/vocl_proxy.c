@@ -51,6 +51,10 @@ static struct strRetainMemObject tmpRetainMemObject;
 static struct strRetainKernel tmpRetainKernel;
 static struct strRetainCommandQueue tmpRetainCommandQueue;
 static struct strEnqueueUnmapMemObject tmpEnqueueUnmapMemObject;
+static struct strMigGPUMemoryWrite tmpMigGPUMemoryWrite;
+static struct strMigGPUMemoryRead tmpMigGPUMemoryRead;
+static struct strMigGPUMemoryWriteCmpd tmpMigWriteMemCmpdRst;
+static struct strMigGPUMemoryReadCmpd tmpMigReadMemCmpdRst;
 
 /* control message requests */
 MPI_Request *conMsgRequest;
@@ -169,9 +173,28 @@ extern void mpiOpenCLEnqueueUnmapMemObject(struct strEnqueueUnmapMemObject
                                            *tmpEnqueueUnmapMemObject,
                                            cl_event * event_wait_list);
 
+extern void voclProxyCommInitialize();
+extern void voclProxyCommFinalize();
 extern void voclProxyAcceptOneApp();
 extern void voclProxySetTerminateFlag(int flag);
 extern void *proxyCommAcceptThread(void *p);
+
+/* migration functions */
+extern void voclMigWriteBufferInitialize();
+extern void voclMigWriteBufferFinalize();
+extern void voclMigSetWriteBufferFlag(int index, int flag);
+extern struct strMigWriteBufferInfo *voclMigGetWriteBufferPtr(int index);
+extern MPI_Request *voclMigGetWriteRequestPtr(int index);
+extern int voclMigGetNextWriteBufferIndex();
+extern int voclMigFinishDataWrite(int source);
+
+extern void voclMigReadBufferInitialize();
+extern void voclMigReadBufferFinalize();
+extern void voclMigSetReadBufferFlag(int index, int flag);
+extern cl_event* voclMigGetReadEventPtr(int index);
+extern struct strMigReadBufferInfo *voclMigGetReadBufferPtr(int index);
+extern int voclMigGetNextReadBufferIndex();
+extern int voclMigFinishDataRead(int dest);
 
 
 /* proxy process */
@@ -182,17 +205,13 @@ int main(int argc, char *argv[])
     CPU_SET(8, &set);
     sched_setaffinity(0, sizeof(set), &set);
 
-    int rank, i, appRank, appIndex, commIndex, multiThreadProvided;
+    int proxyRank, i, appRank, appIndex, commIndex, multiThreadProvided;
     cl_int err;
     MPI_Status status;
 	char serviceName[256], voclProxyHostName[256];
 	MPI_Comm comm1, comm2;
     int len;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &multiThreadProvided);
-    //MPI_Init(&argc, &argv);
-//    MPI_Comm_get_parent(&appComm[commIndex]);
-//    MPI_Comm_dup(appComm[commIndex], &appCommData[commIndex]);
-//    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
     /* issue non-blocking receive for all control messages */
     MPI_Status *curStatus;
@@ -210,6 +229,10 @@ int main(int argc, char *argv[])
 
     struct strWriteBufferInfo *writeBufferInfoPtr;
     struct strReadBufferInfo *readBufferInfoPtr;
+	struct strMigWriteBufferInfo *migWriteBufferInfoPtr;
+	struct strMigReadBufferInfo *migReadBufferInfoPtr;
+
+
 
     size_t *lengthsArray;
     size_t fileSize;
@@ -254,6 +277,9 @@ int main(int argc, char *argv[])
     initializeWriteBufferAll();
     initializeReadBufferAll();
 
+	voclMigWriteBufferInitialize();
+	voclMigReadBufferInitialize();
+
 	/* wait for one app to issue connection request */
 	voclProxyAcceptOneApp();
 
@@ -261,7 +287,7 @@ int main(int argc, char *argv[])
     pthread_barrier_init(&barrier, NULL, 2);
     pthread_create(&th, NULL, proxyHelperThread, NULL);
 	voclProxySetTerminateFlag(0);
-	pthread_create(&thAppComm, NULL, proxyCommAcceptThread, NULL);
+//	pthread_create(&thAppComm, NULL, proxyCommAcceptThread, NULL);
 
 	/* voclTotalRequestNum is set in the Comm accept file */
     while (1) {
@@ -271,6 +297,9 @@ int main(int argc, char *argv[])
 		appRank = status.MPI_SOURCE;
 		commIndex = index / CMSG_NUM;
 		appIndex = commIndex;
+
+		printf("requestNum = %d, appIndex = %d, index = %d, tag = %d\n", voclTotalRequestNum,
+				appIndex, index, status.MPI_TAG);
 
         if (status.MPI_TAG == GET_PLATFORM_ID_FUNC) {
             memcpy((void *) &tmpGetPlatformID, (const void *) conMsgBuffer[index],
@@ -1157,6 +1186,88 @@ int main(int argc, char *argv[])
             }
         }
 
+		if (status.MPI_TAG == MIG_GET_PROXY_RANK)
+		{
+			/* send rank of the proxy process to the app process */
+			MPI_Comm_rank(MPI_COMM_WORLD, &proxyRank);
+			MPI_Send(&proxyRank, 1, MPI_INT, appRank, MIG_GET_PROXY_RANK, appComm[commIndex]);
+		}
+
+		if (status.MPI_TAG == MIG_MEM_WRITE_REQUEST)
+		{
+            memcpy(&tmpMigGPUMemoryWrite, conMsgBuffer[index], sizeof(struct strMigGPUMemoryWrite));
+			/* issue irecv to receive data from source process */
+			bufferSize = VOCL_MIG_BUF_SIZE;
+			bufferNum = (tmpMigGPUMemoryWrite.size - 1) / VOCL_MIG_BUF_SIZE;
+			remainingSize = tmpMigGPUMemoryWrite.size - bufferNum * VOCL_MIG_BUF_SIZE;
+			for (i = 0; i <= bufferNum; i++)
+			{
+				if (i == bufferNum)
+				{
+					bufferSize = remainingSize;
+				}
+				bufferIndex = voclMigGetNextWriteBufferIndex();
+				migWriteBufferInfoPtr = voclMigGetWriteBufferPtr(bufferIndex);
+				MPI_Irecv(migWriteBufferInfoPtr->ptr, bufferSize, MPI_BYTE, 
+					tmpMigGPUMemoryWrite.source, VOCL_PROXY_MIG_TAG+bufferIndex, 
+					MPI_COMM_WORLD, voclMigGetWriteRequestPtr(bufferIndex));
+				migWriteBufferInfoPtr->cmdQueue = tmpMigGPUMemoryWrite.cmdQueue;
+				migWriteBufferInfoPtr->memory = tmpMigGPUMemoryWrite.memory;
+				migWriteBufferInfoPtr->source = tmpMigGPUMemoryWrite.source;
+				migWriteBufferInfoPtr->size   = bufferSize;
+				migWriteBufferInfoPtr->offset = i * VOCL_MIG_BUF_SIZE;
+				voclMigSetWriteBufferFlag(bufferIndex, MIG_WRT_MPIRECV);
+			}
+		}
+
+		if (status.MPI_TAG == MIG_MEM_READ_REQUEST)
+		{
+            memcpy(&tmpMigGPUMemoryRead, conMsgBuffer[index], sizeof(struct strMigGPUMemoryRead));
+			/* issue GPU memory read to read data from GPU memory */
+			bufferSize = VOCL_MIG_BUF_SIZE;
+			bufferNum = (tmpMigGPUMemoryRead.size - 1) / VOCL_MIG_BUF_SIZE;
+			remainingSize = tmpMigGPUMemoryRead.size - bufferNum * VOCL_MIG_BUF_SIZE;
+			for (i = 0; i <= bufferNum; i++)
+			{
+				if (i == bufferNum)
+				{
+					bufferSize = remainingSize;
+				}
+				bufferIndex = voclMigGetNextReadBufferIndex();
+				migReadBufferInfoPtr = voclMigGetReadBufferPtr(bufferIndex);
+				clEnqueueReadBuffer(tmpMigGPUMemoryRead.cmdQueue,
+									tmpMigGPUMemoryRead.memory,
+									CL_FALSE,
+									i * VOCL_MIG_BUF_SIZE,
+									bufferSize,
+									migReadBufferInfoPtr->ptr,
+									0, NULL, voclMigGetReadEventPtr(bufferIndex));
+				migReadBufferInfoPtr->size = bufferSize;
+				migReadBufferInfoPtr->offset = i * VOCL_MIG_BUF_SIZE;
+				migReadBufferInfoPtr->dest = tmpMigGPUMemoryRead.dest;
+				migReadBufferInfoPtr->tag = bufferIndex + VOCL_PROXY_MIG_TAG;
+				voclMigSetReadBufferFlag(bufferIndex, MIG_READ_RDGPU);
+			}
+		}
+
+		if (status.MPI_TAG == MIG_MEM_WRITE_CMPLD)
+		{
+			memcpy(&tmpMigWriteMemCmpdRst, conMsgBuffer[index], sizeof(struct strMigGPUMemoryWriteCmpd));
+			proxyRank = tmpMigWriteMemCmpdRst.source;
+			tmpMigWriteMemCmpdRst.retCode = voclMigFinishDataWrite(proxyRank);
+			MPI_Send(&tmpMigWriteMemCmpdRst, sizeof(struct strMigGPUMemoryWriteCmpd), MPI_BYTE,
+					appRank, MIG_MEM_WRITE_CMPLD, appComm[commIndex]);	
+		}
+
+		if (status.MPI_TAG == MIG_MEM_READ_CMPLD)
+		{
+			memcpy(&tmpMigReadMemCmpdRst, conMsgBuffer[index], sizeof(struct strMigGPUMemoryReadCmpd));
+			proxyRank = tmpMigReadMemCmpdRst.dest;
+			tmpMigReadMemCmpdRst.retCode = voclMigFinishDataRead(proxyRank);
+			MPI_Send(&tmpMigReadMemCmpdRst, sizeof(struct strMigGPUMemoryReadCmpd), MPI_BYTE,
+					appRank, MIG_MEM_READ_CMPLD, appComm[commIndex]);	
+		}
+
         if (status.MPI_TAG == PROGRAM_END) {
             break;
         }
@@ -1181,7 +1292,7 @@ int main(int argc, char *argv[])
     pthread_barrier_destroy(&barrier);
 
 	/* set the termination flag */
-	voclProxySetTerminateFlag(1);
+//	voclProxySetTerminateFlag(1);
 	
 	/* unpublish the server name */
 	MPI_Unpublish_name(serviceName, MPI_INFO_NULL, voclPortName);
@@ -1194,8 +1305,11 @@ int main(int argc, char *argv[])
 //	}
 
     /* release the write and read buffer pool */
-    finalizeWriteBufferAll();
     finalizeReadBufferAll();
+    finalizeWriteBufferAll();
+
+	voclMigWriteBufferFinalize();
+	voclMigReadBufferFinalize();
 
 	voclProxyCommFinalize();
 

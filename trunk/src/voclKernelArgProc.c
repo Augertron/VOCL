@@ -31,8 +31,8 @@ cl_int createKernel(cl_kernel kernel)
     kernelPtr->kernel = kernel;
 	kernelPtr->globalMemSize = 0;
     kernelPtr->args_num = 0;
-    kernelPtr->args_allocated = 0;
-    kernelPtr->args_ptr = NULL;
+	kernelPtr->maxArgNum = MAX_ARGS;
+    kernelPtr->args_ptr = (kernel_args *) malloc(sizeof(kernel_args) * MAX_ARGS);
 	kernelPtr->args_flag = NULL;
     kernelPtr->next = kernelInfo;
 
@@ -67,9 +67,7 @@ cl_int releaseKernelPtr(cl_kernel kernel)
     if (kernel == kernelInfo->kernel) {
         kernelPtr = kernelInfo;
         kernelInfo = kernelInfo->next;
-        if (kernelPtr->args_allocated == 1) {
             free(kernelPtr->args_ptr);
-        }
 		if (kernelPtr->args_flag != NULL)
 		{
 			free(kernelPtr->args_flag);
@@ -98,9 +96,6 @@ cl_int releaseKernelPtr(cl_kernel kernel)
     }
 
     preKernel->next = curKernel->next;
-    if (kernelPtr->args_allocated == 1) {
-        free(kernelPtr->args_ptr);
-    }
 	if (kernelPtr->args_flag != NULL)
 	{
 		free(kernelPtr->args_flag);

@@ -6,6 +6,9 @@
 #include <CL/opencl.h>
 #include <sys/time.h>
 
+/* number of arguments per kernel */
+#define MAX_ARGS 50
+
 typedef struct strKernelArgs {
     cl_uint arg_index;
     size_t arg_size;
@@ -17,7 +20,7 @@ typedef struct strKernelArgs {
 typedef struct strKernelInfo {
     cl_kernel kernel;
     cl_uint args_num;
-    cl_bool args_allocated;
+	cl_uint maxArgNum;
 	char *args_flag;
 	size_t globalMemSize;
 	unsigned int kernel_arg_num;

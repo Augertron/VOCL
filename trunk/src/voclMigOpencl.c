@@ -82,7 +82,7 @@ voclMigCreateContext(const cl_context_properties * properties,
 		*errcode_ret = tmpCreateContext.errcode_ret;
 
 		/* increase OpenCL object count */
-		//increaseObjCount(proxyIndex);
+		increaseObjCount(proxyIndex);
 	}
 	
 	/*convert opencl context to vocl context */
@@ -136,7 +136,7 @@ voclMigCreateCommandQueue(cl_context context,
 		}
 
 		/* increase OpenCL object count */
-		//increaseObjCount(proxyIndex);
+		increaseObjCount(proxyIndex);
 	}
 
     return tmpCreateCommandQueue.clCommand;
@@ -220,7 +220,7 @@ voclMigCreateProgramWithSource(cl_context context,
 		}
 
 		/* increase OpenCL object count */
-		//increaseObjCount(proxyIndex);
+		increaseObjCount(proxyIndex);
 	}
 
 	free(allStrings);
@@ -266,7 +266,7 @@ cl_kernel voclMigCreateKernel(cl_program program, const char *kernel_name, cl_in
 		}
 
 		/* increase OpenCL object count */
-		//increaseObjCount(proxyIndex);
+		increaseObjCount(proxyIndex);
 	}
 
     return tmpCreateKernel.kernel;
@@ -317,7 +317,7 @@ voclMigCreateBuffer(cl_context context,
 		}
 
 		/* increase OpenCL object count */
-		//increaseObjCount(proxyIndex);
+		increaseObjCount(proxyIndex);
 	}
 	
     return tmpCreateBuffer.deviceMem;
@@ -365,7 +365,7 @@ voclMigCreateSampler(cl_context context,
 		}
 
 		/* increase OpenCL object count */
-		//increaseObjCount(proxyIndex);
+		increaseObjCount(proxyIndex);
 	}
 
     return tmpCreateSampler.sampler;

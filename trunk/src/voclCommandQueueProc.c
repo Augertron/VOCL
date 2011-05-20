@@ -117,6 +117,12 @@ cl_command_queue voclVOCLCommandQueue2CLCommandQueueComm(vocl_command_queue comm
     return commandQueuePtr->clCommandQueue;
 }
 
+cl_command_queue voclVOCLCommandQueue2CLCommandQueue(vocl_command_queue command_queue)
+{
+	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(command_queue);
+    return commandQueuePtr->clCommandQueue;
+}
+
 void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, int proxyRank, int proxyIndex,
                                MPI_Comm comm, MPI_Comm commData, vocl_context context, vocl_device_id device)
 {
@@ -124,7 +130,7 @@ void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, int proxyRank, 
 	int err;
 
 	/*release previous command */
-	//clReleaseCommandQueue(voclCmdQueue);
+	clReleaseCommandQueue(voclCmdQueue);
 
 	cmdQueuePtr->proxyRank = proxyRank;
 	cmdQueuePtr->proxyIndex = proxyIndex;
