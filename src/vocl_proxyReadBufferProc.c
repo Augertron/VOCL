@@ -26,7 +26,8 @@ static void initializeReadBuffer(int rank)
     int i;
     for (i = 0; i < VOCL_PROXY_READ_BUFFER_NUM; i++) {
         voclProxyReadBufferPtr[rank].readBufferInfo[i].isInUse = READ_AVAILABLE;
-        voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr = (char *) malloc(VOCL_PROXY_READ_BUFFER_SIZE);
+        voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr =
+            (char *) malloc(VOCL_PROXY_READ_BUFFER_SIZE);
         voclProxyReadBufferPtr[rank].readBufferInfo[i].numReadBuffers = 0;
     }
     voclProxyReadBufferPtr[rank].curReadBufferIndex = 0;
@@ -37,39 +38,39 @@ static void initializeReadBuffer(int rank)
 
 static void reallocVOCLProxyReadBuffer(int origBufferNum, int newBufferNum)
 {
-	int i;
-	voclProxyReadBufferPtr = (struct voclReadBufferInfo *)realloc(voclProxyReadBufferPtr, sizeof(struct voclReadBufferInfo) * newBufferNum);
-	for (i = origBufferNum; i < newBufferNum; i++)
-	{
-		initializeReadBuffer(i);
-	}
+    int i;
+    voclProxyReadBufferPtr =
+        (struct voclReadBufferInfo *) realloc(voclProxyReadBufferPtr,
+                                              sizeof(struct voclReadBufferInfo) *
+                                              newBufferNum);
+    for (i = origBufferNum; i < newBufferNum; i++) {
+        initializeReadBuffer(i);
+    }
 }
 
 
 void initializeReadBufferAll()
 {
-	int i;
-	voclProxySupportAppNum = VOCL_PROXY_APP_NUM;
-	voclProxyReadBufferPtr = (struct voclReadBufferInfo *)malloc(sizeof(struct voclReadBufferInfo));
-	for (i = 0; i < voclProxySupportAppNum; i++)
-	{
-		initializeReadBuffer(i);
-	}
+    int i;
+    voclProxySupportAppNum = VOCL_PROXY_APP_NUM;
+    voclProxyReadBufferPtr =
+        (struct voclReadBufferInfo *) malloc(sizeof(struct voclReadBufferInfo));
+    for (i = 0; i < voclProxySupportAppNum; i++) {
+        initializeReadBuffer(i);
+    }
 }
 
 void finalizeReadBufferAll()
 {
     int rank, i;
-	for (rank = 0; rank < voclProxySupportAppNum; rank++)
-	{
-		for (i = 0; i < VOCL_PROXY_READ_BUFFER_NUM; i++) {
-			if (voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr)
-			{
-				free(voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr);
-				voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr = NULL;
-			}
-		}
-	}
+    for (rank = 0; rank < voclProxySupportAppNum; rank++) {
+        for (i = 0; i < VOCL_PROXY_READ_BUFFER_NUM; i++) {
+            if (voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr) {
+                free(voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr);
+                voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr = NULL;
+            }
+        }
+    }
 
     return;
 }
@@ -86,7 +87,7 @@ struct strReadBufferInfo *getReadBufferInfoPtr(int rank, int index)
 
 struct voclReadBufferInfo *getVOCLReadBufferInfoPtr(int rank)
 {
-	return &voclProxyReadBufferPtr[rank];
+    return &voclProxyReadBufferPtr[rank];
 }
 
 int readSendToLocal(int rank, int index)
@@ -97,8 +98,8 @@ int readSendToLocal(int rank, int index)
                     MPI_BYTE,
                     voclProxyReadBufferPtr[rank].readBufferInfo[index].appRank,
                     voclProxyReadBufferPtr[rank].readBufferInfo[index].tag,
-                    voclProxyReadBufferPtr[rank].readBufferInfo[index].comm, 
-					getReadRequestPtr(rank, index));
+                    voclProxyReadBufferPtr[rank].readBufferInfo[index].comm,
+                    getReadRequestPtr(rank, index));
 
     return err;
 }
@@ -129,13 +130,12 @@ int getNextReadBufferIndex(int rank)
     int index;
     MPI_Status status;
 
-	if (rank >= voclProxySupportAppNum)
-	{
-		reallocVOCLProxyReadBuffer(voclProxySupportAppNum, 2*voclProxySupportAppNum);
-		voclProxySupportAppNum *= 2;
-	}
+    if (rank >= voclProxySupportAppNum) {
+        reallocVOCLProxyReadBuffer(voclProxySupportAppNum, 2 * voclProxySupportAppNum);
+        voclProxySupportAppNum *= 2;
+    }
 
-	index = voclProxyReadBufferPtr[rank].curReadBufferIndex;
+    index = voclProxyReadBufferPtr[rank].curReadBufferIndex;
 
     /* check if any buffer is used */
     if (index == 0 && isReadBufferInUse(rank)) {
@@ -256,8 +256,8 @@ cl_int processAllReads(int rank)
 
     pthread_barrier_wait(&barrier);
     helperThreadOperFlag = GPU_MEM_READ;
-	/* used by the helper thread */
-	voclProxyAppIndex = rank;
+    /* used by the helper thread */
+    voclProxyAppIndex = rank;
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_PROXY_READ_BUFFER_NUM;
@@ -280,4 +280,3 @@ cl_int processAllReads(int rank)
 
     return err;
 }
-

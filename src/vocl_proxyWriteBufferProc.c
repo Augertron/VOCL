@@ -46,7 +46,8 @@ static void initializeWriteBuffer(int index)
     int i;
     for (i = 0; i < VOCL_PROXY_WRITE_BUFFER_NUM; i++) {
         voclProxyWriteBufferPtr[index].writeBufferInfo[i].isInUse = WRITE_AVAILABLE;
-        voclProxyWriteBufferPtr[index].writeBufferInfo[i].dataPtr = (char *)malloc(VOCL_PROXY_WRITE_BUFFER_SIZE);
+        voclProxyWriteBufferPtr[index].writeBufferInfo[i].dataPtr =
+            (char *) malloc(VOCL_PROXY_WRITE_BUFFER_SIZE);
         voclProxyWriteBufferPtr[index].writeBufferInfo[i].eventWaitList = NULL;
         voclProxyWriteBufferPtr[index].writeBufferInfo[i].numEvents = 0;
         voclProxyWriteBufferPtr[index].writeBufferInfo[i].sendProcInfo.toBeProcessedNum = 0;
@@ -63,23 +64,26 @@ static void initializeWriteBuffer(int index)
 
 static void reallocVOCLProxyWriteBuffer(int origBufferNum, int newBufferNum)
 {
-	int i;
-	voclProxyWriteBufferPtr = (struct voclWriteBufferInfo *)realloc(voclProxyWriteBufferPtr, sizeof(struct voclWriteBufferInfo) * newBufferNum);
-	for (i = origBufferNum; i < newBufferNum; i++)
-	{
-		initializeWriteBuffer(i);
-	}
+    int i;
+    voclProxyWriteBufferPtr =
+        (struct voclWriteBufferInfo *) realloc(voclProxyWriteBufferPtr,
+                                               sizeof(struct voclWriteBufferInfo) *
+                                               newBufferNum);
+    for (i = origBufferNum; i < newBufferNum; i++) {
+        initializeWriteBuffer(i);
+    }
 }
 
 void initializeWriteBufferAll()
 {
-	int i;
-	voclProxySupportAppNum = VOCL_PROXY_APP_NUM;
-	voclProxyWriteBufferPtr = (struct voclWriteBufferInfo *)malloc(sizeof(struct voclWriteBufferInfo) * voclProxySupportAppNum);
-	for (i = 0; i < voclProxySupportAppNum; i++)
-	{
-		initializeWriteBuffer(i);
-	}
+    int i;
+    voclProxySupportAppNum = VOCL_PROXY_APP_NUM;
+    voclProxyWriteBufferPtr =
+        (struct voclWriteBufferInfo *) malloc(sizeof(struct voclWriteBufferInfo) *
+                                              voclProxySupportAppNum);
+    for (i = 0; i < voclProxySupportAppNum; i++) {
+        initializeWriteBuffer(i);
+    }
 }
 
 void increaseWriteBufferCount(int appRank)
@@ -94,21 +98,19 @@ void increaseWriteBufferCount(int appRank)
 void finalizeWriteBufferAll()
 {
     int rank, i;
-	for (rank = 0; rank < voclProxySupportAppNum; rank++)
-	{
-		for (i = 0; i < VOCL_PROXY_WRITE_BUFFER_NUM; i++) {
-			if (voclProxyWriteBufferPtr[rank].writeBufferInfo[i].dataPtr)
-				free(voclProxyWriteBufferPtr[rank].writeBufferInfo[i].dataPtr);
-			if (voclProxyWriteBufferPtr[rank].writeBufferInfo[i].eventWaitList)
-				free(voclProxyWriteBufferPtr[rank].writeBufferInfo[i].eventWaitList);
-		}
-	}
+    for (rank = 0; rank < voclProxySupportAppNum; rank++) {
+        for (i = 0; i < VOCL_PROXY_WRITE_BUFFER_NUM; i++) {
+            if (voclProxyWriteBufferPtr[rank].writeBufferInfo[i].dataPtr)
+                free(voclProxyWriteBufferPtr[rank].writeBufferInfo[i].dataPtr);
+            if (voclProxyWriteBufferPtr[rank].writeBufferInfo[i].eventWaitList)
+                free(voclProxyWriteBufferPtr[rank].writeBufferInfo[i].eventWaitList);
+        }
+    }
 
-	if (voclProxyWriteBufferPtr)
-	{
-		free(voclProxyWriteBufferPtr);
-		voclProxyWriteBufferPtr = NULL;
-	}
+    if (voclProxyWriteBufferPtr) {
+        free(voclProxyWriteBufferPtr);
+        voclProxyWriteBufferPtr = NULL;
+    }
 
     return;
 }
@@ -121,22 +123,22 @@ void setWriteBufferFlag(int appRank, int index, int flag)
 
 void voclResetWriteEnqueueFlag(int rank)
 {
-	voclProxyWriteBufferPtr[rank].allWritesAreEnqueuedFlag = 0;
+    voclProxyWriteBufferPtr[rank].allWritesAreEnqueuedFlag = 0;
 }
 
 int voclGetWriteEnqueueFlag(int rank)
 {
-	return voclProxyWriteBufferPtr[rank].allWritesAreEnqueuedFlag;
+    return voclProxyWriteBufferPtr[rank].allWritesAreEnqueuedFlag;
 }
 
 void voclResetReadBufferCoveredFlag(int rank)
 {
-	voclProxyWriteBufferPtr[rank].allReadBuffersAreCovered = 0;
+    voclProxyWriteBufferPtr[rank].allReadBuffersAreCovered = 0;
 }
 
 static void voclSetReadBufferCoveredFlag(int rank)
 {
-	voclProxyWriteBufferPtr[rank].allReadBuffersAreCovered = 1;
+    voclProxyWriteBufferPtr[rank].allReadBuffersAreCovered = 1;
 }
 
 MPI_Request *getWriteRequestPtr(int appRank, int index)
@@ -153,29 +155,31 @@ struct strWriteBufferInfo *getWriteBufferInfoPtr(int appRank, int index)
 cl_int writeToGPUMemory(int appRank, int index)
 {
     int err;
-    err = clEnqueueWriteBuffer(voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].commandQueue,
-                               voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].mem,
-                               CL_FALSE,
-                               voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].offset,
-                               voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].size,
-                               voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].dataPtr,
-                               voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].numEvents,
-                               voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].eventWaitList,
-                               &voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].event);
+    err =
+        clEnqueueWriteBuffer(voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].
+                             commandQueue,
+                             voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].mem,
+                             CL_FALSE,
+                             voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].offset,
+                             voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].size,
+                             voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].dataPtr,
+                             voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].numEvents,
+                             voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].
+                             eventWaitList,
+                             &voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].event);
     setWriteBufferFlag(appRank, index, WRITE_GPU_MEM);
     return err;
 }
 
 int getNextWriteBufferIndex(int rank)
 {
-	int index;
-	MPI_Status status;
+    int index;
+    MPI_Status status;
 
-	if (rank >= voclProxySupportAppNum)
-	{
-		reallocVOCLProxyWriteBuffer(voclProxySupportAppNum, 2*voclProxySupportAppNum);
-		voclProxySupportAppNum *= 2;
-	}
+    if (rank >= voclProxySupportAppNum) {
+        reallocVOCLProxyWriteBuffer(voclProxySupportAppNum, 2 * voclProxySupportAppNum);
+        voclProxySupportAppNum *= 2;
+    }
 
     index = voclProxyWriteBufferPtr[rank].curWriteBufferIndex;
 
@@ -186,7 +190,8 @@ int getNextWriteBufferIndex(int rank)
         clWaitForEvents(1, &voclProxyWriteBufferPtr[rank].writeBufferInfo[index].event);
         setWriteBufferFlag(rank, index, WRITE_AVAILABLE);
     }
-    else if (voclProxyWriteBufferPtr[rank].writeBufferInfo[index].isInUse == WRITE_RECV_COMPLED) {
+    else if (voclProxyWriteBufferPtr[rank].writeBufferInfo[index].isInUse ==
+             WRITE_RECV_COMPLED) {
         writeToGPUMemory(rank, index);
         clWaitForEvents(1, &voclProxyWriteBufferPtr[rank].writeBufferInfo[index].event);
         setWriteBufferFlag(rank, index, WRITE_AVAILABLE);
@@ -200,8 +205,8 @@ int getNextWriteBufferIndex(int rank)
     if (voclProxyWriteBufferPtr[rank].writeBufferInfo[index].sendProcInfo.toBeProcessedNum > 0) {
         pthread_barrier_wait(&barrier);
         helperThreadOperFlag = SEND_LOCAL_PREVIOUS;
-		/* used by the helper thread */
-		voclProxyAppIndex = rank;
+        /* used by the helper thread */
+        voclProxyAppIndex = rank;
         pthread_barrier_wait(&barrier);
         pthread_barrier_wait(&barrier);
     }
@@ -316,8 +321,8 @@ cl_int processAllWrites(int rank)
     }
     pthread_barrier_wait(&barrier);
     helperThreadOperFlag = GPU_MEM_WRITE;
-	/* used in the helper thread */
-	voclProxyAppIndex = rank;
+    /* used in the helper thread */
+    voclProxyAppIndex = rank;
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_PROXY_WRITE_BUFFER_NUM;
@@ -349,9 +354,9 @@ static void getAllPreviousReadBuffers(int rank, int writeIndex)
 {
     int i, index, startIndex, endIndex;
     struct strReadBufferInfo *readBufferInfoPtr;
-	struct voclReadBufferInfo *bufPtr;
+    struct voclReadBufferInfo *bufPtr;
 
-	bufPtr = getVOCLReadBufferInfoPtr(rank);
+    bufPtr = getVOCLReadBufferInfoPtr(rank);
 
     endIndex = bufPtr->curReadBufferIndex;
     startIndex = endIndex - bufPtr->readDataRequestNum;
@@ -365,13 +370,14 @@ static void getAllPreviousReadBuffers(int rank, int writeIndex)
         readBufferInfoPtr = getReadBufferInfoPtr(rank, index);
         if (readBufferInfoPtr->isInUse == READ_GPU_MEM) {
             voclProxyWriteBufferPtr[rank].writeBufferInfo[writeIndex].
-                sendProcInfo.readBufferIndex[voclProxyWriteBufferPtr[rank].writeBufferInfo[writeIndex].sendProcInfo.
+                sendProcInfo.readBufferIndex[voclProxyWriteBufferPtr[rank].
+                                             writeBufferInfo[writeIndex].sendProcInfo.
                                              toBeProcessedNum++] = index;
             setReadBufferFlag(rank, index, READ_GPU_MEM_SUB);
         }
     }
 
-	voclSetReadBufferCoveredFlag(rank);
+    voclSetReadBufferCoveredFlag(rank);
 }
 
 
@@ -440,8 +446,13 @@ void sendReadyReadBufferToLocal(int rank)
     struct strReadBufferInfo *readBufferInfoPtr;
     int writeIndex = voclProxyWriteBufferPtr[rank].curWriteBufferIndex;
     MPI_Status status;
-    for (i = 0; i < voclProxyWriteBufferPtr[rank].writeBufferInfo[writeIndex].sendProcInfo.toBeProcessedNum; i++) {
-        index = voclProxyWriteBufferPtr[rank].writeBufferInfo[writeIndex].sendProcInfo.readBufferIndex[i];
+    for (i = 0;
+         i <
+         voclProxyWriteBufferPtr[rank].writeBufferInfo[writeIndex].sendProcInfo.
+         toBeProcessedNum; i++) {
+        index =
+            voclProxyWriteBufferPtr[rank].writeBufferInfo[writeIndex].sendProcInfo.
+            readBufferIndex[i];
         readBufferInfoPtr = getReadBufferInfoPtr(rank, index);
         if (readBufferInfoPtr->isInUse == READ_GPU_MEM ||
             readBufferInfoPtr->isInUse == READ_GPU_MEM_SUB) {
@@ -454,6 +465,7 @@ void sendReadyReadBufferToLocal(int rank)
             setReadBufferFlag(rank, index, READ_SEND_DATA);
         }
     }
-    voclProxyWriteBufferPtr[rank].writeBufferInfo[writeIndex].sendProcInfo.toBeProcessedNum = 0;
+    voclProxyWriteBufferPtr[rank].writeBufferInfo[writeIndex].sendProcInfo.toBeProcessedNum =
+        0;
     pthread_barrier_wait(&barrier);
 }

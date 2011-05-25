@@ -82,8 +82,8 @@ int main(int argc, char **argv)
 
     cl_int err;
     cl_uint numPlatforms, numDevices, deviceNo = 0;
-    cl_platform_id platformID;
-    cl_device_id deviceID[2];
+    cl_platform_id *platformIDs;
+    cl_device_id *deviceIDs;
     cl_context hContext;
     cl_command_queue hCmdQueue;
     cl_program hProgram;
@@ -102,7 +102,8 @@ int main(int argc, char **argv)
     //get an opencl platform
     timerStart();
     err = clGetPlatformIDs(0, NULL, &numPlatforms);
-    err = clGetPlatformIDs(numPlatforms, &platformID, NULL);
+	platformIDs = (cl_platform_id *)malloc(sizeof(cl_platform_id) * numPlatforms);
+    err |= clGetPlatformIDs(numPlatforms, platformIDs, NULL);
     CHECK_ERR(err, "Get platform ID error!");
     timerEnd();
     strTime.getPlatform = elapsedTime();
@@ -112,8 +113,9 @@ int main(int argc, char **argv)
     printf("cpuid = %d\n", set.__bits[0]);
 
     timerStart();
-    err = clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
-    err |= clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, numDevices, deviceID, NULL);
+    err = clGetDeviceIDs(platformIDs[0], CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
+	deviceIDs = (cl_device_id *)malloc(sizeof(cl_device_id) * numDevices);
+    err |= clGetDeviceIDs(platformIDs[0], CL_DEVICE_TYPE_GPU, numDevices, deviceIDs, NULL);
     CHECK_ERR(err, "Get device ID error!");
     timerEnd();
     strTime.getDeviceID = elapsedTime();
@@ -121,7 +123,7 @@ int main(int argc, char **argv)
 
     //create opencl device and context
     timerStart();
-    hContext = clCreateContext(0, numDevices, deviceID, 0, 0, &err);
+    hContext = clCreateContext(0, numDevices, deviceIDs, 0, 0, &err);
     CHECK_ERR(err, "Create context from type error");
     timerEnd();
     strTime.createContext = elapsedTime();
@@ -129,7 +131,7 @@ int main(int argc, char **argv)
 
     //create a command queue for the first device the context reported
     timerStart();
-    hCmdQueue = clCreateCommandQueue(hContext, deviceID[deviceNo], 0, &err);
+    hCmdQueue = clCreateCommandQueue(hContext, deviceIDs[deviceNo], 0, &err);
     CHECK_ERR(err, "Create command queue error");
     timerEnd();
     strTime.createCommandQueue = elapsedTime();
@@ -291,8 +293,11 @@ int main(int argc, char **argv)
     timerStart();
     clReleaseContext(hContext);
     timerEnd();
-    //strTime.releaseContext = elapsedTime();
-    //strTime.numReleaseContext++;
+    strTime.releaseContext = elapsedTime();
+    strTime.numReleaseContext++;
+	
+	free(platformIDs);
+	free(deviceIDs);
 
     printTime_toStandardOutput();
     printTime_toFile();

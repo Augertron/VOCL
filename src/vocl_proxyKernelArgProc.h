@@ -9,7 +9,7 @@ typedef struct strKernelArgs {
     size_t arg_size;
     char arg_value[64];
     cl_char arg_null_flag;
-	cl_mem memory; 
+    cl_mem memory;
 } kernel_args;
 
 #endif

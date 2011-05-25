@@ -28,41 +28,67 @@ static void initializeReadBuffer(int proxyIndex)
 
 void initializeVoclReadBufferAll()
 {
-	int i;
-	voclReadBufferNum = VOCL_BUFF_NUM;
-	voclReadBufferPtr = (struct voclReadBuffer *)malloc(sizeof(struct voclReadBuffer) * voclReadBufferNum);
-	for (i = 0; i < voclReadBufferNum; i++)
-	{
-		initializeReadBuffer(i);
-	}
+    int i;
+    voclReadBufferNum = VOCL_BUFF_NUM;
+    voclReadBufferPtr =
+        (struct voclReadBuffer *) malloc(sizeof(struct voclReadBuffer) * voclReadBufferNum);
+    for (i = 0; i < voclReadBufferNum; i++) {
+        initializeReadBuffer(i);
+    }
 }
 
 void finalizeVoclReadBufferAll()
 {
-	if (voclReadBufferPtr != NULL)
-	{
-		free(voclReadBufferPtr);
-		voclReadBufferPtr = NULL;
-	}
+    if (voclReadBufferPtr != NULL) {
+        free(voclReadBufferPtr);
+        voclReadBufferPtr = NULL;
+    }
 
-	return;
+    return;
 }
 
 static void reallocateReadBuffer(int origBufferNum, int newBufferNum)
 {
-	int i;
-	voclReadBufferPtr = (struct voclReadBuffer *)realloc(voclReadBufferPtr, sizeof(struct voclReadBuffer) * newBufferNum);
-	for (i = origBufferNum; i < newBufferNum; i++)
-	{
-		initializeReadBuffer(i);
-	}
+    int i;
+    voclReadBufferPtr =
+        (struct voclReadBuffer *) realloc(voclReadBufferPtr,
+                                          sizeof(struct voclReadBuffer) * newBufferNum);
+    for (i = origBufferNum; i < newBufferNum; i++) {
+        initializeReadBuffer(i);
+    }
 
-	return;
+    return;
 }
 
 void setReadBufferInUse(int proxyIndex, int index)
 {
     voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].isInUse = 1;
+}
+
+void setReadBufferEvent(int proxyIndex, int index, vocl_event event)
+{
+    voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].event = event;
+}
+
+void setReadBufferNum(int proxyIndex, int index, int bufferNum)
+{
+    voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].bufferNum = bufferNum;
+}
+
+void getReadBufferNum(int proxyIndex, int index)
+{
+    return voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].bufferNum;
+}
+
+int getReadBufferIndexFromEvent(int proxyIndex, vocl_event event)
+{
+    int index;
+    for (index = 0; index < voclReadBufferPtr[proxyIndex].readDataRequestNum; index++) {
+        if (event == voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].event) {
+            return index;
+        }
+    }
+    return -1;
 }
 
 MPI_Request *getReadRequestPtr(int proxyIndex, int index)
@@ -72,11 +98,10 @@ MPI_Request *getReadRequestPtr(int proxyIndex, int index)
 
 int getNextReadBufferIndex(int proxyIndex)
 {
-	if (proxyIndex >= voclReadBufferNum)
-	{
-		reallocateReadBuffer(voclReadBufferNum, 2*voclReadBufferNum);
-		voclReadBufferNum *= 2;
-	}
+    if (proxyIndex >= voclReadBufferNum) {
+        reallocateReadBuffer(voclReadBufferNum, 2 * voclReadBufferNum);
+        voclReadBufferNum *= 2;
+    }
 
     int index = voclReadBufferPtr[proxyIndex].curReadBufferIndex;
     MPI_Status status;
@@ -125,6 +150,8 @@ void processReadBuffer(int proxyIndex, int curIndex, int bufferNum)
     for (i = startIndex; i <= endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
         voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].isInUse = 0;
+        voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].event = VOCL_EVENT_NULL;
+        voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].bufferNum = 0;
     }
 
     return;
@@ -159,6 +186,8 @@ void processAllReads(int proxyIndex)
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
         voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].isInUse = 0;
+        voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].event = VOCL_EVENT_NULL;
+        voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].bufferNum = 0;
     }
 
     voclReadBufferPtr[proxyIndex].curReadBufferIndex = 0;
@@ -166,4 +195,3 @@ void processAllReads(int proxyIndex)
 
     return;
 }
-

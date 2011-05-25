@@ -7,33 +7,33 @@
 
 /* for storing kernel arguments */
 static kernel_info *kernelInfo = NULL;
-extern char *voclGetProgramSource(vocl_program program, size_t *sourceSize);
-extern void voclRemoveComments(char *sourceIn, size_t inLen, char *sourceOut, size_t *outLen);
+extern char *voclGetProgramSource(vocl_program program, size_t * sourceSize);
+extern void voclRemoveComments(char *sourceIn, size_t inLen, char *sourceOut, size_t * outLen);
 extern char *voclKernelPrototye(char *sourceIn, char *kernelName, unsigned int *kernelArgNum);
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-cl_int createKernel(cl_kernel kernel);
-kernel_info *getKernelPtr(cl_kernel kernel);
-cl_int releaseKernelPtr(cl_kernel kernel);
-void createKernelArgInfo(cl_kernel kernel, char *kernel_name, vocl_program program);
+    cl_int createKernel(cl_kernel kernel);
+    kernel_info *getKernelPtr(cl_kernel kernel);
+    cl_int releaseKernelPtr(cl_kernel kernel);
+    void createKernelArgInfo(cl_kernel kernel, char *kernel_name, vocl_program program);
 
 #ifdef __cplusplus
 }
 #endif
-/* for each kernel, a different pointer *//* is used for storing kernel arguments */
-cl_int createKernel(cl_kernel kernel)
+                                          /* for each kernel, a different pointer *//* is used for storing kernel arguments */
+    cl_int createKernel(cl_kernel kernel)
 {
     kernel_info *kernelPtr;
     kernelPtr = (kernel_info *) malloc(sizeof(kernel_info));
     kernelPtr->kernel = kernel;
-	kernelPtr->globalMemSize = 0;
+    kernelPtr->globalMemSize = 0;
     kernelPtr->args_num = 0;
-	kernelPtr->maxArgNum = MAX_ARGS;
+    kernelPtr->maxArgNum = MAX_ARGS;
     kernelPtr->args_ptr = (kernel_args *) malloc(sizeof(kernel_args) * MAX_ARGS);
-	kernelPtr->args_flag = NULL;
+    kernelPtr->args_flag = NULL;
     kernelPtr->next = kernelInfo;
 
     kernelInfo = kernelPtr;
@@ -67,12 +67,11 @@ cl_int releaseKernelPtr(cl_kernel kernel)
     if (kernel == kernelInfo->kernel) {
         kernelPtr = kernelInfo;
         kernelInfo = kernelInfo->next;
-            free(kernelPtr->args_ptr);
-		if (kernelPtr->args_flag != NULL)
-		{
-			free(kernelPtr->args_flag);
-			kernelPtr->args_flag = NULL;
-		}
+        free(kernelPtr->args_ptr);
+        if (kernelPtr->args_flag != NULL) {
+            free(kernelPtr->args_flag);
+            kernelPtr->args_flag = NULL;
+        }
 
         free(kernelPtr);
         return 0;
@@ -96,11 +95,10 @@ cl_int releaseKernelPtr(cl_kernel kernel)
     }
 
     preKernel->next = curKernel->next;
-	if (kernelPtr->args_flag != NULL)
-	{
-		free(kernelPtr->args_flag);
-		kernelPtr->args_flag = NULL;
-	}
+    if (kernelPtr->args_flag != NULL) {
+        free(kernelPtr->args_flag);
+        kernelPtr->args_flag = NULL;
+    }
     free(kernelPtr);
 
     return 0;
@@ -108,24 +106,24 @@ cl_int releaseKernelPtr(cl_kernel kernel)
 
 void createKernelArgInfo(cl_kernel kernel, char *kernel_name, vocl_program program)
 {
-	kernel_info *kernelPtr;
-	size_t sourceSize, codeSize;
-	char *programSource;
-	char *codeSource;
+    kernel_info *kernelPtr;
+    size_t sourceSize, codeSize;
+    char *programSource;
+    char *codeSource;
 
-	kernelPtr = getKernelPtr(kernel);
-	programSource = voclGetProgramSource(program, &sourceSize);
+    kernelPtr = getKernelPtr(kernel);
+    programSource = voclGetProgramSource(program, &sourceSize);
 
-	codeSource = (char *)malloc(sourceSize * sizeof(char));
+    codeSource = (char *) malloc(sourceSize * sizeof(char));
 
-	/* remove all comments in the program source */
-	voclRemoveComments(programSource, sourceSize, codeSource, &codeSize);
+    /* remove all comments in the program source */
+    voclRemoveComments(programSource, sourceSize, codeSource, &codeSize);
 
-	/* get argument info of the kernel */
-	kernelPtr->args_flag = voclKernelPrototye(codeSource, kernel_name, &kernelPtr->kernel_arg_num);
-	
-	free(codeSource);
+    /* get argument info of the kernel */
+    kernelPtr->args_flag =
+        voclKernelPrototye(codeSource, kernel_name, &kernelPtr->kernel_arg_num);
 
-	return;
+    free(codeSource);
+
+    return;
 }
-

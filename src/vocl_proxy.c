@@ -58,9 +58,9 @@ static struct strMigGPUMemoryReadCmpd tmpMigReadMemCmpdRst;
 
 /* control message requests */
 MPI_Request *conMsgRequest;
-MPI_Comm    *appComm, *appCommData;
-char        voclPortName[MPI_MAX_PORT_NAME];
-int         voclTotalRequestNum;
+MPI_Comm *appComm, *appCommData;
+char voclPortName[MPI_MAX_PORT_NAME];
+int voclTotalRequestNum;
 
 /* control message buffer */
 CON_MSG_BUFFER *conMsgBuffer;
@@ -191,7 +191,7 @@ extern int voclMigFinishDataWrite(int source);
 extern void voclMigReadBufferInitialize();
 extern void voclMigReadBufferFinalize();
 extern void voclMigSetReadBufferFlag(int index, int flag);
-extern cl_event* voclMigGetReadEventPtr(int index);
+extern cl_event *voclMigGetReadEventPtr(int index);
 extern struct strMigReadBufferInfo *voclMigGetReadBufferPtr(int index);
 extern int voclMigGetNextReadBufferIndex();
 extern int voclMigFinishDataRead(int dest);
@@ -208,8 +208,8 @@ int main(int argc, char *argv[])
     int proxyRank, i, appRank, appIndex, commIndex, multiThreadProvided;
     cl_int err;
     MPI_Status status;
-	char serviceName[256], voclProxyHostName[256];
-	MPI_Comm comm1, comm2;
+    char serviceName[256], voclProxyHostName[256];
+    MPI_Comm comm1, comm2;
     int len;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &multiThreadProvided);
 
@@ -229,10 +229,8 @@ int main(int argc, char *argv[])
 
     struct strWriteBufferInfo *writeBufferInfoPtr;
     struct strReadBufferInfo *readBufferInfoPtr;
-	struct strMigWriteBufferInfo *migWriteBufferInfoPtr;
-	struct strMigReadBufferInfo *migReadBufferInfoPtr;
-
-
+    struct strMigWriteBufferInfo *migWriteBufferInfoPtr;
+    struct strMigReadBufferInfo *migReadBufferInfoPtr;
 
     size_t *lengthsArray;
     size_t fileSize;
@@ -251,7 +249,7 @@ int main(int argc, char *argv[])
     cl_event *event_list;
     size_t host_buff_size;
 
-//	/* get the proxy host name */
+//      /* get the proxy host name */
     MPI_Get_processor_name(voclProxyHostName, &len);
     voclProxyHostName[len] = '\0';
 
@@ -262,44 +260,44 @@ int main(int argc, char *argv[])
 #endif
 
 
-	/* service name based on different proxy node name*/
-	sprintf(serviceName, "voclCloud%s", voclProxyHostName);
-	/* open a port on each node */
-	MPI_Open_port(MPI_INFO_NULL, voclPortName);
-	err = MPI_Publish_name(serviceName, MPI_INFO_NULL, voclPortName);
+    /* service name based on different proxy node name */
+    sprintf(serviceName, "voclCloud%s", voclProxyHostName);
+    /* open a port on each node */
+    MPI_Open_port(MPI_INFO_NULL, voclPortName);
+    err = MPI_Publish_name(serviceName, MPI_INFO_NULL, voclPortName);
 
     curStatus = (MPI_Status *) malloc(sizeof(MPI_Status) * TOTAL_MSG_NUM);
     curRequest = (MPI_Request *) malloc(sizeof(MPI_Request) * TOTAL_MSG_NUM);
 
-	voclProxyCommInitialize();
+    voclProxyCommInitialize();
 
     /* initialize write and read buffer pools */
     initializeWriteBufferAll();
     initializeReadBufferAll();
 
-	voclMigWriteBufferInitialize();
-	voclMigReadBufferInitialize();
+    voclMigWriteBufferInitialize();
+    voclMigReadBufferInitialize();
 
-	/* wait for one app to issue connection request */
-	voclProxyAcceptOneApp();
+    /* wait for one app to issue connection request */
+    voclProxyAcceptOneApp();
 
     /* create a helper thread */
     pthread_barrier_init(&barrier, NULL, 2);
     pthread_create(&th, NULL, proxyHelperThread, NULL);
-	voclProxySetTerminateFlag(0);
-//	pthread_create(&thAppComm, NULL, proxyCommAcceptThread, NULL);
+    voclProxySetTerminateFlag(0);
+//      pthread_create(&thAppComm, NULL, proxyCommAcceptThread, NULL);
 
-	/* voclTotalRequestNum is set in the Comm accept file */
+    /* voclTotalRequestNum is set in the Comm accept file */
     while (1) {
         /* wait for any msg from the master process */
         MPI_Waitany(voclTotalRequestNum, conMsgRequest, &index, &status);
 
-		appRank = status.MPI_SOURCE;
-		commIndex = index / CMSG_NUM;
-		appIndex = commIndex;
+        appRank = status.MPI_SOURCE;
+        commIndex = index / CMSG_NUM;
+        appIndex = commIndex;
 
-		printf("requestNum = %d, appIndex = %d, index = %d, tag = %d\n", voclTotalRequestNum,
-				appIndex, index, status.MPI_TAG);
+        //printf("requestNum = %d, appIndex = %d, index = %d, tag = %d\n", voclTotalRequestNum,
+        //              appIndex, index, status.MPI_TAG);
 
         if (status.MPI_TAG == GET_PLATFORM_ID_FUNC) {
             memcpy((void *) &tmpGetPlatformID, (const void *) conMsgBuffer[index],
@@ -318,8 +316,9 @@ int main(int argc, char *argv[])
                       GET_PLATFORM_ID_FUNC, appComm[commIndex], curRequest + (requestNo++));
             if (tmpGetPlatformID.platforms != NULL && tmpGetPlatformID.num_entries > 0) {
                 MPI_Isend((void *) platforms,
-                          sizeof(cl_platform_id) * tmpGetPlatformID.num_platforms, MPI_BYTE, appRank,
-                          GET_PLATFORM_ID_FUNC1, appCommData[commIndex], curRequest + (requestNo++));
+                          sizeof(cl_platform_id) * tmpGetPlatformID.num_platforms, MPI_BYTE,
+                          appRank, GET_PLATFORM_ID_FUNC1, appCommData[commIndex],
+                          curRequest + (requestNo++));
             }
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -339,7 +338,8 @@ int main(int argc, char *argv[])
             requestNo = 0;
             if (num_entries > 0 && tmpGetDeviceIDs.devices != NULL) {
                 MPI_Isend(devices, sizeof(cl_device_id) * num_entries, MPI_BYTE, appRank,
-                          GET_DEVICE_ID_FUNC1, appCommData[commIndex], curRequest + (requestNo++));
+                          GET_DEVICE_ID_FUNC1, appCommData[commIndex],
+                          curRequest + (requestNo++));
             }
             MPI_Isend(&tmpGetDeviceIDs, sizeof(tmpGetDeviceIDs), MPI_BYTE, appRank,
                       GET_DEVICE_ID_FUNC, appComm[commIndex], curRequest + (requestNo++));
@@ -359,7 +359,8 @@ int main(int argc, char *argv[])
                     (cl_device_id *) malloc(sizeof(cl_device_id) *
                                             tmpCreateContext.num_devices);
                 MPI_Irecv(devices, sizeof(cl_device_id) * tmpCreateContext.num_devices,
-                          MPI_BYTE, appRank, CREATE_CONTEXT_FUNC1, appCommData[commIndex], curRequest);
+                          MPI_BYTE, appRank, CREATE_CONTEXT_FUNC1, appCommData[commIndex],
+                          curRequest);
                 MPI_Wait(curRequest, curStatus);
             }
 
@@ -394,15 +395,17 @@ int main(int argc, char *argv[])
 
             requestNo = 0;
             MPI_Irecv(lengthsArray, count * sizeof(size_t), MPI_BYTE, appRank,
-                      CREATE_PROGRMA_WITH_SOURCE1, appCommData[commIndex], curRequest + (requestNo++));
-            MPI_Irecv(fileBuffer, fileSize, MPI_BYTE, appRank,
-                      CREATE_PROGRMA_WITH_SOURCE2, appCommData[commIndex], curRequest + (requestNo++));
+                      CREATE_PROGRMA_WITH_SOURCE1, appCommData[commIndex],
+                      curRequest + (requestNo++));
+            MPI_Irecv(fileBuffer, fileSize, MPI_BYTE, appRank, CREATE_PROGRMA_WITH_SOURCE2,
+                      appCommData[commIndex], curRequest + (requestNo++));
             MPI_Waitall(requestNo, curRequest, curStatus);
 
             mpiOpenCLCreateProgramWithSource(&tmpCreateProgramWithSource, fileBuffer,
                                              lengthsArray);
             MPI_Isend(&tmpCreateProgramWithSource, sizeof(tmpCreateProgramWithSource),
-                      MPI_BYTE, appRank, CREATE_PROGRMA_WITH_SOURCE, appComm[commIndex], curRequest);
+                      MPI_BYTE, appRank, CREATE_PROGRMA_WITH_SOURCE, appComm[commIndex],
+                      curRequest);
 
             free(fileBuffer);
             free(lengthsArray);
@@ -521,7 +524,7 @@ int main(int argc, char *argv[])
                 setWriteBufferFlag(appIndex, bufferIndex, WRITE_RECV_DATA);
                 increaseWriteBufferCount(appIndex);
             }
-			voclResetWriteEnqueueFlag(appIndex);
+            voclResetWriteEnqueueFlag(appIndex);
 
             if (tmpEnqueueWriteBuffer.blocking_write == CL_TRUE) {
                 if (requestNo > 0) {
@@ -534,23 +537,26 @@ int main(int argc, char *argv[])
                 tmpEnqueueWriteBuffer.event = writeBufferInfoPtr->event;
 
                 /* if (num_events_in_wait_list > 0) {
-                    free(event_wait_list);
-                } */
+                 * free(event_wait_list);
+                 * } */
 
-                MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, appRank,
-                          ENQUEUE_WRITE_BUFFER, appComm[commIndex], curRequest + (requestNo++));
+                MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE,
+                          appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
+                          curRequest + (requestNo++));
             }
             else if (tmpEnqueueWriteBuffer.event_null_flag == 0) {
                 if (requestNo > 0) {
                     MPI_Waitall(requestNo, curRequest, curStatus);
                     requestNo = 0;
                 }
-                tmpEnqueueWriteBuffer.res = processWriteBuffer(appIndex, bufferIndex, bufferNum + 1);
+                tmpEnqueueWriteBuffer.res =
+                    processWriteBuffer(appIndex, bufferIndex, bufferNum + 1);
                 tmpEnqueueWriteBuffer.event = writeBufferInfoPtr->event;
                 writeBufferInfoPtr->numWriteBuffers = bufferNum + 1;
 
-                MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE, appRank,
-                          ENQUEUE_WRITE_BUFFER, appComm[commIndex], curRequest + (requestNo++));
+                MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE,
+                          appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
+                          curRequest + (requestNo++));
             }
 
             if (requestNo > 0) {
@@ -563,7 +569,7 @@ int main(int argc, char *argv[])
             writeBufferIndexInHelperThread = status.MPI_TAG - VOCL_PROXY_WRITE_TAG;
             pthread_barrier_wait(&barrier);
             helperThreadOperFlag = GPU_WRITE_SINGLE;
-			voclProxyAppIndex = appIndex;
+            voclProxyAppIndex = appIndex;
             pthread_barrier_wait(&barrier);
         }
 /*
@@ -643,8 +649,8 @@ int main(int argc, char *argv[])
             if (voclGetWriteEnqueueFlag(appIndex) == 0) {
                 pthread_barrier_wait(&barrier);
                 helperThreadOperFlag = GPU_ENQ_WRITE;
-				/* used by the helper thread */
-				voclProxyAppIndex = appIndex;
+                /* used by the helper thread */
+                voclProxyAppIndex = appIndex;
                 pthread_barrier_wait(&barrier);
                 pthread_barrier_wait(&barrier);
             }
@@ -654,8 +660,8 @@ int main(int argc, char *argv[])
                                           global_work_offset,
                                           global_work_size, local_work_size, args_ptr);
 
-            MPI_Isend(&tmpEnqueueNDRangeKernel, sizeof(tmpEnqueueNDRangeKernel), MPI_BYTE, appRank,
-                      ENQUEUE_ND_RANGE_KERNEL, appComm[commIndex], curRequest);
+            MPI_Isend(&tmpEnqueueNDRangeKernel, sizeof(tmpEnqueueNDRangeKernel), MPI_BYTE,
+                      appRank, ENQUEUE_ND_RANGE_KERNEL, appComm[commIndex], curRequest);
 
             if (tmpEnqueueNDRangeKernel.global_work_offset_flag == 1) {
                 free(global_work_offset);
@@ -688,7 +694,8 @@ int main(int argc, char *argv[])
                 event_wait_list =
                     (cl_event *) malloc(num_events_in_wait_list * sizeof(cl_event));
                 MPI_Irecv(event_wait_list, num_events_in_wait_list * sizeof(cl_event),
-                          MPI_BYTE, appRank, ENQUEUE_READ_BUFFER1, appCommData[commIndex], curRequest);
+                          MPI_BYTE, appRank, ENQUEUE_READ_BUFFER1, appCommData[commIndex],
+                          curRequest);
                 MPI_Wait(curRequest, curStatus);
             }
 
@@ -702,7 +709,7 @@ int main(int argc, char *argv[])
                 readBufferInfoPtr = getReadBufferInfoPtr(appIndex, bufferIndex);
                 readBufferInfoPtr->comm = appCommData[commIndex];
                 readBufferInfoPtr->tag = VOCL_PROXY_READ_TAG + bufferIndex;
-				readBufferInfoPtr->dest = appRank;
+                readBufferInfoPtr->dest = appRank;
                 readBufferInfoPtr->size = bufferSize;
                 tmpEnqueueReadBuffer.res =
                     clEnqueueReadBuffer(tmpEnqueueReadBuffer.command_queue,
@@ -718,13 +725,13 @@ int main(int argc, char *argv[])
             readBufferInfoPtr->numReadBuffers = bufferNum + 1;
 
             /* some new read requests are issued */
-			voclResetReadBufferCoveredFlag(appIndex);
+            voclResetReadBufferCoveredFlag(appIndex);
 
             if (tmpEnqueueReadBuffer.blocking_read == CL_FALSE) {
                 if (tmpEnqueueReadBuffer.event_null_flag == 0) {
                     tmpEnqueueReadBuffer.event = readBufferInfoPtr->event;
-                    MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, appRank,
-                              ENQUEUE_READ_BUFFER, appComm[commIndex], curRequest);
+                    MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE,
+                              appRank, ENQUEUE_READ_BUFFER, appComm[commIndex], curRequest);
                     MPI_Wait(curRequest, curStatus);
                 }
             }
@@ -733,8 +740,8 @@ int main(int argc, char *argv[])
                 if (tmpEnqueueReadBuffer.event_null_flag == 0) {
                     tmpEnqueueReadBuffer.event = readBufferInfoPtr->event;
                 }
-                MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE, appRank,
-                          ENQUEUE_READ_BUFFER, appComm[commIndex], curRequest);
+                MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE,
+                          appRank, ENQUEUE_READ_BUFFER, appComm[commIndex], curRequest);
 
                 MPI_Wait(curRequest, curStatus);
             }
@@ -783,7 +790,8 @@ int main(int argc, char *argv[])
 
             if (param_value_size > 0 && tmpGetContextInfo.param_value != NULL) {
                 MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
-                          GET_CONTEXT_INFO_FUNC1, appCommData[commIndex], curRequest + (requestNo++));
+                          GET_CONTEXT_INFO_FUNC1, appCommData[commIndex],
+                          curRequest + (requestNo++));
             }
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -802,12 +810,14 @@ int main(int argc, char *argv[])
             }
             mpiOpenCLGetProgramBuildInfo(&tmpGetProgramBuildInfo, param_value);
             requestNo = 0;
-            MPI_Isend(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE, appRank,
-                      GET_BUILD_INFO_FUNC, appComm[commIndex], curRequest + (requestNo++));
+            MPI_Isend(&tmpGetProgramBuildInfo, sizeof(tmpGetProgramBuildInfo), MPI_BYTE,
+                      appRank, GET_BUILD_INFO_FUNC, appComm[commIndex],
+                      curRequest + (requestNo++));
 
             if (param_value_size > 0 && tmpGetProgramBuildInfo.param_value != NULL) {
                 MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
-                          GET_BUILD_INFO_FUNC1, appCommData[commIndex], curRequest + (requestNo++));
+                          GET_BUILD_INFO_FUNC1, appCommData[commIndex],
+                          curRequest + (requestNo++));
             }
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -831,7 +841,8 @@ int main(int argc, char *argv[])
 
             if (param_value_size > 0 && tmpGetProgramInfo.param_value != NULL) {
                 MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
-                          GET_PROGRAM_INFO_FUNC1, appCommData[commIndex], curRequest + (requestNo++));
+                          GET_PROGRAM_INFO_FUNC1, appCommData[commIndex],
+                          curRequest + (requestNo++));
             }
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -854,8 +865,8 @@ int main(int argc, char *argv[])
             memcpy(&tmpReleaseCommandQueue, conMsgBuffer[index],
                    sizeof(tmpReleaseCommandQueue));
             mpiOpenCLReleaseCommandQueue(&tmpReleaseCommandQueue);
-            MPI_Isend(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE, appRank,
-                      REL_COMMAND_QUEUE_FUNC, appComm[commIndex], curRequest);
+            MPI_Isend(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE,
+                      appRank, REL_COMMAND_QUEUE_FUNC, appComm[commIndex], curRequest);
 
             MPI_Wait(curRequest, curStatus);
         }
@@ -882,7 +893,8 @@ int main(int argc, char *argv[])
                       GET_DEVICE_INFO_FUNC, appComm[commIndex], curRequest + (requestNo++));
             if (param_value_size > 0 && tmpGetDeviceInfo.param_value != NULL) {
                 MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
-                          GET_DEVICE_INFO_FUNC1, appCommData[commIndex], curRequest + (requestNo++));
+                          GET_DEVICE_INFO_FUNC1, appCommData[commIndex],
+                          curRequest + (requestNo++));
             }
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -905,7 +917,8 @@ int main(int argc, char *argv[])
 
             if (param_value_size > 0 && tmpGetPlatformInfo.param_value != NULL) {
                 MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
-                          GET_PLATFORM_INFO_FUNC1, appCommData[commIndex], curRequest + (requestNo++));
+                          GET_PLATFORM_INFO_FUNC1, appCommData[commIndex],
+                          curRequest + (requestNo++));
             }
 
             MPI_Waitall(requestNo, curRequest, curStatus);
@@ -929,7 +942,8 @@ int main(int argc, char *argv[])
             num_events = tmpWaitForEvents.num_events;
             event_list = (cl_event *) malloc(sizeof(cl_event) * num_events);
             MPI_Irecv(event_list, sizeof(cl_event) * num_events, MPI_BYTE, appRank,
-                      WAIT_FOR_EVENT_FUNC1, appCommData[commIndex], curRequest + (requestNo++));
+                      WAIT_FOR_EVENT_FUNC1, appCommData[commIndex],
+                      curRequest + (requestNo++));
             MPI_Waitall(requestNo, curRequest, curStatus);
             requestNo = 0;
             mpiOpenCLWaitForEvents(&tmpWaitForEvents, event_list);
@@ -938,14 +952,16 @@ int main(int argc, char *argv[])
                 bufferIndex = getReadBufferIndexFromEvent(appIndex, event_list[i]);
                 if (bufferIndex >= 0) {
                     readBufferInfoPtr = getReadBufferInfoPtr(appIndex, bufferIndex);
-                    processReadBuffer(appIndex, bufferIndex, readBufferInfoPtr->numReadBuffers);
+                    processReadBuffer(appIndex, bufferIndex,
+                                      readBufferInfoPtr->numReadBuffers);
                     readBufferInfoPtr->numReadBuffers = 0;
                 }
 
                 bufferIndex = getWriteBufferIndexFromEvent(appIndex, event_list[i]);
                 if (bufferIndex >= 0) {
                     writeBufferInfoPtr = getWriteBufferInfoPtr(appIndex, bufferIndex);
-                    processWriteBuffer(appIndex, bufferIndex, writeBufferInfoPtr->numWriteBuffers);
+                    processWriteBuffer(appIndex, bufferIndex,
+                                       writeBufferInfoPtr->numWriteBuffers);
                     writeBufferInfoPtr->numWriteBuffers = 0;
                 }
             }
@@ -976,8 +992,9 @@ int main(int argc, char *argv[])
                 param_value = malloc(param_value_size);
             }
             mpiOpenCLGetCommandQueueInfo(&tmpGetCommandQueueInfo, param_value);
-            MPI_Isend(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE, appRank,
-                      GET_CMD_QUEUE_INFO_FUNC, appComm[commIndex], curRequest + (requestNo++));
+            MPI_Isend(&tmpGetCommandQueueInfo, sizeof(tmpGetCommandQueueInfo), MPI_BYTE,
+                      appRank, GET_CMD_QUEUE_INFO_FUNC, appComm[commIndex],
+                      curRequest + (requestNo++));
 
             if (param_value_size > 0 && tmpGetCommandQueueInfo.param_value != NULL) {
                 MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
@@ -1033,8 +1050,9 @@ int main(int argc, char *argv[])
                 param_value = malloc(param_value_size);
             }
             mpiOpenCLGetEventProfilingInfo(&tmpGetEventProfilingInfo, param_value);
-            MPI_Isend(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE, appRank,
-                      GET_EVENT_PROF_INFO_FUNC, appComm[commIndex], curRequest + (requestNo++));
+            MPI_Isend(&tmpGetEventProfilingInfo, sizeof(tmpGetEventProfilingInfo), MPI_BYTE,
+                      appRank, GET_EVENT_PROF_INFO_FUNC, appComm[commIndex],
+                      curRequest + (requestNo++));
 
             if (param_value_size > 0 && tmpGetEventProfilingInfo.param_value != NULL) {
                 MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
@@ -1068,7 +1086,8 @@ int main(int argc, char *argv[])
             }
             mpiOpenCLGetKernelWorkGroupInfo(&tmpGetKernelWorkGroupInfo, param_value);
             MPI_Isend(&tmpGetKernelWorkGroupInfo, sizeof(tmpGetKernelWorkGroupInfo), MPI_BYTE,
-                      appRank, GET_KERNEL_WGP_INFO_FUNC, appComm[commIndex], curRequest + (requestNo++));
+                      appRank, GET_KERNEL_WGP_INFO_FUNC, appComm[commIndex],
+                      curRequest + (requestNo++));
 
             if (param_value_size > 0 && tmpGetKernelWorkGroupInfo.param_value != NULL) {
                 MPI_Isend(param_value, param_value_size, MPI_BYTE, appRank,
@@ -1077,10 +1096,9 @@ int main(int argc, char *argv[])
             }
 
             MPI_Waitall(requestNo, curRequest, curStatus);
-			if (param_value_size > 0 && tmpGetKernelWorkGroupInfo.param_value != NULL)
-			{
-				free(param_value);
-			}
+            if (param_value_size > 0 && tmpGetKernelWorkGroupInfo.param_value != NULL) {
+                free(param_value);
+            }
         }
 
         if (status.MPI_TAG == CREATE_IMAGE_2D_FUNC) {
@@ -1091,7 +1109,8 @@ int main(int argc, char *argv[])
             if (host_buff_size > 0) {
                 host_ptr = malloc(host_buff_size);
                 MPI_Irecv(host_ptr, host_buff_size, MPI_BYTE, appRank,
-                          CREATE_IMAGE_2D_FUNC1, appCommData[commIndex], curRequest + (requestNo++));
+                          CREATE_IMAGE_2D_FUNC1, appCommData[commIndex],
+                          curRequest + (requestNo++));
             }
             mpiOpenCLCreateImage2D(&tmpCreateImage2D, host_ptr);
             MPI_Isend(&tmpCreateImage2D, sizeof(tmpCreateImage2D), MPI_BYTE, appRank,
@@ -1177,8 +1196,9 @@ int main(int argc, char *argv[])
                           curRequest + (requestNo++));
             }
             mpiOpenCLEnqueueUnmapMemObject(&tmpEnqueueUnmapMemObject, event_wait_list);
-            MPI_Isend(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE, appRank,
-                      ENQ_UNMAP_MEMOBJ_FUNC, appComm[commIndex], curRequest + (requestNo++));
+            MPI_Isend(&tmpEnqueueUnmapMemObject, sizeof(tmpEnqueueUnmapMemObject), MPI_BYTE,
+                      appRank, ENQ_UNMAP_MEMOBJ_FUNC, appComm[commIndex],
+                      curRequest + (requestNo++));
 
             MPI_Waitall(requestNo, curRequest, curStatus);
             if (num_events_in_wait_list > 0) {
@@ -1186,87 +1206,101 @@ int main(int argc, char *argv[])
             }
         }
 
-		if (status.MPI_TAG == MIG_GET_PROXY_RANK)
-		{
-			/* send rank of the proxy process to the app process */
-			MPI_Comm_rank(MPI_COMM_WORLD, &proxyRank);
-			MPI_Send(&proxyRank, 1, MPI_INT, appRank, MIG_GET_PROXY_RANK, appComm[commIndex]);
-		}
+        if (status.MPI_TAG == MIG_GET_PROXY_RANK) {
+            /* send rank of the proxy process to the app process */
+            MPI_Comm_rank(MPI_COMM_WORLD, &proxyRank);
+            MPI_Send(&proxyRank, 1, MPI_INT, appRank, MIG_GET_PROXY_RANK, appComm[commIndex]);
+        }
 
-		if (status.MPI_TAG == MIG_MEM_WRITE_REQUEST)
-		{
-            memcpy(&tmpMigGPUMemoryWrite, conMsgBuffer[index], sizeof(struct strMigGPUMemoryWrite));
-			/* issue irecv to receive data from source process */
-			bufferSize = VOCL_MIG_BUF_SIZE;
-			bufferNum = (tmpMigGPUMemoryWrite.size - 1) / VOCL_MIG_BUF_SIZE;
-			remainingSize = tmpMigGPUMemoryWrite.size - bufferNum * VOCL_MIG_BUF_SIZE;
-			for (i = 0; i <= bufferNum; i++)
-			{
-				if (i == bufferNum)
-				{
-					bufferSize = remainingSize;
-				}
-				bufferIndex = voclMigGetNextWriteBufferIndex();
-				migWriteBufferInfoPtr = voclMigGetWriteBufferPtr(bufferIndex);
-				MPI_Irecv(migWriteBufferInfoPtr->ptr, bufferSize, MPI_BYTE, 
-					tmpMigGPUMemoryWrite.source, VOCL_PROXY_MIG_TAG+bufferIndex, 
-					MPI_COMM_WORLD, voclMigGetWriteRequestPtr(bufferIndex));
-				migWriteBufferInfoPtr->cmdQueue = tmpMigGPUMemoryWrite.cmdQueue;
-				migWriteBufferInfoPtr->memory = tmpMigGPUMemoryWrite.memory;
-				migWriteBufferInfoPtr->source = tmpMigGPUMemoryWrite.source;
-				migWriteBufferInfoPtr->size   = bufferSize;
-				migWriteBufferInfoPtr->offset = i * VOCL_MIG_BUF_SIZE;
-				voclMigSetWriteBufferFlag(bufferIndex, MIG_WRT_MPIRECV);
-			}
-		}
+        if (status.MPI_TAG == MIG_MEM_WRITE_REQUEST) {
+            memcpy(&tmpMigGPUMemoryWrite, conMsgBuffer[index],
+                   sizeof(struct strMigGPUMemoryWrite));
+            /* issue irecv to receive data from source process */
+            bufferSize = VOCL_MIG_BUF_SIZE;
+            bufferNum = (tmpMigGPUMemoryWrite.size - 1) / VOCL_MIG_BUF_SIZE;
+            remainingSize = tmpMigGPUMemoryWrite.size - bufferNum * VOCL_MIG_BUF_SIZE;
+            for (i = 0; i <= bufferNum; i++) {
+                if (i == bufferNum) {
+                    bufferSize = remainingSize;
+                }
+                bufferIndex = voclMigGetNextWriteBufferIndex();
+                migWriteBufferInfoPtr = voclMigGetWriteBufferPtr(bufferIndex);
+                /* if the data is from the local node */
+                if (tmpMigGPUMemoryWrite.isFromLocal == 1) {
+                    MPI_Irecv(migWriteBufferInfoPtr->ptr, bufferSize, MPI_BYTE,
+                              appRank, VOCL_PROXY_MIG_TAG + bufferIndex,
+                              appCommData[commIndex], voclMigGetWriteRequestPtr(bufferIndex));
+                }
+                else {
+                    MPI_Irecv(migWriteBufferInfoPtr->ptr, bufferSize, MPI_BYTE,
+                              tmpMigGPUMemoryWrite.source, VOCL_PROXY_MIG_TAG + bufferIndex,
+                              MPI_COMM_WORLD, voclMigGetWriteRequestPtr(bufferIndex));
+                }
+                migWriteBufferInfoPtr->cmdQueue = tmpMigGPUMemoryWrite.cmdQueue;
+                migWriteBufferInfoPtr->memory = tmpMigGPUMemoryWrite.memory;
+                migWriteBufferInfoPtr->source = tmpMigGPUMemoryWrite.source;
+                migWriteBufferInfoPtr->isFromLocal = tmpMigGPUMemoryWrite.isFromLocal;
+                migWriteBufferInfoPtr->comm = tmpMigGPUMemoryWrite.comm;
+                migWriteBufferInfoPtr->size = bufferSize;
+                migWriteBufferInfoPtr->offset = i * VOCL_MIG_BUF_SIZE;
+                voclMigSetWriteBufferFlag(bufferIndex, MIG_WRT_MPIRECV);
+            }
+        }
 
-		if (status.MPI_TAG == MIG_MEM_READ_REQUEST)
-		{
-            memcpy(&tmpMigGPUMemoryRead, conMsgBuffer[index], sizeof(struct strMigGPUMemoryRead));
-			/* issue GPU memory read to read data from GPU memory */
-			bufferSize = VOCL_MIG_BUF_SIZE;
-			bufferNum = (tmpMigGPUMemoryRead.size - 1) / VOCL_MIG_BUF_SIZE;
-			remainingSize = tmpMigGPUMemoryRead.size - bufferNum * VOCL_MIG_BUF_SIZE;
-			for (i = 0; i <= bufferNum; i++)
-			{
-				if (i == bufferNum)
-				{
-					bufferSize = remainingSize;
-				}
-				bufferIndex = voclMigGetNextReadBufferIndex();
-				migReadBufferInfoPtr = voclMigGetReadBufferPtr(bufferIndex);
-				clEnqueueReadBuffer(tmpMigGPUMemoryRead.cmdQueue,
-									tmpMigGPUMemoryRead.memory,
-									CL_FALSE,
-									i * VOCL_MIG_BUF_SIZE,
-									bufferSize,
-									migReadBufferInfoPtr->ptr,
-									0, NULL, voclMigGetReadEventPtr(bufferIndex));
-				migReadBufferInfoPtr->size = bufferSize;
-				migReadBufferInfoPtr->offset = i * VOCL_MIG_BUF_SIZE;
-				migReadBufferInfoPtr->dest = tmpMigGPUMemoryRead.dest;
-				migReadBufferInfoPtr->tag = bufferIndex + VOCL_PROXY_MIG_TAG;
-				voclMigSetReadBufferFlag(bufferIndex, MIG_READ_RDGPU);
-			}
-		}
+        if (status.MPI_TAG == MIG_MEM_READ_REQUEST) {
+            memcpy(&tmpMigGPUMemoryRead, conMsgBuffer[index],
+                   sizeof(struct strMigGPUMemoryRead));
+            /* issue GPU memory read to read data from GPU memory */
+            bufferSize = VOCL_MIG_BUF_SIZE;
+            bufferNum = (tmpMigGPUMemoryRead.size - 1) / VOCL_MIG_BUF_SIZE;
+            remainingSize = tmpMigGPUMemoryRead.size - bufferNum * VOCL_MIG_BUF_SIZE;
+            for (i = 0; i <= bufferNum; i++) {
+                if (i == bufferNum) {
+                    bufferSize = remainingSize;
+                }
+                bufferIndex = voclMigGetNextReadBufferIndex();
+                migReadBufferInfoPtr = voclMigGetReadBufferPtr(bufferIndex);
 
-		if (status.MPI_TAG == MIG_MEM_WRITE_CMPLD)
-		{
-			memcpy(&tmpMigWriteMemCmpdRst, conMsgBuffer[index], sizeof(struct strMigGPUMemoryWriteCmpd));
-			proxyRank = tmpMigWriteMemCmpdRst.source;
-			tmpMigWriteMemCmpdRst.retCode = voclMigFinishDataWrite(proxyRank);
-			MPI_Send(&tmpMigWriteMemCmpdRst, sizeof(struct strMigGPUMemoryWriteCmpd), MPI_BYTE,
-					appRank, MIG_MEM_WRITE_CMPLD, appComm[commIndex]);	
-		}
+                err = clEnqueueReadBuffer(tmpMigGPUMemoryRead.cmdQueue,
+                                          tmpMigGPUMemoryRead.memory,
+                                          CL_FALSE,
+                                          i * VOCL_MIG_BUF_SIZE,
+                                          bufferSize,
+                                          migReadBufferInfoPtr->ptr,
+                                          0, NULL, voclMigGetReadEventPtr(bufferIndex));
+                float *tmp = (float *) migReadBufferInfoPtr->ptr;
+                migReadBufferInfoPtr->size = bufferSize;
+                migReadBufferInfoPtr->offset = i * VOCL_MIG_BUF_SIZE;
+                migReadBufferInfoPtr->isToLocal = tmpMigGPUMemoryRead.isToLocal;
+                migReadBufferInfoPtr->comm = tmpMigGPUMemoryRead.comm;
+                if (tmpMigGPUMemoryRead.isToLocal == 1) {
+                    migReadBufferInfoPtr->commData = appCommData[commIndex];
+                    migReadBufferInfoPtr->dest = appRank;
+                }
+                else {
+                    migReadBufferInfoPtr->commData = MPI_COMM_WORLD;
+                    migReadBufferInfoPtr->dest = tmpMigGPUMemoryRead.dest;
+                }
+                migReadBufferInfoPtr->tag = bufferIndex + VOCL_PROXY_MIG_TAG;
+                voclMigSetReadBufferFlag(bufferIndex, MIG_READ_RDGPU);
+            }
+        }
 
-		if (status.MPI_TAG == MIG_MEM_READ_CMPLD)
-		{
-			memcpy(&tmpMigReadMemCmpdRst, conMsgBuffer[index], sizeof(struct strMigGPUMemoryReadCmpd));
-			proxyRank = tmpMigReadMemCmpdRst.dest;
-			tmpMigReadMemCmpdRst.retCode = voclMigFinishDataRead(proxyRank);
-			MPI_Send(&tmpMigReadMemCmpdRst, sizeof(struct strMigGPUMemoryReadCmpd), MPI_BYTE,
-					appRank, MIG_MEM_READ_CMPLD, appComm[commIndex]);	
-		}
+        if (status.MPI_TAG == MIG_MEM_WRITE_CMPLD) {
+            memcpy(&tmpMigWriteMemCmpdRst, conMsgBuffer[index],
+                   sizeof(struct strMigGPUMemoryWriteCmpd));
+            tmpMigWriteMemCmpdRst.retCode = voclMigFinishDataWrite(&tmpMigWriteMemCmpdRst);
+            MPI_Send(&tmpMigWriteMemCmpdRst, sizeof(struct strMigGPUMemoryWriteCmpd), MPI_BYTE,
+                     appRank, MIG_MEM_WRITE_CMPLD, appComm[commIndex]);
+        }
+
+        if (status.MPI_TAG == MIG_MEM_READ_CMPLD) {
+            memcpy(&tmpMigReadMemCmpdRst, conMsgBuffer[index],
+                   sizeof(struct strMigGPUMemoryReadCmpd));
+            tmpMigReadMemCmpdRst.retCode = voclMigFinishDataRead(&tmpMigReadMemCmpdRst);
+            MPI_Send(&tmpMigReadMemCmpdRst, sizeof(struct strMigGPUMemoryReadCmpd), MPI_BYTE,
+                     appRank, MIG_MEM_READ_CMPLD, appComm[commIndex]);
+        }
 
         if (status.MPI_TAG == PROGRAM_END) {
             break;
@@ -1284,34 +1318,33 @@ int main(int argc, char *argv[])
     /* terminate the helper thread */
     pthread_barrier_wait(&barrier);
     pthread_barrier_wait(&barrier);
-    if (pthread_join(th, NULL) != 0)
-	{
-		printf("pthread_join of data pipeline thread error.\n");
-		exit(1);
-	}
+    if (pthread_join(th, NULL) != 0) {
+        printf("pthread_join of data pipeline thread error.\n");
+        exit(1);
+    }
     pthread_barrier_destroy(&barrier);
 
-	/* set the termination flag */
-//	voclProxySetTerminateFlag(1);
-	
-	/* unpublish the server name */
-	MPI_Unpublish_name(serviceName, MPI_INFO_NULL, voclPortName);
-	/* bug, we need an approach to terminate the process */
-	//pthread_cancel(thAppComm);
-//	if (pthread_join(thAppComm, NULL) != 0)
-//	{
-//		printf("pthread_join of thAppComm thread error.\n");
-//		exit(1);
-//	}
+    /* set the termination flag */
+//      voclProxySetTerminateFlag(1);
+
+    /* unpublish the server name */
+    MPI_Unpublish_name(serviceName, MPI_INFO_NULL, voclPortName);
+    /* bug, we need an approach to terminate the process */
+    //pthread_cancel(thAppComm);
+//      if (pthread_join(thAppComm, NULL) != 0)
+//      {
+//              printf("pthread_join of thAppComm thread error.\n");
+//              exit(1);
+//      }
 
     /* release the write and read buffer pool */
     finalizeReadBufferAll();
     finalizeWriteBufferAll();
 
-	voclMigWriteBufferFinalize();
-	voclMigReadBufferFinalize();
+    voclMigWriteBufferFinalize();
+    voclMigReadBufferFinalize();
 
-	voclProxyCommFinalize();
+    voclProxyCommFinalize();
 
     MPI_Finalize();
 
