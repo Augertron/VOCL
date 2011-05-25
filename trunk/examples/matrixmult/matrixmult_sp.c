@@ -82,8 +82,8 @@ int main(int argc, char **argv)
 
     cl_int err;
     cl_uint numPlatforms, numDevices, deviceNo = 0;
-    cl_platform_id platformID;
-    cl_device_id deviceID[2];
+    cl_platform_id *platformIDs;
+    cl_device_id *deviceIDs;
     cl_context hContext;
     cl_command_queue hCmdQueue;
     cl_program hProgram;
@@ -102,9 +102,8 @@ int main(int argc, char **argv)
     //get an opencl platform
     timerStart();
     err = clGetPlatformIDs(0, NULL, &numPlatforms);
-	printf("Here01\n");
-    err != clGetPlatformIDs(numPlatforms, &platformID, NULL);
-	printf("Here02\n");
+	platformIDs = (cl_platform_id *)malloc(sizeof(cl_platform_id) * numPlatforms);
+    err != clGetPlatformIDs(numPlatforms, platformIDs, NULL);
     CHECK_ERR(err, "Get platform ID error!");
     timerEnd();
     strTime.getPlatform = elapsedTime();
@@ -114,10 +113,9 @@ int main(int argc, char **argv)
     printf("cpuid = %d\n", set.__bits[0]);
 
     timerStart();
-    err = clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
-	printf("Here03\n");
-    err |= clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, numDevices, deviceID, NULL);
-	printf("Here04\n");
+    err = clGetDeviceIDs(platformIDs[0], CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
+	deviceIDs = (cl_device_id *)malloc(sizeof(cl_device_id) * numDevices);
+    err |= clGetDeviceIDs(platformIDs[0], CL_DEVICE_TYPE_GPU, numDevices, deviceIDs, NULL);
     CHECK_ERR(err, "Get device ID error!");
     timerEnd();
     strTime.getDeviceID = elapsedTime();
@@ -125,8 +123,7 @@ int main(int argc, char **argv)
 
     //create opencl device and context
     timerStart();
-    hContext = clCreateContext(0, numDevices, deviceID, 0, 0, &err);
-	printf("Here1\n");
+    hContext = clCreateContext(0, numDevices, deviceIDs, 0, 0, &err);
     CHECK_ERR(err, "Create context from type error");
     timerEnd();
     strTime.createContext = elapsedTime();
@@ -134,8 +131,7 @@ int main(int argc, char **argv)
 
     //create a command queue for the first device the context reported
     timerStart();
-    hCmdQueue = clCreateCommandQueue(hContext, deviceID[deviceNo], 0, &err);
-	printf("Here2\n");
+    hCmdQueue = clCreateCommandQueue(hContext, deviceIDs[deviceNo], 0, &err);
     CHECK_ERR(err, "Create command queue error");
     timerEnd();
     strTime.createCommandQueue = elapsedTime();
@@ -148,11 +144,9 @@ int main(int argc, char **argv)
     cSourceCL = loadSource(kernel_source, &sourceFileSize);
 
     //Create & compile program
-	printf("Here3\n");
     timerStart();
     hProgram = clCreateProgramWithSource(hContext, 1, (const char **) &cSourceCL,
                                          &sourceFileSize, &err);
-	printf("Here4\n");
     CHECK_ERR(err, "Create program with source error");
     timerEnd();
     strTime.createProgramWithSource = elapsedTime();
@@ -160,7 +154,6 @@ int main(int argc, char **argv)
 
     timerStart();
     err = clBuildProgram(hProgram, 0, 0, 0, 0, 0);
-	printf("Here5\n");
     CHECK_ERR(err, "Build program error");
     timerEnd();
     strTime.buildProgram = elapsedTime();
@@ -199,16 +192,13 @@ int main(int argc, char **argv)
     timerStart();
     deviceMem[0] = clCreateBuffer(hContext,
                                   CL_MEM_READ_WRITE, sizeA * sizeof(cl_float), 0, &err);
-	printf("Here6\n");
     CHECK_ERR(err, "Create deviceMem[0] on device error");
 
     deviceMem[1] = clCreateBuffer(hContext,
                                   CL_MEM_READ_WRITE, sizeB * sizeof(cl_float), 0, &err);
-	printf("Here7\n");
     CHECK_ERR(err, "Create deviceMem[1] on device error");
     deviceMem[2] = clCreateBuffer(hContext,
                                   CL_MEM_READ_WRITE, sizeC * sizeof(cl_float), 0, &err);
-	printf("Here8\n");
     CHECK_ERR(err, "Create deviceMem[2] on device error");
 
     timerEnd();
@@ -217,10 +207,8 @@ int main(int argc, char **argv)
 
     //create kernel
     cl_kernel hKernel;
-	printf("Here81\n");
     timerStart();
     hKernel = clCreateKernel(hProgram, "matrixMul", &err);
-	printf("Here9\n");
     CHECK_ERR(err, "Create kernel error");
     timerEnd();
     strTime.createKernel += elapsedTime();
@@ -235,7 +223,6 @@ int main(int argc, char **argv)
         CHECK_ERR(err, "Write buffer error!");
         err = clEnqueueWriteBuffer(hCmdQueue, deviceMem[1], CL_FALSE, 0,
                                    sizeB * sizeof(cl_float), b, 0, NULL, NULL);
-	printf("Here10\n");
         CHECK_ERR(err, "Write buffer error!");
         err = clSetKernelArg(hKernel, 0, sizeof(cl_mem), (void *) &deviceMem[0]);
         err |= clSetKernelArg(hKernel, 1, sizeof(cl_mem), (void *) &deviceMem[1]);
@@ -251,21 +238,17 @@ int main(int argc, char **argv)
         err |= clSetKernelArg(hKernel, 7, sizeof(cl_int), (void *) &wB);
         err = clEnqueueNDRangeKernel(hCmdQueue, hKernel, 2, NULL, globalSize,
                                      blockSize, 0, NULL, NULL);
-	printf("Here11\n");
 
         err = clEnqueueReadBuffer(hCmdQueue, deviceMem[2], CL_FALSE, 0,
                                   sizeC * sizeof(cl_float), c, 0, 0, 0);
-	printf("Here12\n");
         CHECK_ERR(err, "Enqueue read buffer error");
     }
     clFinish(hCmdQueue);
-	printf("Here13\n");
     timerEnd();
     strTime.kernelExecution += elapsedTime();
 
     timerStart();
     clReleaseKernel(hKernel);
-	printf("Here14\n");
     timerEnd();
     strTime.releaseKernel += elapsedTime();
     strTime.numReleaseKernel++;
@@ -274,19 +257,18 @@ int main(int argc, char **argv)
     clReleaseMemObject(deviceMem[0]);
     clReleaseMemObject(deviceMem[1]);
     clReleaseMemObject(deviceMem[2]);
-	printf("Here15\n");
     timerEnd();
     strTime.releaseMemObj += elapsedTime();
     strTime.numReleaseMemObj += 3;
 
     timerStart();
-//   for (i = 0; i < hA; i++)
-//   {
-//           for (j = 0; j < 1; j++)
-//           {
-//                   printf("c[%d][%d] = %lf\n", i, j, c[i * wB + j]);
-//           }
-//   }
+//  for (i = 0; i < hA; i++)
+//  {
+//          for (j = 0; j < 1; j++)
+//          {
+//                  printf("c[%d][%d] = %lf\n", i, j, c[i * wB + j]);
+//          }
+//  }
     timerEnd();
     strTime.printMatrix = elapsedTime();
 
@@ -297,22 +279,22 @@ int main(int argc, char **argv)
 
     timerStart();
     clReleaseProgram(hProgram);
-	printf("Here16\n");
     timerEnd();
     strTime.releaseProgram = elapsedTime();
     strTime.numReleaseProgram++;
 
     timerStart();
     clReleaseCommandQueue(hCmdQueue);
-	printf("Here17\n");
     timerEnd();
     strTime.releaseCmdQueue = elapsedTime();
     strTime.numReleaseCmdQueue++;
 
     timerStart();
     clReleaseContext(hContext);
-	printf("Here18\n");
     timerEnd();
+
+	free(platformIDs);
+	free(deviceIDs);
     //strTime.releaseContext = elapsedTime();
     //strTime.numReleaseContext++;
 

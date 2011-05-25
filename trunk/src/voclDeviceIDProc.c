@@ -8,41 +8,38 @@ static int voclDeviceIDNo;
 static vocl_device_id getVOCLDeviceIDValue()
 {
     vocl_device_id device = voclDeviceID;
-	voclDeviceID++;
+    voclDeviceID++;
 
     return device;
 }
 
 static struct strVOCLDeviceID *createVOCLDeviceID()
 {
-	struct strVOCLDeviceID *devicePtr;
-	devicePtr = (struct strVOCLDeviceID *)malloc(sizeof(struct strVOCLDeviceID));
-	devicePtr->next = voclDeviceIDPtr;
-	voclDeviceIDPtr = devicePtr;
+    struct strVOCLDeviceID *devicePtr;
+    devicePtr = (struct strVOCLDeviceID *) malloc(sizeof(struct strVOCLDeviceID));
+    devicePtr->next = voclDeviceIDPtr;
+    voclDeviceIDPtr = devicePtr;
 
-	return devicePtr;
+    return devicePtr;
 }
 
 static struct strVOCLDeviceID *getVOCLDeviceIDPtr(vocl_device_id device)
 {
-	struct strVOCLDeviceID *devicePtr;
-	devicePtr = voclDeviceIDPtr;
-	while (devicePtr != NULL)
-	{
-		if (devicePtr->voclDeviceID == device)
-		{
-			break;
-		}
-		devicePtr = devicePtr->next;
-	}
+    struct strVOCLDeviceID *devicePtr;
+    devicePtr = voclDeviceIDPtr;
+    while (devicePtr != NULL) {
+        if (devicePtr->voclDeviceID == device) {
+            break;
+        }
+        devicePtr = devicePtr->next;
+    }
 
-	if (devicePtr == NULL)
-	{
-		printf("Error, device does not exist!\n");
-		exit (1);
-	}
+    if (devicePtr == NULL) {
+        printf("Error, device does not exist!\n");
+        exit(1);
+    }
 
-	return devicePtr;
+    return devicePtr;
 }
 
 void voclDeviceIDInitialize()
@@ -54,14 +51,13 @@ void voclDeviceIDInitialize()
 
 void voclDeviceIDFinalize()
 {
-	struct strVOCLDeviceID *devicePtr, *tmpdevicePtr;
-	devicePtr = voclDeviceIDPtr;
-	while (devicePtr != NULL)
-	{
-		tmpdevicePtr = devicePtr->next;
-		free(devicePtr);
-		devicePtr = tmpdevicePtr;
-	}
+    struct strVOCLDeviceID *devicePtr, *tmpdevicePtr;
+    devicePtr = voclDeviceIDPtr;
+    while (devicePtr != NULL) {
+        tmpdevicePtr = devicePtr->next;
+        free(devicePtr);
+        devicePtr = tmpdevicePtr;
+    }
 
     voclDeviceIDPtr = NULL;
     voclDeviceIDNo = 0;
@@ -69,39 +65,41 @@ void voclDeviceIDFinalize()
 }
 
 vocl_device_id voclCLDeviceID2VOCLDeviceID(cl_device_id device, int proxyRank,
-                   int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
+                                           int proxyIndex, MPI_Comm proxyComm,
+                                           MPI_Comm proxyCommData)
 {
     struct strVOCLDeviceID *devicePtr = createVOCLDeviceID();
     devicePtr->clDeviceID = device;
-	devicePtr->proxyRank = proxyRank;
-	devicePtr->proxyIndex = proxyIndex;
-	devicePtr->proxyComm = proxyComm;
-	devicePtr->proxyCommData = proxyCommData;
+    devicePtr->proxyRank = proxyRank;
+    devicePtr->proxyIndex = proxyIndex;
+    devicePtr->proxyComm = proxyComm;
+    devicePtr->proxyCommData = proxyCommData;
     devicePtr->voclDeviceID = getVOCLDeviceIDValue();
 
     return devicePtr->voclDeviceID;
 }
 
 cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyRank,
-                 int *proxyIndex, MPI_Comm *proxyComm, MPI_Comm *proxyCommData)
+                                             int *proxyIndex, MPI_Comm * proxyComm,
+                                             MPI_Comm * proxyCommData)
 {
-	struct strVOCLDeviceID *devicePtr = getVOCLDeviceIDPtr(device);
-	*proxyRank = devicePtr->proxyRank;
-	*proxyIndex = devicePtr->proxyIndex;
-	*proxyComm = devicePtr->proxyComm;
-	*proxyCommData = devicePtr->proxyCommData;
+    struct strVOCLDeviceID *devicePtr = getVOCLDeviceIDPtr(device);
+    *proxyRank = devicePtr->proxyRank;
+    *proxyIndex = devicePtr->proxyIndex;
+    *proxyComm = devicePtr->proxyComm;
+    *proxyCommData = devicePtr->proxyCommData;
 
     return devicePtr->clDeviceID;
 }
 
 void voclUpdateVOCLDeviceID(vocl_device_id voclDevice, int proxyRank,
-		int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData, cl_device_id clDevice)
+                            int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData,
+                            cl_device_id clDevice)
 {
-	struct strVOCLDeviceID *devicePtr = getVOCLDeviceIDPtr(voclDevice);
-	devicePtr->clDeviceID = clDevice;
-	devicePtr->proxyRank = proxyRank;
-	devicePtr->proxyIndex = proxyIndex;
-	devicePtr->proxyComm = proxyComm;
-	devicePtr->proxyCommData = proxyCommData;
+    struct strVOCLDeviceID *devicePtr = getVOCLDeviceIDPtr(voclDevice);
+    devicePtr->clDeviceID = clDevice;
+    devicePtr->proxyRank = proxyRank;
+    devicePtr->proxyIndex = proxyIndex;
+    devicePtr->proxyComm = proxyComm;
+    devicePtr->proxyCommData = proxyCommData;
 }
-

@@ -298,7 +298,6 @@ void mpiOpenCLReleaseCommandQueue(struct strReleaseCommandQueue *tmpReleaseComma
 {
     cl_int errcode;
     cl_command_queue command_queue = tmpReleaseCommandQueue->command_queue;
-
     errcode = clReleaseCommandQueue(command_queue);
     tmpReleaseCommandQueue->res = errcode;
 }

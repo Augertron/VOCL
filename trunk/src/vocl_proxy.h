@@ -329,27 +329,35 @@ struct strEnqueueUnmapMemObject {
 
 /* for task migration between GPUs */
 struct strMigGPUMemoryWrite {
-	cl_command_queue cmdQueue;
-	cl_mem memory;
-	size_t size;
-	int    source;
+    cl_command_queue cmdQueue;
+    cl_mem memory;
+    size_t size;
+    int source;
+    int isFromLocal;
+    MPI_Comm comm;
 };
 
 struct strMigGPUMemoryRead {
-	cl_command_queue cmdQueue;
-	cl_mem memory;
-	size_t size;
-	int    dest;
+    cl_command_queue cmdQueue;
+    cl_mem memory;
+    size_t size;
+    int dest;
+    int isToLocal;
+    MPI_Comm comm;
 };
 
 struct strMigGPUMemoryWriteCmpd {
-	int source;
-	int retCode;
+    int source;
+    int isFromLocal;
+    MPI_Comm comm;
+    int retCode;
 };
 
 struct strMigGPUMemoryReadCmpd {
-	int dest;
-	int retCode;
+    int dest;
+    int isToLocal;
+    MPI_Comm comm;
+    int retCode;
 };
 
 
@@ -394,8 +402,8 @@ union CMSG_UNION {
     struct strRetainKernel tmpRetainKernel;
     struct strRetainCommandQueue tmpRetainCommandQueue;
     struct strEnqueueUnmapMemObject tmpEnqueueUnmapMemObject;
-	struct strMigGPUMemoryWrite tmpMigGPUMemWrite;
-	struct strMigGPUMemoryRead tmpMigGPUMemRead;
+    struct strMigGPUMemoryWrite tmpMigGPUMemWrite;
+    struct strMigGPUMemoryRead tmpMigGPUMemRead;
     struct strMigGPUMemoryWriteCmpd tmpMigWriteCmpd;
     struct strMigGPUMemoryReadCmpd tmpMigReadCmpd;
 } CONTROL_MSG_UNION;

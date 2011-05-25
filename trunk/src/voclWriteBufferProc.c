@@ -9,6 +9,8 @@ static void initializeWriteBuffer(int proxyIndex)
     int i = 0;
     for (i = 0; i < VOCL_WRITE_BUFFER_NUM; i++) {
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[i].isInUse = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[i].event = VOCL_EVENT_NULL;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[i].bufferNum = 0;
     }
     voclWriteBufferPtr[proxyIndex].curWriteBufferIndex = 0;
     voclWriteBufferPtr[proxyIndex].writeDataRequestNum = 0;
@@ -19,43 +21,69 @@ static void initializeWriteBuffer(int proxyIndex)
 void initializeVoclWriteBufferAll()
 {
     int i;
-	voclWriteBufferNum = VOCL_BUFF_NUM;
-	voclWriteBufferPtr = (struct voclWriteBuffer *)malloc(sizeof(struct voclWriteBuffer) * voclWriteBufferNum);
-	for (i = 0; i < voclWriteBufferNum; i++)
-	{
-		initializeWriteBuffer(i);
-	}
+    voclWriteBufferNum = VOCL_BUFF_NUM;
+    voclWriteBufferPtr =
+        (struct voclWriteBuffer *) malloc(sizeof(struct voclWriteBuffer) * voclWriteBufferNum);
+    for (i = 0; i < voclWriteBufferNum; i++) {
+        initializeWriteBuffer(i);
+    }
 
-	return;
+    return;
 }
 
 void finalizeVoclWriteBufferAll()
 {
-	if (voclWriteBufferPtr != NULL)
-	{
-		free(voclWriteBufferPtr);
-		voclWriteBufferPtr = NULL;
-	}
+    if (voclWriteBufferPtr != NULL) {
+        free(voclWriteBufferPtr);
+        voclWriteBufferPtr = NULL;
+    }
 
-	return;
+    return;
 }
 
 static void reallocateWriteBuffer(int origBufferNum, int newBufferNum)
 {
-	int i;
-	voclWriteBufferPtr = (struct voclWriteBuffer *)malloc(sizeof(struct voclWriteBuffer) * newBufferNum);
-	for (i = origBufferNum; i < newBufferNum; i++)
-	{
-		initializeWriteBuffer(i);
-	}
+    int i;
+    voclWriteBufferPtr =
+        (struct voclWriteBuffer *) malloc(sizeof(struct voclWriteBuffer) * newBufferNum);
+    for (i = origBufferNum; i < newBufferNum; i++) {
+        initializeWriteBuffer(i);
+    }
 
-	return;
+    return;
 }
 
 
 void setWriteBufferInUse(int proxyIndex, int index)
 {
     voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 1;
+}
+
+void setWriteBufferEvent(int proxyIndex, int index, vocl_event event)
+{
+    voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].event = event;
+}
+
+void setWriteBufferNum(int proxyIndex, int index, int bufferNum)
+{
+    voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].bufferNum = bufferNum;
+}
+
+int getWriteBufferNum(int proxyIndex, int index)
+{
+    return voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].bufferNum;
+}
+
+int getWriteBufferIndexFromEvent(int proxyIndex, vocl_event event)
+{
+    int index;
+    for (index = 0; index < voclWriteBufferPtr[proxyIndex].writeDataRequestNum; index++) {
+        if (event == voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].event) {
+            return index;
+        }
+    }
+
+    return -1;
 }
 
 MPI_Request *getWriteRequestPtr(int proxyIndex, int index)
@@ -65,11 +93,10 @@ MPI_Request *getWriteRequestPtr(int proxyIndex, int index)
 
 int getNextWriteBufferIndex(int proxyIndex)
 {
-	if (proxyIndex >= voclWriteBufferNum)
-	{
-		reallocateWriteBuffer(voclWriteBufferNum, 2*voclWriteBufferNum);
-		voclWriteBufferNum *= 2;
-	}
+    if (proxyIndex >= voclWriteBufferNum) {
+        reallocateWriteBuffer(voclWriteBufferNum, 2 * voclWriteBufferNum);
+        voclWriteBufferNum *= 2;
+    }
 
     int index = voclWriteBufferPtr[proxyIndex].curWriteBufferIndex;
     MPI_Status status;
@@ -118,6 +145,8 @@ void processWriteBuffer(int proxyIndex, int curIndex, int bufferNum)
     for (i = startIndex; i <= endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].event = VOCL_EVENT_NULL;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].bufferNum = 0;
     }
 
     return;
@@ -152,6 +181,8 @@ void processAllWrites(int proxyIndex)
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].event = VOCL_EVENT_NULL;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].bufferNum = 0;
     }
 
     voclWriteBufferPtr[proxyIndex].curWriteBufferIndex = 0;
