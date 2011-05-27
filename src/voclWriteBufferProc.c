@@ -1,5 +1,5 @@
-#include "vocl_opencl.h"
-#include "vocl_structures.h"
+#include "voclOpencl.h"
+#include "voclStructures.h"
 
 static struct voclWriteBuffer *voclWriteBufferPtr = NULL;
 static int voclWriteBufferNum;

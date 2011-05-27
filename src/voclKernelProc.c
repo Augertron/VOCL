@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "vocl_structures.h"
+#include "voclStructures.h"
 
 static struct strVOCLKernel *voclKernelPtr = NULL;
 static vocl_kernel voclKernel;

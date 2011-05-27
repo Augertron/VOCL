@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "vocl_structures.h"
+#include "voclStructures.h"
 
 
 static struct strVOCLProgram *voclProgramPtr = NULL;

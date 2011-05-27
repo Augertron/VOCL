@@ -7,7 +7,7 @@ AM_CPPFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024 -DPRO
 AM_CXXFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024 -DPROXY_PATH_NAME=\"$(exec_prefix)\" -DPROXY_PATH_NAME_LEN=256
 
 lib_LTLIBRARIES = libvocl.la
-libvocl_la_SOURCES = $(top_srcdir)/src/vocl_opencl.c \
+libvocl_la_SOURCES = $(top_srcdir)/src/voclOpencl.c \
 					 $(top_srcdir)/src/voclReadBufferProc.c \
 					 $(top_srcdir)/src/voclWriteBufferProc.c \
 					 $(top_srcdir)/src/voclPlatformIDProc.c \

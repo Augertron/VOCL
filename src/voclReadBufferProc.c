@@ -1,15 +1,6 @@
-#include "vocl_opencl.h"
-#include "vocl_structures.h"
+#include "voclOpencl.h"
+#include "voclStructures.h"
 
-/* for receiving data from GPU to local node */
-//struct strReadBufferInfo {
-//    int isInUse;
-//    MPI_Request request;
-//};
-//
-//static int readDataRequestNum;
-//static int curReadBufferIndex;
-//static struct strReadBufferInfo voclReadBufferInfo[VOCL_READ_BUFFER_NUM];
 static struct voclReadBuffer *voclReadBufferPtr = NULL;
 static int voclReadBufferNum;
 

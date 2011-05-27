@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "vocl_structures.h"
+#include "voclStructures.h"
 
 static struct strVOCLDeviceID *voclDeviceIDPtr = NULL;
 static vocl_device_id voclDeviceID;

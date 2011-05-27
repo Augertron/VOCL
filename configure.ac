@@ -181,6 +181,6 @@ AC_SUBST(top_srcdir)
 
 ## Final output
 AC_OUTPUT(Makefile
-	src/vocl_structures.h
+	src/voclStructures.h
 	src/vocl_proxy_macro.h
 )

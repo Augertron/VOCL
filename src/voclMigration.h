@@ -2,7 +2,7 @@
 #define __VOCL_MIGRATION_H__
 #include <stdio.h>
 #include <stdlib.h>
-#include "vocl_structures.h"
+#include "voclStructures.h"
 
 struct strMigWriteLocalBuffer {
     cl_command_queue cmdQueue;

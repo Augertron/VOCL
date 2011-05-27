@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "mpi.h"
-#include "vocl_opencl.h"
+#include "voclOpencl.h"
 
 #define MAX_PROXY_NUM 100
 typedef char VOCL_HOST_NAME[63];
