@@ -23,8 +23,8 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-                                          /* for each kernel, a different pointer *//* is used for storing kernel arguments */
-    cl_int createKernel(cl_kernel kernel)
+/* for each kernel, a different pointer *//* is used for storing kernel arguments */
+cl_int createKernel(cl_kernel kernel)
 {
     kernel_info *kernelPtr;
     kernelPtr = (kernel_info *) malloc(sizeof(kernel_info));

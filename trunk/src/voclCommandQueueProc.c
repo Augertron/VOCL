@@ -164,9 +164,6 @@ void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, int proxyRank, 
     cmdQueuePtr->proxyCommData = commData;
     cmdQueuePtr->clCommandQueue = voclMigCreateCommandQueue(context, device,
                                                             cmdQueuePtr->properties, &err);
-    /* a new command queue is created */
-    //printf("update cmdQueue");
-    //increaseObjCount(proxyIndex);
 
     return;
 }

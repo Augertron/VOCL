@@ -1,7 +1,7 @@
-//#include "voclMigration.h"
 #include <stdio.h>
 #include "vocl_structures.h"
 #include "voclKernelArgProc.h"
+#include "voclMigrationDeviceProc.h"
 
 #define VOCL_MIG_CHECK_ERR(err, str) \
 	if (err != CL_SUCCESS)  \
@@ -86,7 +86,6 @@ vocl_device_id voclSearchTargetGPU(size_t size)
     for (i = 0; i < numPlatforms; i++) {
         err = clGetDeviceIDs(platformID[i], CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices[i]);
         VOCL_MIG_CHECK_ERR(err, "migration, clGetDeviceIDs");
-        printf("getDeviceID = %d, numDevices = %d\n", i, numDevices[i]);
         totalDeviceNum += numDevices[i];
     }
 
@@ -103,7 +102,7 @@ vocl_device_id voclSearchTargetGPU(size_t size)
     }
 
     /* get global memory size of each GPU */
-    for (i = 1; i < totalDeviceNum; i++) {
+    for (i = 2; i < totalDeviceNum; i++) {
         err =
             clGetDeviceInfo(deviceID[i], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(mem_size),
                             &mem_size, NULL);
@@ -122,27 +121,73 @@ vocl_device_id voclSearchTargetGPU(size_t size)
 
 }
 
-int voclCheckTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
+int voclCheckIsMigrationNeeded(vocl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)
 {
-    kernel_info *kernelPtr;
-    vocl_device_id deviceID;
-    cl_ulong mem_size;
-    int err;
+	VOCL_LIB_DEVICE *devicePtr;
+	int isMigrationNeeded = 0;
+	size_t sizeForKernel = 0;
+	cl_mem memory;
+	int i;
 
-    kernelPtr = getKernelPtr(kernel);
-    deviceID = voclGetCommandQueueDeviceID(command_queue);
-    /* get the global memory size */
-    err =
-        clGetDeviceInfo(deviceID, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(cl_ulong), &mem_size,
-                        NULL);
-    VOCL_MIG_CHECK_ERR(err, "Migration, get device memory size error");
-    printf("neededSize = %ld, availableSize = %ld\n", kernelPtr->globalMemSize, mem_size);
-    if (mem_size < kernelPtr->globalMemSize) {
-        return 1;       /* gpu memory is not enough for the current kernel */
-    }
-    else {
-        return 0;       /* gpu memory is enougth */
-    }
+	devicePtr = voclLibGetDeviceIDFromCmdQueue(cmdQueue);
+	for (i = 0; i < argsNum; i++)
+	{
+		/* if it is glboal memory. check if device memory is enough */
+		if (argsPtr[i].isGlobalMemory == 1)
+		{
+			/* if the current global memory is not bind on the device */
+			/* check whether the global memory size is enougth */
+			memory = *((cl_mem *)argsPtr[i].arg_value);
+			if (voclLibIsMemoryOnDevice(devicePtr, memory) == 0)
+			{
+				/* global memory size is not enough */
+				sizeForKernel += argsPtr[i].globalSize;
+				if (devicePtr->usedSize + sizeForKernel > devicePtr->globalSize)
+				{
+					isMigrationNeeded = 1;
+					break;
+				}
+			}
+		}
+	}
+
+	/* kernel will be launched on this device */
+	if (isMigrationNeeded == 0)
+	{
+		for (i = 0; i < argsNum; i++)
+		{
+			if (argsPtr[i].isGlobalMemory == 1)
+			{
+				/* add new memory to the device */
+				memory = *((cl_mem *)argsPtr[i].arg_value);
+				voclLibUpdateMemoryOnDevice(devicePtr, memory, argsPtr[i].globalSize);
+			}
+		}
+	}
+
+	return 1;
+
+	return isMigrationNeeded;
+}
+
+void voclLibUpdateGlobalMemUsage(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)
+{
+	int i;
+	cl_mem memory;
+	VOCL_LIB_DEVICE *devicePtr;
+	devicePtr = voclLibGetDeviceIDFromCmdQueue(cmdQueue);
+
+	for (i = 0; i < argsNum; i++)
+	{
+		if (argsPtr[i].isGlobalMemory == 1)
+		{
+			/* add new memory to the device */
+			memory = *((cl_mem *)argsPtr[i].arg_value);
+			voclLibUpdateMemoryOnDevice(devicePtr, memory, argsPtr[i].globalSize);
+		}
+	}
+
+	return;
 }
 
 void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
@@ -195,7 +240,6 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
     /* go throught all argument of the kernel */
     memWrittenFlag = 0;
     for (i = 0; i < kernelPtr->args_num; i++) {
-        printf("kernelPtr->args_flag[%d] = %d\n", i, kernelPtr->args_flag[i]);
         if (kernelPtr->args_flag[i] == 1) {     /* it is global memory */
             size = voclGetVOCLMemorySize(kernelPtr->args_ptr[i].memory);
             if (voclGetMemWrittenFlag(kernelPtr->args_ptr[i].memory)) {
@@ -283,3 +327,4 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
 
     return;
 }
+
