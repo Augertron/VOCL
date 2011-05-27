@@ -2,7 +2,7 @@
 #include <string.h>
 #include <CL/opencl.h>
 #include <sys/time.h>
-#include "vocl_structures.h"
+#include "voclStructures.h"
 #include "voclKernelArgProc.h"
 
 /* for storing kernel arguments */

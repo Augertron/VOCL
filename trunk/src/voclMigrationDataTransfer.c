@@ -1,6 +1,6 @@
 #include <CL/opencl.h>
 #include "mpi.h"
-#include "vocl_opencl.h"
+#include "voclOpencl.h"
 #include "voclMigration.h"
 
 struct strMigGPUMemoryWrite {

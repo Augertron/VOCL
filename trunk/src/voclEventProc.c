@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "vocl_structures.h"
+#include "voclStructures.h"
 
 static struct strVOCLEvent *voclEventPtr = NULL;
 static vocl_event voclEvent;    /* event value */

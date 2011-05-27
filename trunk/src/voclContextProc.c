@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "vocl_structures.h"
+#include "voclStructures.h"
 
 static struct strVOCLContext *voclContextPtr = NULL;
 static vocl_context voclContext;

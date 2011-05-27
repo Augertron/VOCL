@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "vocl_structures.h"
+#include "voclStructures.h"
 #include "voclKernelArgProc.h"
 #include "voclMigrationDeviceProc.h"
 

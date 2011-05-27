@@ -3,7 +3,7 @@
 
 #include <CL/opencl.h>
 #include <mpi.h>
-#include "vocl_opencl.h"
+#include "voclOpencl.h"
 
 typedef @vocl_platform_id@ vocl_platform_id;
 typedef @vocl_device_id@ vocl_device_id;

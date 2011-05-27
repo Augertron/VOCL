@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
-#include "vocl_opencl.h"
-#include "vocl_structures.h"
+#include "voclOpencl.h"
+#include "voclStructures.h"
 #include "voclKernelArgProc.h"
 #include <sys/time.h>
 
