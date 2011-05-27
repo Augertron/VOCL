@@ -92,7 +92,8 @@ extern "C" {
 #define MIG_MEM_WRITE_CMPLD         52
 #define MIG_MEM_READ_CMPLD          53
 #define MIG_GET_PROXY_RANK          54
-#define PROGRAM_END                 55
+#define MIGRATION_CHECK             55
+#define PROGRAM_END                 56
 
 #define CMSG_NUM                    50
 #define DATAMSG_NUM                 100
@@ -218,6 +219,12 @@ extern "C" {
         const void *arg_value;
         cl_int res;
     };
+
+	struct strMigrationCheck {
+		cl_command_queue command_queue;
+		int              argsNum;
+		int              isMigrationNeeded;
+	};
 
     struct strEnqueueNDRangeKernel {
         cl_command_queue command_queue;

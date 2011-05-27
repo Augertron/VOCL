@@ -10,11 +10,13 @@
 #define MAX_ARGS 50
 
 typedef struct strKernelArgs {
-    cl_uint arg_index;
-    size_t arg_size;
-    char arg_value[64];
-    cl_char arg_null_flag;
-    cl_mem memory;              /* used for migration */
+    cl_uint   arg_index;
+    size_t    arg_size;
+    char      arg_value[64];
+    cl_char   arg_null_flag;
+	cl_int    isGlobalMemory;
+    cl_mem    memory;              /* used for migration */
+	size_t    globalSize;
 } kernel_args;
 
 typedef struct strKernelInfo {

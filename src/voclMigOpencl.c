@@ -47,6 +47,10 @@ extern cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxy
                                                 int *proxyIndex, MPI_Comm * proxyComm,
                                                 MPI_Comm * proxyCommData);
 
+/* dynamic library load function */
+extern void voclLibUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queue cmdQueue);
+
+
 /*--------------------VOCL API functions, countparts of OpenCL API functions ----------------*/
 cl_context
 voclMigCreateContext(const cl_context_properties * properties,
@@ -140,6 +144,8 @@ voclMigCreateCommandQueue(cl_context context,
         dlCLCreateCommandQueue(tmpCreateCommandQueue.context,
                                tmpCreateCommandQueue.device, properties, errcode_ret,
                                &tmpCreateCommandQueue.clCommand);
+		/* store the local command queue */
+		voclLibUpdateCmdQueueOnDeviceID(tmpCreateCommandQueue.device, tmpCreateCommandQueue.clCommand);
     }
     else {
         tmpCreateCommandQueue.properties = properties;

@@ -98,6 +98,12 @@ struct strSetKernelArg {
     cl_int res;
 };
 
+struct strMigrationCheck {
+	cl_command_queue command_queue;
+	int              argsNum;
+	int              isMigrationNeeded;
+};
+
 struct strEnqueueNDRangeKernel {
     cl_command_queue command_queue;
     cl_kernel kernel;
@@ -373,6 +379,7 @@ union CMSG_UNION {
     struct strCreateBuffer tmpCreateBuffer;
     struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
     struct strSetKernelArg tmpSetKernelArg;
+	struct strMigrationCheck tmpMigrationCheck;
     struct strEnqueueNDRangeKernel tmpEnqueueNDRangeKernel;
     struct strEnqueueReadBuffer tmpEnqueueReadBuffer;
     struct strReleaseMemObject tmpReleaseMemObject;

@@ -22,6 +22,7 @@ static struct strCreateKernel tmpCreateKernel;
 static struct strCreateBuffer tmpCreateBuffer;
 static struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
 static struct strSetKernelArg tmpSetKernelArg;
+static struct strMigrationCheck tmpMigrationCheck;
 static struct strEnqueueNDRangeKernel tmpEnqueueNDRangeKernel;
 static struct strEnqueueReadBuffer tmpEnqueueReadBuffer;
 static struct strReleaseMemObject tmpReleaseMemObject;
@@ -196,6 +197,13 @@ extern struct strMigReadBufferInfo *voclMigGetReadBufferPtr(int index);
 extern int voclMigGetNextReadBufferIndex();
 extern int voclMigFinishDataRead(int dest);
 
+/* migration functions related to device info stored in teh proxy */
+extern void voclProxyCreateDevice(cl_device_id device, size_t globalSize);
+extern void voclProxyReleaseAllDevices();
+extern int voclProxyIsMigrationNeeded(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum);
+extern void voclProxyUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queue cmdQueue);
+extern void voclProxyReleaseMem(cl_mem mem);
+extern void voclProxyUpdateGlobalMemUsage(cl_command_queue comman_queue, kernel_args *argsPtr, int argsNum);
 
 /* proxy process */
 int main(int argc, char *argv[])
@@ -205,7 +213,7 @@ int main(int argc, char *argv[])
     CPU_SET(8, &set);
     sched_setaffinity(0, sizeof(set), &set);
 
-    int proxyRank, i, appRank, appIndex, commIndex, multiThreadProvided;
+    int proxyRank, i, j, appRank, appIndex, commIndex, multiThreadProvided;
     cl_int err;
     MPI_Status status;
     char serviceName[256], voclProxyHostName[256];
@@ -223,9 +231,11 @@ int main(int argc, char *argv[])
     /* variables used by OpenCL API function */
     cl_platform_id *platforms;
     cl_device_id *devices;
+	cl_uint numPlatforms, numDevices;
     cl_uint num_entries;
     cl_event *event_wait_list;
     cl_uint num_events_in_wait_list;
+	cl_ulong globalSize;
 
     struct strWriteBufferInfo *writeBufferInfoPtr;
     struct strReadBufferInfo *readBufferInfoPtr;
@@ -249,7 +259,7 @@ int main(int argc, char *argv[])
     cl_event *event_list;
     size_t host_buff_size;
 
-//      /* get the proxy host name */
+    /* get the proxy host name */
     MPI_Get_processor_name(voclProxyHostName, &len);
     voclProxyHostName[len] = '\0';
 
@@ -259,6 +269,24 @@ int main(int argc, char *argv[])
     }
 #endif
 
+	/* retrieve device information on the node */
+	err = clGetPlatformIDs(0, NULL, &numPlatforms);
+	platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * numPlatforms);
+	err = clGetPlatformIDs(numPlatforms, platforms, NULL);
+	for (i = 0; i < numPlatforms; i++)
+	{
+		err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
+		devices = (cl_device_id *)malloc(sizeof(cl_device_id) * numDevices);
+		err = clGetDeviceIDs(platforms[i], CL_DEVICE_TYPE_GPU, numDevices, devices, NULL);
+		/*get global memory size of each device */
+		for (j = 0; j < numDevices; j++)
+		{
+			err = clGetDeviceInfo(devices[j], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(cl_ulong), &globalSize, NULL);
+			voclProxyCreateDevice(devices[j], (size_t)globalSize);
+		}
+		free(devices);
+	}
+	free(platforms);
 
     /* service name based on different proxy node name */
     sprintf(serviceName, "voclCloud%s", voclProxyHostName);
@@ -378,6 +406,9 @@ int main(int argc, char *argv[])
         if (status.MPI_TAG == CREATE_COMMAND_QUEUE_FUNC) {
             memcpy(&tmpCreateCommandQueue, conMsgBuffer[index], sizeof(tmpCreateCommandQueue));
             mpiOpenCLCreateCommandQueue(&tmpCreateCommandQueue);
+
+			/* store the command queue locally */
+			voclProxyUpdateCmdQueueOnDeviceID(tmpCreateCommandQueue.device, tmpCreateCommandQueue.clCommand);
 
             MPI_Isend(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, appRank,
                       CREATE_COMMAND_QUEUE_FUNC, appComm[commIndex], curRequest);
@@ -591,6 +622,26 @@ int main(int argc, char *argv[])
             MPI_Wait(curRequest, curStatus);
         }
 */
+		if (status.MPI_TAG == MIGRATION_CHECK)
+		{
+			memcpy(&tmpMigrationCheck, conMsgBuffer[index], sizeof(struct strMigrationCheck));
+			requestNo = 0;
+			args_ptr =
+				(kernel_args *) malloc(tmpMigrationCheck.argsNum * sizeof(kernel_args));
+			MPI_Irecv(args_ptr, tmpMigrationCheck.argsNum * sizeof(kernel_args),
+					  MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL4, appCommData[commIndex],
+					  curRequest + (requestNo++));
+			MPI_Waitall(requestNo, curRequest, curStatus);
+
+			tmpMigrationCheck.isMigrationNeeded = 
+				voclProxyIsMigrationNeeded(tmpMigrationCheck.command_queue,
+										   args_ptr, tmpMigrationCheck.argsNum);
+			MPI_Isend(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE, appRank,
+					  MIGRATION_CHECK, appComm[commIndex], curRequest);
+			MPI_Wait(curRequest, curStatus);
+			free(args_ptr);
+		}
+
         if (status.MPI_TAG == ENQUEUE_ND_RANGE_KERNEL) {
             memcpy(&tmpEnqueueNDRangeKernel, conMsgBuffer[index],
                    sizeof(tmpEnqueueNDRangeKernel));
@@ -642,6 +693,10 @@ int main(int argc, char *argv[])
                           curRequest + (requestNo++));
             }
             MPI_Waitall(requestNo, curRequest, curStatus);
+
+			/* update global memory usage on the device */
+			voclProxyUpdateGlobalMemUsage(tmpEnqueueNDRangeKernel.command_queue,
+						args_ptr, tmpEnqueueNDRangeKernel.args_num);
 
             /* if there are data received, but not write to */
             /* the GPU memory yet, use the helper thread to */
@@ -749,6 +804,7 @@ int main(int argc, char *argv[])
 
         if (status.MPI_TAG == RELEASE_MEM_OBJ) {
             memcpy(&tmpReleaseMemObject, conMsgBuffer[index], sizeof(tmpReleaseMemObject));
+			voclProxyReleaseMem(tmpReleaseMemObject.memobj);
             mpiOpenCLReleaseMemObject(&tmpReleaseMemObject);
             MPI_Isend(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE, appRank,
                       RELEASE_MEM_OBJ, appComm[commIndex], curRequest);
@@ -1345,6 +1401,8 @@ int main(int argc, char *argv[])
     voclMigReadBufferFinalize();
 
     voclProxyCommFinalize();
+
+	voclProxyReleaseAllDevices();
 
     MPI_Finalize();
 

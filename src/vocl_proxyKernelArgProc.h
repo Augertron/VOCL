@@ -9,7 +9,9 @@ typedef struct strKernelArgs {
     size_t arg_size;
     char arg_value[64];
     cl_char arg_null_flag;
+	cl_int  isGlobalMemory;
     cl_mem memory;
+	size_t globalSize;
 } kernel_args;
 
 #endif

@@ -277,7 +277,6 @@ int voclMigFinishLocalDataRead(MPI_Comm comm)
     }
 
     for (i = startIndex; i < endIndex; i++) {
-        printf("i = %d\n", i);
         index = i % VOCL_MIG_BUF_NUM;
         activeBufferFlag[index] = 0;
         if (migReadLocalBufferInfo[index].comm == comm) {

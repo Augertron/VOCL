@@ -49,7 +49,8 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define MIG_MEM_WRITE_CMPLD         52
 #define MIG_MEM_READ_CMPLD          53
 #define MIG_GET_PROXY_RANK          54
-#define PROGRAM_END                 55
+#define MIGRATION_CHECK             55
+#define PROGRAM_END                 56
 
 #define CMSG_NUM                    50  /* number of buffers for control messages */
 #define DMSG_NUM      				100     /* number of buffers for data messages */

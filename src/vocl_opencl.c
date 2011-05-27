@@ -166,7 +166,15 @@ extern cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxy
 extern int voclReleaseSampler(vocl_sampler sampler);
 
 /* handle migration */
-extern int voclCheckTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue);
+extern void voclGetLocalDeviceInfo();
+extern int voclCheckIsMigrationNeeded(vocl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum);
+extern void voclLibReleaseAllDevices();
+extern void voclLibUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queue cmdQueue);
+extern void voclLibReleaseMem(cl_mem mem);
+void voclLibUpdateGlobalMemUsage(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum);
+
+
+//extern int voclCheckTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue);
 
 /*******************************************************************/
 /* for Opencl object count processing */
@@ -274,6 +282,8 @@ void voclFinalize()
     voclMigWriteLocalBufferFinalize();
     voclMigReadLocalBufferFinalize();
     voclMigRWLocalBufferFinalize();
+
+	voclLibReleaseAllDevices();
 }
 
 void voclInitialize()
@@ -313,7 +323,7 @@ void voclInitialize()
 static void checkSlaveProc()
 {
     MPI_Info info;
-    int i, mpiInitFlag, err, rank;
+    int i, err, rank;
     int proxyNum;
     int proxyNo = 0;
     FILE *proxyHostNameFile;
@@ -351,6 +361,9 @@ static void checkSlaveProc()
         voclProxyCommData = (MPI_Comm *) malloc(sizeof(MPI_Comm) * np);
         voclProxyRank = (int *) malloc(sizeof(int) * np);
 
+        /* initialized resources needed by vocl */
+        voclInitialize();
+
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         /* use connect to establish communicator, the proxy is computed from the  */
         /* rank of the app process */
@@ -360,7 +373,7 @@ static void checkSlaveProc()
                 sprintf(serviceName, "voclCloud%s", voclGetProxyHostName(i));
 
                 err = MPI_Lookup_name(serviceName, MPI_INFO_NULL, portName);
-                /* establish inter communicator */
+                /* establish inter node communicator */
                 err =
                     MPI_Comm_connect(portName, MPI_INFO_NULL, 0, MPI_COMM_SELF,
                                      &voclProxyComm[i]);
@@ -377,9 +390,11 @@ static void checkSlaveProc()
                 /* since MPI_COMM_SELF, rankes of all proxy processes are 0 */
                 voclProxyRank[i] = 0;
             }
+			else /* lcoal gpu retrieve global memory info */
+			{
+				voclGetLocalDeviceInfo();
+			}
         }
-
-        /* assign this communicator to that of all proxy processes */
 
 #ifdef _PRINT_NODE_NAME
         {
@@ -390,8 +405,6 @@ static void checkSlaveProc()
             printf("libHostName = %s\n", hostName);
         }
 #endif
-        /* initialized resources needed by vocl */
-        voclInitialize();
     }
 }
 
@@ -655,6 +668,10 @@ clCreateCommandQueue(cl_context context,
         dlCLCreateCommandQueue(tmpCreateCommandQueue.context,
                                tmpCreateCommandQueue.device, properties, errcode_ret,
                                &tmpCreateCommandQueue.clCommand);
+
+		/* store the command queue locally */
+		voclLibUpdateCmdQueueOnDeviceID(tmpCreateCommandQueue.device, tmpCreateCommandQueue.clCommand);
+
     }
     else {
         tmpCreateCommandQueue.properties = properties;
@@ -1115,6 +1132,7 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
 {
     cl_mem deviceMem;
     int proxyRank, proxyIndex;
+	size_t size;
     MPI_Comm proxyComm, proxyCommData;
     cl_kernel clKernel =
         voclVOCLKernel2CLKernelComm((vocl_kernel) kernel, &proxyRank, &proxyIndex, &proxyComm,
@@ -1139,10 +1157,12 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
         exit(1);
     }
 
+	kernelPtr->args_ptr[kernelPtr->args_num].isGlobalMemory = 0;
     if (arg_value != NULL) {
         if (kernelPtr->args_flag[arg_index] == 1) {     /* device memory */
             /*convert from vocl memory to cl memory */
-            kernelPtr->globalMemSize += voclGetVOCLMemorySize(*((vocl_mem *) arg_value));
+			size = voclGetVOCLMemorySize(*((vocl_mem *) arg_value));
+            kernelPtr->globalMemSize += size;
             kernelPtr->args_ptr[kernelPtr->args_num].memory =
                 (cl_mem) (*((vocl_mem *) arg_value));
             deviceMem =
@@ -1150,6 +1170,9 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
                                             &proxyComm, &proxyCommData);
             memcpy(kernelPtr->args_ptr[kernelPtr->args_num].arg_value, (void *) &deviceMem,
                    arg_size);
+			/* record if it is a global memory and the size */
+			kernelPtr->args_ptr[kernelPtr->args_num].isGlobalMemory = 1;
+			kernelPtr->args_ptr[kernelPtr->args_num].globalSize = size;
         }
         else {
             memcpy(kernelPtr->args_ptr[kernelPtr->args_num].arg_value, arg_value, arg_size);
@@ -1186,24 +1209,65 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
     checkSlaveProc();
 
     struct strEnqueueNDRangeKernel tmpEnqueueNDRangeKernel;
+	struct strMigrationCheck tmpMigrationCheck;
     MPI_Status status[7];
     MPI_Request request[7];
     int requestNo = 0;
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
     cl_event *eventList = NULL;
-    int taskMigrationNeeded;
+    int taskMigrationCheck, isMigrationNeeded;
+    /* initialize structure */
+    kernel_info *kernelPtr = getKernelPtr(kernel);
+	/* if no new arguments set for the current kernel, which means */
+	/* either no global memory is used or the same set of arguments */
+	/* are used as previous kernel launch, so no migration check is needed */
+	if (kernelPtr->args_num > 0)
+	{
+		taskMigrationCheck = 1;
+	}
+	else
+	{
+		taskMigrationCheck = 0;
+	}
 
     /*check to see whether migration is needed based on GPU memory usage */
     /*GPU memory usage information can be obtained based on kernel arguments */
-    taskMigrationNeeded = voclCheckTaskMigration(kernel, command_queue);
-    taskMigrationNeeded = 1;
-    if (taskMigrationNeeded) {  /* if necessary */
-        voclTaskMigration(kernel, command_queue);
-    }
+	/* since the remote GPU can be shared by multiple proxy process, we need */
+	/* the help of the proxy process */
+	if (taskMigrationCheck == 1)
+	{
+		tmpMigrationCheck.command_queue = 
+			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
+			&proxyIndex, &proxyComm, &proxyCommData);
+		if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
+		{
+			isMigrationNeeded = voclCheckIsMigrationNeeded(tmpMigrationCheck.command_queue, 
+					kernelPtr->args_ptr, kernelPtr->args_num);
+		}
+		else
+		{
+			tmpMigrationCheck.argsNum = kernelPtr->args_num;
+			requestNo = 0;
+			MPI_Isend(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE,
+					  proxyRank, MIGRATION_CHECK, proxyComm, request + (requestNo++));
 
-    /* initialize structure */
-    kernel_info *kernelPtr = getKernelPtr(kernel);
+			MPI_Isend((void *) kernelPtr->args_ptr, sizeof(kernel_args) * kernelPtr->args_num,
+					  MPI_BYTE, proxyRank, ENQUEUE_ND_RANGE_KERNEL4, proxyCommData,
+					  request + (requestNo++));
+
+			MPI_Irecv(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE,
+				proxyRank, MIGRATION_CHECK, proxyComm, request + (requestNo++));
+			MPI_Waitall(requestNo, request, status);
+			isMigrationNeeded = tmpMigrationCheck.isMigrationNeeded;
+		}
+
+		if (isMigrationNeeded == 1)
+		{
+			voclTaskMigration(kernel, command_queue);
+		}
+	}
+
     tmpEnqueueNDRangeKernel.command_queue =
         voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
                                                 &proxyIndex, &proxyComm, &proxyCommData);
@@ -1231,6 +1295,9 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
         if (tmpEnqueueNDRangeKernel.res != CL_SUCCESS) {
             printf("Kernel launch error, %d\n", tmpEnqueueNDRangeKernel.res);
         }
+		/* store the global memory usage info */
+		voclLibUpdateGlobalMemUsage(tmpEnqueueNDRangeKernel.command_queue, 
+				kernelPtr->args_ptr, kernelPtr->args_num);
     }
     else {
         tmpEnqueueNDRangeKernel.work_dim = work_dim;
@@ -1464,6 +1531,7 @@ cl_int clReleaseMemObject(cl_mem memobj)
                                                              &proxyRank, &proxyIndex,
                                                              &proxyComm, &proxyCommData);
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
+		voclLibReleaseMem(tmpReleaseMemObject.memobj);
         tmpReleaseMemObject.res = dlCLReleaseMemObject(tmpReleaseMemObject.memobj);
     }
     else {

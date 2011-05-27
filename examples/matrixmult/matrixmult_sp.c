@@ -58,7 +58,7 @@ int main(int argc, char **argv)
         printf("Usage: %s matrixSize, numIterations, deviceNo\n", argv[0]);
         return 1;
     }
-
+	
     cpu_set_t set;
     CPU_ZERO(&set);
 
