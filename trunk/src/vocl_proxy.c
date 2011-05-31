@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
     /* issue non-blocking receive for all control messages */
     MPI_Status *curStatus;
     MPI_Request *curRequest;
-    int requestNo, dataIndex = 0, index;
+    int requestNo, index, requestOffset, canceledRequestNum;
     int bufferNum, bufferIndex;
     size_t bufferSize, remainingSize;
 
@@ -313,9 +313,13 @@ int main(int argc, char *argv[])
     pthread_barrier_init(&barrier, NULL, 2);
     pthread_create(&th, NULL, proxyHelperThread, NULL);
     voclProxySetTerminateFlag(0);
-//      pthread_create(&thAppComm, NULL, proxyCommAcceptThread, NULL);
-
+    pthread_create(&thAppComm, NULL, proxyCommAcceptThread, NULL);
+	//debug---------------------
+	int tmp;
+    MPI_Comm_rank(MPI_COMM_WORLD, &tmp);
+	//-------------------------------------
     /* voclTotalRequestNum is set in the Comm accept file */
+	canceledRequestNum = 0;
     while (1) {
         /* wait for any msg from the master process */
         MPI_Waitany(voclTotalRequestNum, conMsgRequest, &index, &status);
@@ -324,8 +328,10 @@ int main(int argc, char *argv[])
         commIndex = index / CMSG_NUM;
         appIndex = commIndex;
 
-        //printf("requestNum = %d, appIndex = %d, index = %d, tag = %d\n", voclTotalRequestNum,
-        //              appIndex, index, status.MPI_TAG);
+		//debug-----------------------------
+        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n", 
+			tmp, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+		//-------------------------------------
 
         if (status.MPI_TAG == GET_PLATFORM_ID_FUNC) {
             memcpy((void *) &tmpGetPlatformID, (const void *) conMsgBuffer[index],
@@ -556,6 +562,8 @@ int main(int argc, char *argv[])
                 increaseWriteBufferCount(appIndex);
             }
             voclResetWriteEnqueueFlag(appIndex);
+			voclProxyUpdateMemoryOnCmdQueue(tmpEnqueueWriteBuffer.command_queue,
+					tmpEnqueueWriteBuffer.buffer, tmpEnqueueWriteBuffer.cb);
 
             if (tmpEnqueueWriteBuffer.blocking_write == CL_TRUE) {
                 if (requestNo > 0) {
@@ -1301,6 +1309,9 @@ int main(int argc, char *argv[])
                 migWriteBufferInfoPtr->offset = i * VOCL_MIG_BUF_SIZE;
                 voclMigSetWriteBufferFlag(bufferIndex, MIG_WRT_MPIRECV);
             }
+
+			voclProxyUpdateMemoryOnCmdQueue(tmpMigGPUMemoryWrite.cmdQueue,
+					tmpMigGPUMemoryWrite.memory, tmpMigGPUMemoryWrite.size);
         }
 
         if (status.MPI_TAG == MIG_MEM_READ_REQUEST) {
@@ -1359,7 +1370,25 @@ int main(int argc, char *argv[])
         }
 
         if (status.MPI_TAG == PROGRAM_END) {
-            break;
+			/* cancel the corresponding irecv and communicator */
+			requestOffset = commIndex * CMSG_NUM;
+			for (requestNo = 0; requestNo < CMSG_NUM; requestNo++)
+			{
+				if (requestOffset + requestNo != index)
+				{
+					MPI_Cancel(&conMsgRequest[requestOffset + requestNo]);
+					MPI_Request_free(&conMsgRequest[requestOffset + requestNo]);
+				}
+			}
+			canceledRequestNum += CMSG_NUM;
+			MPI_Comm_disconnect(&appComm[commIndex]);
+			MPI_Comm_disconnect(&appCommData[commIndex]);
+			if (canceledRequestNum >= voclTotalRequestNum)
+			{
+				break;
+			}
+			continue;
+            //break;
         }
 
         /* issue it for later call of this function */
@@ -1367,7 +1396,6 @@ int main(int argc, char *argv[])
                   appComm[commIndex], conMsgRequest + index);
 
     }
-
     free(curStatus);
     free(curRequest);
 

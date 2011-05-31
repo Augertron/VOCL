@@ -12,9 +12,12 @@ static int voclMigWriteBufferRequestNum;
 void voclMigWriteBufferInitialize()
 {
     int i;
-    voclMigWriteBuffers =
-        (struct strMigWriteBufferInfo *) malloc(sizeof(struct strMigWriteBufferInfo)
-                                                * VOCL_MIG_BUF_NUM);
+    voclMigWriteBuffers = (struct strMigWriteBufferInfo *) malloc(sizeof(struct strMigWriteBufferInfo) * (VOCL_MIG_BUF_NUM * 2));
+	if (voclMigWriteBuffers == NULL)
+	{
+		printf("voclMigWriteBuffers is NULL\n");
+		exit(1);
+	}
     for (i = 0; i < VOCL_MIG_BUF_NUM; i++) {
         voclMigWriteBuffers[i].cmdQueue = NULL;
         voclMigWriteBuffers[i].memory = NULL;
@@ -154,7 +157,7 @@ int voclMigFinishDataWrite(struct strMigGPUMemoryWriteCmpd *migRstCmpdPtr)
 }
 
 
-static struct strMigReadBufferInfo *voclMigReadBuffers = NULL;
+static struct strMigReadBufferInfo *voclMigReadBuffers;
 static int voclMigReadBufferIndex;
 static int voclMigReadBufferRequestNum;
 

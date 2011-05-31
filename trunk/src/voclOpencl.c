@@ -242,12 +242,13 @@ void voclFinalize()
     /* send empty msg to proxy to terminate its execution */
     for (i = 0; i < np; i++) {
         /* only for remote node */
+	//	printf("rank = %d, i = %d, isOnLocal = %d\n", rank, i, voclIsOnLocalNode(i));
         if (voclIsOnLocalNode(i) == VOCL_FALSE)
             //if (voclIsOnLocalNode(i) == VOCL_FALSE && rank == 1)
         {
             MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
-            MPI_Comm_free(&voclProxyComm[i]);
-            MPI_Comm_free(&voclProxyCommData[i]);
+            MPI_Comm_disconnect(&voclProxyComm[i]);
+            MPI_Comm_disconnect(&voclProxyCommData[i]);
         }
     }
 
@@ -369,11 +370,17 @@ static void checkSlaveProc()
         /* rank of the app process */
         for (i = 0; i < np; i++) {
             voclSetIndex2NodeMapping(i, (rank + i) % proxyNum);
+            //voclSetIndex2NodeMapping(i, i % proxyNum);
             if (voclIsOnLocalNode(i) == VOCL_FALSE) {
                 sprintf(serviceName, "voclCloud%s", voclGetProxyHostName(i));
 
                 err = MPI_Lookup_name(serviceName, MPI_INFO_NULL, portName);
+				if (err != MPI_SUCCESS)
+				{
+					printf("Lookup name error, %d\n", err);
+				}
                 /* establish inter node communicator */
+				sleep(1);
                 err =
                     MPI_Comm_connect(portName, MPI_INFO_NULL, 0, MPI_COMM_SELF,
                                      &voclProxyComm[i]);
@@ -414,6 +421,7 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_
 {
     MPI_Status *status;
     MPI_Request *request;
+	cl_int err;
     int requestNo, i, j, rank, proxyIndex;
     int curPlatformNum, totalPlatformNum;
     struct strGetPlatformIDs *tmpGetPlatform;
@@ -473,7 +481,7 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_
         else {
             if (platforms != NULL) {
                 tmpGetPlatform[i].res =
-                    dlCLGetPlatformIDs(num_entries, &platforms[totalPlatformNum],
+                    dlCLGetPlatformIDs(num_entries-totalPlatformNum, &platforms[totalPlatformNum],
                                        &curPlatformNum);
             }
             else {
@@ -499,11 +507,13 @@ clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_
         *num_platforms = totalPlatformNum;
     }
 
+	err = tmpGetPlatform[np - 1].res;
+
     free(status);
     free(request);
     free(tmpGetPlatform);
 
-    return tmpGetPlatform[np - 1].res;
+    return err;
 }
 
 cl_int
@@ -663,6 +673,7 @@ clCreateCommandQueue(cl_context context,
         printf("deice and context are on different GPU nodes!\n");
     }
 
+
     /* local node, call native opencl function directly */
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         dlCLCreateCommandQueue(tmpCreateCommandQueue.context,
@@ -696,6 +707,7 @@ clCreateCommandQueue(cl_context context,
     command_queue =
         voclCLCommandQueue2VOCLCommandQueue(tmpCreateCommandQueue.clCommand, proxyRankContext,
                                             proxyIndex, proxyComm, proxyCommData);
+	printf("cmdQueue, device = %p, cmdQueue = %p\n", tmpCreateCommandQueue.device, tmpCreateCommandQueue.clCommand);
     voclStoreCmdQueueProperties(command_queue, properties, context, device);
 
     return (cl_command_queue) command_queue;
@@ -1024,7 +1036,10 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     tmpEnqueueWriteBuffer.buffer =
         voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
                                     &proxyCommData);
+	/* set memory write state for possible migration */
     voclSetMemWrittenFlag((vocl_mem) buffer, 1);
+	/* save the host memory pointer for possible migration */
+	voclSetMemHostPtr((vocl_mem)buffer, ptr);
 
     if (num_events_in_wait_list > 0) {
         eventList = (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
@@ -1101,6 +1116,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
                   proxyRank, ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
         /* for a blocking write, process all previous non-blocking ones */
         if (blocking_write == CL_TRUE) {
+    		voclSetMemWrittenFlag((vocl_mem) buffer, 2); /* memory write is completed */
             processAllWrites(proxyIndex);
         }
         else if (event != NULL) {
@@ -1260,6 +1276,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 				proxyRank, MIGRATION_CHECK, proxyComm, request + (requestNo++));
 			MPI_Waitall(requestNo, request, status);
 			isMigrationNeeded = tmpMigrationCheck.isMigrationNeeded;
+			printf("isMigrationNeeded = %d\n", isMigrationNeeded);
 		}
 
 		if (isMigrationNeeded == 1)
@@ -1512,7 +1529,6 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
             return CL_SUCCESS;
         }
     }
-
 }
 
 cl_int clReleaseMemObject(cl_mem memobj)

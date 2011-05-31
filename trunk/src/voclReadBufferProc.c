@@ -1,7 +1,7 @@
 #include "voclOpencl.h"
 #include "voclStructures.h"
 
-static struct voclReadBuffer *voclReadBufferPtr = NULL;
+static struct voclReadBuffer *voclReadBufferPtr;
 static int voclReadBufferNum;
 
 static void initializeReadBuffer(int proxyIndex)
@@ -9,6 +9,8 @@ static void initializeReadBuffer(int proxyIndex)
     int i = 0;
     for (i = 0; i < VOCL_READ_BUFFER_NUM; i++) {
         voclReadBufferPtr[proxyIndex].voclReadBufferInfo[i].isInUse = 0;
+		voclReadBufferPtr[proxyIndex].voclReadBufferInfo[i].event = VOCL_EVENT_NULL;
+		voclReadBufferPtr[proxyIndex].voclReadBufferInfo[i].bufferNum = 0;
     }
 
     voclReadBufferPtr[proxyIndex].curReadBufferIndex = 0;
@@ -173,6 +175,7 @@ void processAllReads(int proxyIndex)
     if (requestNo > 0) {
         MPI_Waitall(requestNo, request, status);
     }
+
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;

@@ -18,7 +18,7 @@ extern int voclProxyAppIndex;
 //static struct strReadBufferInfo readBufferInfoPtr[VOCL_PROXY_READ_BUFFER_NUM];
 
 static struct voclReadBufferInfo *voclProxyReadBufferPtr = NULL;
-static int voclProxySupportAppNum;
+static int voclProxyReadSupportAppNum;
 
 /* for sending data from GPU to local node */
 static void initializeReadBuffer(int rank)
@@ -52,10 +52,10 @@ static void reallocVOCLProxyReadBuffer(int origBufferNum, int newBufferNum)
 void initializeReadBufferAll()
 {
     int i;
-    voclProxySupportAppNum = VOCL_PROXY_APP_NUM;
+    voclProxyReadSupportAppNum = VOCL_PROXY_APP_NUM;
     voclProxyReadBufferPtr =
-        (struct voclReadBufferInfo *) malloc(sizeof(struct voclReadBufferInfo));
-    for (i = 0; i < voclProxySupportAppNum; i++) {
+        (struct voclReadBufferInfo *) malloc(sizeof(struct voclReadBufferInfo) * voclProxyReadSupportAppNum);
+    for (i = 0; i < voclProxyReadSupportAppNum; i++) {
         initializeReadBuffer(i);
     }
 }
@@ -63,7 +63,7 @@ void initializeReadBufferAll()
 void finalizeReadBufferAll()
 {
     int rank, i;
-    for (rank = 0; rank < voclProxySupportAppNum; rank++) {
+    for (rank = 0; rank < voclProxyReadSupportAppNum; rank++) {
         for (i = 0; i < VOCL_PROXY_READ_BUFFER_NUM; i++) {
             if (voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr) {
                 free(voclProxyReadBufferPtr[rank].readBufferInfo[i].dataPtr);
@@ -96,7 +96,7 @@ int readSendToLocal(int rank, int index)
     err = MPI_Isend(voclProxyReadBufferPtr[rank].readBufferInfo[index].dataPtr,
                     voclProxyReadBufferPtr[rank].readBufferInfo[index].size,
                     MPI_BYTE,
-                    voclProxyReadBufferPtr[rank].readBufferInfo[index].appRank,
+                    voclProxyReadBufferPtr[rank].readBufferInfo[index].dest,
                     voclProxyReadBufferPtr[rank].readBufferInfo[index].tag,
                     voclProxyReadBufferPtr[rank].readBufferInfo[index].comm,
                     getReadRequestPtr(rank, index));
@@ -130,9 +130,9 @@ int getNextReadBufferIndex(int rank)
     int index;
     MPI_Status status;
 
-    if (rank >= voclProxySupportAppNum) {
-        reallocVOCLProxyReadBuffer(voclProxySupportAppNum, 2 * voclProxySupportAppNum);
-        voclProxySupportAppNum *= 2;
+    if (rank >= voclProxyReadSupportAppNum) {
+        reallocVOCLProxyReadBuffer(voclProxyReadSupportAppNum, 2 * voclProxyReadSupportAppNum);
+        voclProxyReadSupportAppNum *= 2;
     }
 
     index = voclProxyReadBufferPtr[rank].curReadBufferIndex;

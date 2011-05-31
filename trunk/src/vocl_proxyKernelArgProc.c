@@ -24,8 +24,12 @@ int voclProxyIsMigrationNeeded(cl_command_queue cmdQueue, kernel_args *argsPtr, 
 			memory = *((cl_mem *)argsPtr[i].arg_value);
 			if (voclProxyIsMemoryOnDevice(devicePtr, memory) == 0)
 			{
+				/* not added to the device yet, add it now */
+				voclProxyUpdateMemoryOnDevice(devicePtr, memory, argsPtr[i].globalSize);
 				/* global memory size is not enough */
 				sizeForKernel += argsPtr[i].globalSize;
+				printf("i = %d, usedSize = %ld, sizeofKernel = %ld, argSize = %ld, globalSize = %ld\n",
+						i, devicePtr->usedSize, sizeForKernel, argsPtr[i].globalSize, devicePtr->globalSize);
 				if (devicePtr->usedSize + sizeForKernel > devicePtr->globalSize)
 				{
 					isMigrationNeeded = 1;
@@ -34,22 +38,9 @@ int voclProxyIsMigrationNeeded(cl_command_queue cmdQueue, kernel_args *argsPtr, 
 			}
 		}
 	}
+//	return 1;
 
-	/* kernel will be launched on this device */
-	if (isMigrationNeeded == 0)
-	{
-		for (i = 0; i < argsNum; i++)
-		{
-			if (argsPtr[i].isGlobalMemory == 1)
-			{
-				/* add new memory to the device */
-				memory = *((cl_mem *)argsPtr[i].arg_value);
-				voclProxyUpdateMemoryOnDevice(devicePtr, memory, argsPtr[i].globalSize);
-			}
-		}
-	}
-
-	return 1;
+	printf("proxy, isMigrationNeeded = %d\n", isMigrationNeeded);
 
 	return isMigrationNeeded;
 }

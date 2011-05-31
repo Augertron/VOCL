@@ -29,7 +29,7 @@ void mpiOpenCLGetDeviceIDs(struct strGetDeviceIDs *tmpGetDeviceIDs, cl_device_id
 
     err_code = clGetDeviceIDs(platform, device_type, num_entries, devices, num_device_ptr);
     tmpGetDeviceIDs->res = err_code;
-
+	
     return;
 }
 
@@ -51,8 +51,10 @@ void mpiOpenCLCreateCommandQueue(struct strCreateCommandQueue *tmpCreateCommandQ
     cl_device_id device = tmpCreateCommandQueue->device;
     cl_context hInContext = tmpCreateCommandQueue->context;
 
+
     cl_command_queue hCmdQueue =
         clCreateCommandQueue(hInContext, device, properties, &err_code);
+	printf("proxyCmdQueue, hCmdQueue = %p, device = %p\n", hCmdQueue, device);
 
     tmpCreateCommandQueue->errcode_ret = err_code;
     tmpCreateCommandQueue->clCommand = hCmdQueue;
@@ -140,6 +142,7 @@ void mpiOpenCLEnqueueWriteBuffer(struct strEnqueueWriteBuffer *tmpEnqueueWriteBu
     err_code = clEnqueueWriteBuffer(hInCmdQueue, deviceMem, blocking_write, offset,
                                     cb, ptr, num_events_in_wait_list, event_wait_list,
                                     event_ret);
+	voclProxyUpdateMemoryOnCmdQueue(hInCmdQueue, deviceMem, cb);
     tmpEnqueueWriteBuffer->res = err_code;
 }
 

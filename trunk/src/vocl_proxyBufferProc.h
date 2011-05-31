@@ -14,7 +14,7 @@ struct strReadMPISendProcInfo {
 struct strWriteBufferInfo {
     /*write buffer state, defined in voclProxy.h */
     int isInUse;
-    int appRank;
+    //int appRank;
     MPI_Request request;
     cl_command_queue commandQueue;
     size_t size;
