@@ -38,7 +38,7 @@ static struct strWriteBufferInfo writeBufferInfo[VOCL_PROXY_WRITE_BUFFER_NUM];
 */
 
 static struct voclWriteBufferInfo *voclProxyWriteBufferPtr = NULL;
-static int voclProxySupportAppNum;
+static int voclProxyWriteSupportAppNum;
 
 /* initialize write buffer pool */
 static void initializeWriteBuffer(int index)
@@ -54,7 +54,6 @@ static void initializeWriteBuffer(int index)
     }
 
     voclProxyWriteBufferPtr[index].curWriteBufferIndex = 0;
-    //voclProxyWriteBufferPtr[index].totalRequestNum = CMSG_NUM;
     voclProxyWriteBufferPtr[index].writeDataRequestNum = 0;
     voclProxyWriteBufferPtr[index].allWritesAreEnqueuedFlag = 1;
     voclProxyWriteBufferPtr[index].allReadBuffersAreCovered = 1;
@@ -69,6 +68,7 @@ static void reallocVOCLProxyWriteBuffer(int origBufferNum, int newBufferNum)
         (struct voclWriteBufferInfo *) realloc(voclProxyWriteBufferPtr,
                                                sizeof(struct voclWriteBufferInfo) *
                                                newBufferNum);
+
     for (i = origBufferNum; i < newBufferNum; i++) {
         initializeWriteBuffer(i);
     }
@@ -77,11 +77,11 @@ static void reallocVOCLProxyWriteBuffer(int origBufferNum, int newBufferNum)
 void initializeWriteBufferAll()
 {
     int i;
-    voclProxySupportAppNum = VOCL_PROXY_APP_NUM;
+    voclProxyWriteSupportAppNum = VOCL_PROXY_APP_NUM;
     voclProxyWriteBufferPtr =
         (struct voclWriteBufferInfo *) malloc(sizeof(struct voclWriteBufferInfo) *
-                                              voclProxySupportAppNum);
-    for (i = 0; i < voclProxySupportAppNum; i++) {
+                                              voclProxyWriteSupportAppNum);
+    for (i = 0; i < voclProxyWriteSupportAppNum; i++) {
         initializeWriteBuffer(i);
     }
 }
@@ -98,7 +98,7 @@ void increaseWriteBufferCount(int appRank)
 void finalizeWriteBufferAll()
 {
     int rank, i;
-    for (rank = 0; rank < voclProxySupportAppNum; rank++) {
+    for (rank = 0; rank < voclProxyWriteSupportAppNum; rank++) {
         for (i = 0; i < VOCL_PROXY_WRITE_BUFFER_NUM; i++) {
             if (voclProxyWriteBufferPtr[rank].writeBufferInfo[i].dataPtr)
                 free(voclProxyWriteBufferPtr[rank].writeBufferInfo[i].dataPtr);
@@ -156,16 +156,14 @@ cl_int writeToGPUMemory(int appRank, int index)
 {
     int err;
     err =
-        clEnqueueWriteBuffer(voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].
-                             commandQueue,
+        clEnqueueWriteBuffer(voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].commandQueue,
                              voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].mem,
                              CL_FALSE,
                              voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].offset,
                              voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].size,
                              voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].dataPtr,
                              voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].numEvents,
-                             voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].
-                             eventWaitList,
+                             voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].eventWaitList,
                              &voclProxyWriteBufferPtr[appRank].writeBufferInfo[index].event);
     setWriteBufferFlag(appRank, index, WRITE_GPU_MEM);
     return err;
@@ -176,9 +174,9 @@ int getNextWriteBufferIndex(int rank)
     int index;
     MPI_Status status;
 
-    if (rank >= voclProxySupportAppNum) {
-        reallocVOCLProxyWriteBuffer(voclProxySupportAppNum, 2 * voclProxySupportAppNum);
-        voclProxySupportAppNum *= 2;
+    if (rank >= voclProxyWriteSupportAppNum) {
+        reallocVOCLProxyWriteBuffer(voclProxyWriteSupportAppNum, 2 * voclProxyWriteSupportAppNum);
+        voclProxyWriteSupportAppNum *= 2;
     }
 
     index = voclProxyWriteBufferPtr[rank].curWriteBufferIndex;

@@ -94,7 +94,8 @@ struct strVOCLMemory {
     /* used for migration */
     cl_mem_flags flags;
     size_t size;
-    int isWritten;              /* 1: not written, 1, written */
+    int isWritten;              /* 1: not written, 1, written, incomplete, 2 written, completed */
+	void *hostPtr;
     vocl_context context;
 
     struct strVOCLMemory *next;

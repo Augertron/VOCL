@@ -8,6 +8,8 @@ void voclProxyCreateDevice(cl_device_id device, size_t globalSize)
 	VOCL_PROXY_DEVICE *devicePtr = (VOCL_PROXY_DEVICE *)malloc(sizeof(VOCL_PROXY_DEVICE));
 	devicePtr->device = device;
 	devicePtr->globalSize = globalSize;
+	devicePtr->globalSize = 1000000000;
+
 	devicePtr->usedSize = 0;
 	devicePtr->cmdQueuePtr = NULL;
 	devicePtr->memPtr = NULL;
@@ -286,16 +288,18 @@ void voclProxyUpdateMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem, siz
 		memPtr->next = devicePtr->memPtr;
 		devicePtr->memPtr = memPtr;
 		devicePtr->usedSize += size;
+		printf("devicePtr = %p, usedSize = %ld, size = %ld\n", devicePtr, devicePtr->usedSize, size);
 	}
 
 	return;
 }
 
-//void voclProxyUpdateMemoryOnDevice(cl_command_queue cmdQueue, cl_mem mem, size_t size)
-//{
-//	VOCL_PROXY_DEVICE devicePtr = voclProxyGetDeviceIDFromCmdQueue(cmdQueue);
-//	voclProxyUpdateMemoryOnDevice(devicePtr, mem, size);
-//}
+void voclProxyUpdateMemoryOnCmdQueue(cl_command_queue cmdQueue, cl_mem mem, size_t size)
+{
+	VOCL_PROXY_DEVICE *devicePtr = voclProxyGetDeviceIDFromCmdQueue(cmdQueue);
+	//printf("devicePtr = %p, devicePtr->device = %p\n", devicePtr, devicePtr->device);
+	voclProxyUpdateMemoryOnDevice(devicePtr, mem, size);
+}
 
 int voclProxyIsMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem)
 /* is already on the device, return 1; otherwise, return 0 */

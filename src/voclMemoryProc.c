@@ -185,6 +185,19 @@ int voclGetMemWrittenFlag(vocl_mem memory)
     return memoryPtr->isWritten;
 }
 
+void voclSetMemHostPtr(vocl_mem memory, void *ptr)
+{
+    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+    memoryPtr->hostPtr = ptr;
+	return;
+}
+
+void * voclGetMemHostPtr(vocl_mem memory)
+{
+    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+    return memoryPtr->hostPtr;
+}
+
 int voclReleaseMemory(vocl_mem memory)
 {
     struct strVOCLMemory *memoryPtr, *preMemoryPtr, *curMemoryPtr;

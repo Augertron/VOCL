@@ -165,7 +165,9 @@ int voclCheckIsMigrationNeeded(vocl_command_queue cmdQueue, kernel_args *argsPtr
 		}
 	}
 
-	return 1;
+	printf("isMigrationNeeded = %d\n", isMigrationNeeded);
+
+//	return 1;
 
 	return isMigrationNeeded;
 }
@@ -204,7 +206,7 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
     int proxySourceRank, proxyDestRank;
     int isFromLocal, isToLocal;
     MPI_Comm newComm, newCommData, oldComm, oldCommData;
-    int i, err, memWrittenFlag;
+    int i, err, memWrittenFlag, flag;
     size_t size;
     char *tmpBuf;
 
@@ -242,7 +244,11 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
     for (i = 0; i < kernelPtr->args_num; i++) {
         if (kernelPtr->args_flag[i] == 1) {     /* it is global memory */
             size = voclGetVOCLMemorySize(kernelPtr->args_ptr[i].memory);
-            if (voclGetMemWrittenFlag(kernelPtr->args_ptr[i].memory)) {
+			flag = voclGetMemWrittenFlag(kernelPtr->args_ptr[i].memory);
+		printf("i = %d, size = %ld, flag = %d\n", i, size, flag);
+
+			/* write to gpu memory is completed */
+            if (flag == 1) {
                 if (isFromLocal == 0 || isToLocal == 0) {
                     /* send a message to the source proxy process for migration data transfer */
                     oldMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
@@ -273,9 +279,19 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
                 }
                 memWrittenFlag = 1;
             }
+			/*either not written at all, or written is incomplete */
             else {
                 voclUpdateVOCLMemory(kernelPtr->args_ptr[i].memory, newRank, newIndex,
                                      newComm, newCommData, context);
+				/* memory written is incomplete, just write to the new memory from */
+				/* host memory, directory */
+//				if (flag == 1) 
+//				{
+//					clEnqueueWriteBuffer(command_queue, kernelPtr->args_ptr[i].memory,
+//										 CL_TRUE, 0, size, 
+//										 voclGetMemHostPtr(kernelPtr->args_ptr[i].memory),
+//										 0, NULL, NULL);
+//				}
             }
             newMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
             memcpy(kernelPtr->args_ptr[i].arg_value, (void *) &newMem, sizeof(cl_mem));
