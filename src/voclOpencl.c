@@ -4,6 +4,7 @@
 #include "voclStructures.h"
 #include "voclKernelArgProc.h"
 #include <sys/time.h>
+#include <unistd.h>
 
 /* used for print node name */
 #define _PRINT_NODE_NAME
@@ -72,6 +73,11 @@ extern int voclReleaseCommandQueue(vocl_command_queue command_queue);
 extern void voclStoreCmdQueueProperties(vocl_command_queue command_queue,
                                         cl_command_queue_properties properties,
                                         vocl_context context, vocl_device_id device);
+extern int voclIsOldCommandQueueValid(vocl_command_queue command_queue);
+extern cl_command_queue voclVOCLCommandQueue2OldCLCommandQueueComm(vocl_command_queue command_queue,
+                                                            int *proxyRank, int *proxyIndex,
+                                                            MPI_Comm * proxyComm,
+                                                            MPI_Comm * proxyCommData);
 
 /* for program processing */
 extern void voclProgramInitialize();
@@ -98,6 +104,13 @@ extern cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyRank, int *
 extern int voclReleaseMemory(vocl_mem mem);
 extern void voclStoreMemoryParameters(vocl_mem memory, cl_mem_flags flags,
                                       size_t size, vocl_context context);
+extern void voclSetMemWrittenFlag(vocl_mem memory, int flag);
+extern void voclSetMemHostPtr(vocl_mem memory, void *ptr);
+extern size_t voclGetVOCLMemorySize(vocl_mem memory);
+extern int voclIsOldMemoryValid(vocl_mem memory);
+extern cl_mem voclVOCLMemory2OldCLMemoryComm(vocl_mem memory, int *proxyRank,
+                                      int *proxyIndex, MPI_Comm * proxyComm,
+                                      MPI_Comm * proxyCommData);
 
 /* for program processing */
 extern void voclKernelInitialize();
@@ -127,6 +140,10 @@ extern MPI_Request *getWriteRequestPtr(int proxyIndex, int index);
 extern int getNextWriteBufferIndex(int proxyIndex);
 extern void processWriteBuffer(int proxyIndex, int curIndex, int bufferNum);
 extern void processAllWrites(int proxyIndex);
+extern void setWriteBufferNum(int proxyIndex, int index, int bufferNum);
+extern void setWriteBufferEvent(int proxyIndex, int index, vocl_event event);
+extern int getWriteBufferIndexFromEvent(int proxyIndex, vocl_event event);
+extern int getWriteBufferNum(int proxyIndex, int index);
 
 /* readBufferPool API functions */
 extern void initializeVoclReadBufferAll();
@@ -136,6 +153,11 @@ extern MPI_Request *getReadRequestPtr(int proxyIndex, int index);
 extern int getNextReadBufferIndex(int proxyIndex);
 extern void processReadBuffer(int proxyIndex, int curIndex, int bufferNum);
 extern void processAllReads(int proxyIndex);
+extern void setReadBufferNum(int proxyIndex, int index, int bufferNum);
+extern void setReadBufferEvent(int proxyIndex, int index, vocl_event event);
+extern int getReadBufferIndexFromEvent(int proxyIndex, vocl_event event);
+extern int getReadBufferNum(int proxyIndex, int index);
+
 
 /* vocl event processing API functions */
 extern void voclEventInitialize();
@@ -153,6 +175,9 @@ extern void voclVOCLEvents2CLEventsComm(vocl_event * voclEventList, cl_event * c
                                         cl_uint eventNum, int *proxyRank, int *proxyIndex,
                                         MPI_Comm * proxyComm, MPI_Comm * proxyCommData);
 extern int voclReleaseEvent(vocl_event event);
+extern void voclVOCLEvents2CLEvents(vocl_event * voclEventList,
+                             cl_event * clEventList, cl_uint eventNum);
+
 
 /* vocl sampler processing API functions */
 extern void voclSamplerInitialize();
@@ -173,8 +198,26 @@ extern void voclLibUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queu
 extern void voclLibReleaseMem(cl_mem mem);
 void voclLibUpdateGlobalMemUsage(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum);
 
+/* proxy process name process */
+extern int voclIsOnLocalNode(int index);
+extern void voclSetIndex2NodeMapping(int index, int node);
+extern void voclStoreKernelName(vocl_kernel kernel, char *kernelName);
 
-//extern int voclCheckTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue);
+/* dynamic Opencl function call */
+extern void voclOpenclModuleInitialize();
+extern void voclOpenclModuleRelease();
+
+/*migration functions*/
+extern void voclMigWriteLocalBufferInitializeAll();
+extern void voclMigWriteLocalBufferFinalize();
+extern void voclMigReadLocalBufferInitializeAll();
+extern void voclMigReadLocalBufferFinalize();
+extern void voclMigRWLocalBufferInitialize();
+extern void voclMigRWLocalBufferFinalize();
+extern void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue);
+extern int voclCheckIsMigrationNeeded(vocl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum);
+
+
 
 /*******************************************************************/
 /* for Opencl object count processing */
@@ -307,8 +350,8 @@ void voclInitialize()
 
     /* initialization for dynamic opencl function call */
     voclOpenclModuleInitialize();
-    voclMigWriteLocalBufferInitialize();
-    voclMigReadLocalBufferInitialize();
+    voclMigWriteLocalBufferInitializeAll();
+    voclMigReadLocalBufferInitializeAll();
     voclMigRWLocalBufferInitialize();
 
 //    if (atexit(voclFinalize) != 0) {
@@ -365,12 +408,30 @@ static void checkSlaveProc()
         /* initialized resources needed by vocl */
         voclInitialize();
 
+		//debug----------------------------------for initialize node mapping-------------
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		int mapping[4];
+//		if (rank > 3)
+//		{
+//			mapping[0] = 0;
+//			mapping[1] = 1;
+//			mapping[2] = 2;
+//			mapping[3] = 3;
+//		}
+//		else
+		{
+//			mapping[0] = 0;
+//			mapping[1] = 1;
+//			mapping[2] = 2;
+//			mapping[3] = 3;
+		}
+		//-----------------------------------------
         /* use connect to establish communicator, the proxy is computed from the  */
         /* rank of the app process */
         for (i = 0; i < np; i++) {
             voclSetIndex2NodeMapping(i, (rank + i) % proxyNum);
             //voclSetIndex2NodeMapping(i, i % proxyNum);
+            //voclSetIndex2NodeMapping(i, mapping[i]);
             if (voclIsOnLocalNode(i) == VOCL_FALSE) {
                 sprintf(serviceName, "voclCloud%s", voclGetProxyHostName(i));
 
@@ -707,8 +768,7 @@ clCreateCommandQueue(cl_context context,
     command_queue =
         voclCLCommandQueue2VOCLCommandQueue(tmpCreateCommandQueue.clCommand, proxyRankContext,
                                             proxyIndex, proxyComm, proxyCommData);
-	printf("cmdQueue, device = %p, cmdQueue = %p\n", tmpCreateCommandQueue.device, tmpCreateCommandQueue.clCommand);
-    voclStoreCmdQueueProperties(command_queue, properties, context, device);
+    voclStoreCmdQueueProperties(command_queue, properties, (vocl_context)context, (vocl_device_id)device);
 
     return (cl_command_queue) command_queue;
 }
@@ -804,7 +864,7 @@ clCreateProgramWithSource(cl_context context,
 
     /*store the source code corresponding to the program */
     voclStoreProgramSource(program, allStrings, totalLength);
-    voclStoreProgramContext(program, context);
+    voclStoreProgramContext(program, (vocl_context)context);
 
     free(allStrings);
     free(lengthsArray);
@@ -934,8 +994,8 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
     voclStoreKernelName(kernel, (char *) kernel_name);
 
     /* get context from the vocl program */
-    context = voclGetContextFromProgram(program);
-    voclStoreKernelProgramContext(kernel, program, context);
+    context = voclGetContextFromProgram((vocl_program)program);
+    voclStoreKernelProgramContext(kernel, (vocl_program)program, context);
 
     /* create kernel info on the local node for storing arguments */
     createKernel((cl_kernel) kernel);
@@ -999,7 +1059,7 @@ clCreateBuffer(cl_context context,
     memory = voclCLMemory2VOCLMemory(tmpCreateBuffer.deviceMem,
                                      proxyRank, proxyIndex, proxyComm, proxyCommData);
     /* store memory parameters for possible migration */
-    voclStoreMemoryParameters(memory, flags, size, context);
+    voclStoreMemoryParameters(memory, flags, size, (vocl_context)context);
 
     return (cl_mem) memory;
 }
@@ -1039,7 +1099,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 	/* set memory write state for possible migration */
     voclSetMemWrittenFlag((vocl_mem) buffer, 1);
 	/* save the host memory pointer for possible migration */
-	voclSetMemHostPtr((vocl_mem)buffer, ptr);
+	voclSetMemHostPtr((vocl_mem)buffer, (void *)ptr);
 
     if (num_events_in_wait_list > 0) {
         eventList = (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
@@ -2578,11 +2638,11 @@ clEnqueueCopyBuffer(cl_command_queue command_queue,
         }
 
         /* convert vocl events to opencl events */
-        voclvoclevents2clevents((vocl_event *) event_wait_list, eventList,
+        voclVOCLEvents2CLEvents((vocl_event *) event_wait_list, eventList,
                                 num_events_in_wait_list);
     }
 
-    if (voclIsNoLocalNode(proxyIndex) == VOCL_TRUE) {
+    if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         tmpEnqueueCopyBuffer.res = dlCLEnqueueCopyBuffer(tmpEnqueueCopyBuffer.command_queue,
                                                          tmpEnqueueCopyBuffer.src_buffer,
                                                          tmpEnqueueCopyBuffer.dst_buffer,

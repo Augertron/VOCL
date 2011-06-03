@@ -32,6 +32,7 @@ extern "C" {
 
 /* macros for migration */
 #define VOCL_MIG_BUF_NUM 8
+#define VOCL_MIG_POOL_NUM 4
 //#define VOCL_MIG_BUF_SIZE 64108864
 #define VOCL_MIG_BUF_SIZE 33554432
 #define VOCL_MIG_TAG 6000
@@ -95,10 +96,12 @@ extern "C" {
 #define MIG_MEM_WRITE_CMPLD         52
 #define MIG_MEM_READ_CMPLD          53
 #define MIG_GET_PROXY_RANK          54
-#define MIGRATION_CHECK             55
-#define PROGRAM_END                 56
+#define MIG_SAME_REMOTE_NODE        55
+#define MIG_SAME_REMOTE_NODE_CMPLD  56
+#define MIGRATION_CHECK             57
+#define PROGRAM_END                 58
 
-#define CMSG_NUM                    50
+#define CMSG_NUM                    60
 #define DATAMSG_NUM                 100
 #define TOTAL_MSG_NUM               (CMSG_NUM + DATAMSG_NUM)
 

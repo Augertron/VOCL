@@ -50,12 +50,71 @@ extern cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxy
 /* dynamic library load function */
 extern void voclLibUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queue cmdQueue);
 
+/* proxy name processing */
+extern int voclIsOnLocalNode(int index);
+extern void increaseObjCount(int proxyIndex);
+extern void decreaseObjCount(int proxyIndex);
+
+/* vocl and cl convertion */
+extern cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyRank,
+                                             int *proxyIndex, MPI_Comm * proxyComm,
+                                             MPI_Comm * proxyCommData);
+extern void voclVOCLEvents2CLEventsComm(vocl_event * voclEventList,
+                                 cl_event * clEventList, cl_uint eventNum, int *proxyRank,
+                                 int *proxyIndex, MPI_Comm * proxyComm,
+                                 MPI_Comm * proxyCommData);
+extern vocl_event voclCLEvent2VOCLEvent(cl_event event, int proxyRank,
+                                 int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern void voclVOCLEvents2CLEvents(vocl_event * voclEventList,
+                             cl_event * clEventList, cl_uint eventNum);
+
+/* dynamcily call local Opencl function */
+extern void dlCLCreateContext(const cl_context_properties * properties,
+                       cl_uint num_devices,
+                       const cl_device_id * devices,
+                       void (CL_CALLBACK * pfn_notify) (const char *, const void *, size_t,
+                                                        void *), void *user_data,
+                       cl_int * errcode_ret, cl_context * contextPtr);
+extern void dlCLCreateCommandQueue(cl_context context,
+                            cl_device_id device,
+                            cl_command_queue_properties properties,
+                            cl_int * errcode_ret, cl_command_queue * cmdQueuePtr);
+extern void dlCLCreateProgramWithSource(cl_context context,
+                                 cl_uint count,
+                                 const char **strings, const size_t * lengths,
+                                 cl_int * errcode_ret, cl_program * programPtr);
+extern void dlCLCreateKernel(cl_program program, const char *kernel_name, cl_int * errcode_ret,
+                      cl_kernel * kernelPtr);
+extern void dlCLCreateBuffer(cl_context context,
+                      cl_mem_flags flags, size_t size, void *host_ptr, cl_int * errcode_ret,
+                      cl_mem * memPtr);
+extern void dlCLCreateSampler(cl_context context,
+                       cl_bool normalized_coords,
+                       cl_addressing_mode addressing_mode,
+                       cl_filter_mode filter_mode, cl_int * errcode_ret,
+                       cl_sampler * samplerPtr);
+extern cl_int
+dlCLEnqueueReadBuffer(cl_command_queue command_queue,
+                      cl_mem buffer,
+                      cl_bool blocking_read,
+                      size_t offset,
+                      size_t cb,
+                      void *ptr,
+                      cl_uint num_events_in_wait_list,
+                      const cl_event * event_wait_list, cl_event * event);
+extern cl_int dlCLReleaseCommandQueue(cl_command_queue command_queue);
+extern cl_int dlCLReleaseMemObject(cl_mem memobj);
+
+
+extern int getNextReadBufferIndex(int proxyIndex);
+extern MPI_Request *getReadRequestPtr(int proxyIndex, int index);
+extern void processAllReads(int proxyIndex);
 
 /*--------------------VOCL API functions, countparts of OpenCL API functions ----------------*/
 cl_context
 voclMigCreateContext(const cl_context_properties * properties,
                      cl_uint num_devices,
-                     const cl_device_id * devices,
+                     vocl_device_id * devices,
                      void (CL_CALLBACK * pfn_notify) (const char *, const void *, size_t,
                                                       void *), void *user_data,
                      cl_int * errcode_ret)
@@ -63,7 +122,6 @@ voclMigCreateContext(const cl_context_properties * properties,
     struct strCreateContext tmpCreateContext;
     MPI_Status status[3];
     MPI_Request request[3];
-    vocl_context context;
     cl_device_id *clDevices;
     int proxyRank, i, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
@@ -108,32 +166,29 @@ voclMigCreateContext(const cl_context_properties * properties,
     increaseObjCount(proxyIndex);
 
     /*convert opencl context to vocl context */
-    context = tmpCreateContext.hContext;
-    //context = voclCLContext2VOCLContext(tmpCreateContext.hContext, proxyRank, proxyIndex, proxyComm, proxyCommData);
     free(clDevices);
 
-    return context;
+    return tmpCreateContext.hContext;
 }
 
 /* Command Queue APIs */
 cl_command_queue
-voclMigCreateCommandQueue(cl_context context,
-                          cl_device_id device,
+voclMigCreateCommandQueue(vocl_context context,
+                          vocl_device_id device,
                           cl_command_queue_properties properties, cl_int * errcode_ret)
 {
     struct strCreateCommandQueue tmpCreateCommandQueue;
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-    vocl_command_queue command_queue;
     int proxyRankDevice, proxyRankContext, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
 
     tmpCreateCommandQueue.context =
-        voclVOCLContext2CLContextComm((vocl_context) context, &proxyRankContext, &proxyIndex,
+        voclVOCLContext2CLContextComm(context, &proxyRankContext, &proxyIndex,
                                       &proxyComm, &proxyCommData);
     tmpCreateCommandQueue.device =
-        voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id) device, &proxyRankDevice, &proxyIndex,
+        voclVOCLDeviceID2CLDeviceIDComm(device, &proxyRankDevice, &proxyIndex,
                                         &proxyComm, &proxyCommData);
     if (proxyRankContext != proxyRankDevice) {
         printf("deice and context are on different GPU nodes!\n");
@@ -170,7 +225,7 @@ voclMigCreateCommandQueue(cl_context context,
 }
 
 cl_program
-voclMigCreateProgramWithSource(cl_context context,
+voclMigCreateProgramWithSource(vocl_context context,
                                cl_uint count,
                                const char **strings, const size_t * lengths,
                                cl_int * errcode_ret)
@@ -178,7 +233,6 @@ voclMigCreateProgramWithSource(cl_context context,
     struct strCreateProgramWithSource tmpCreateProgramWithSource;
     MPI_Status status[4];
     MPI_Request request[4];
-    vocl_program program;
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
     int requestNo = 0;
@@ -187,7 +241,7 @@ voclMigCreateProgramWithSource(cl_context context,
     char *allStrings;
 
     /* initialize structure */
-    tmpCreateProgramWithSource.context = voclVOCLContext2CLContextComm((vocl_context) context,
+    tmpCreateProgramWithSource.context = voclVOCLContext2CLContextComm(context,
                                                                        &proxyRank, &proxyIndex,
                                                                        &proxyComm,
                                                                        &proxyCommData);
@@ -258,19 +312,18 @@ voclMigCreateProgramWithSource(cl_context context,
     return tmpCreateProgramWithSource.clProgram;
 }
 
-cl_kernel voclMigCreateKernel(cl_program program, const char *kernel_name,
+cl_kernel voclMigCreateKernel(vocl_program program, const char *kernel_name,
                               cl_int * errcode_ret)
 {
     MPI_Status status[3];
     MPI_Request request[3];
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
-    vocl_kernel kernel;
     int requestNo = 0;
     struct strCreateKernel tmpCreateKernel;
     int kernelNameSize = strlen(kernel_name);
 
-    tmpCreateKernel.program = voclVOCLProgram2CLProgramComm((vocl_program) program,
+    tmpCreateKernel.program = voclVOCLProgram2CLProgramComm(program,
                                                             &proxyRank, &proxyIndex,
                                                             &proxyComm, &proxyCommData);
 
@@ -303,19 +356,18 @@ cl_kernel voclMigCreateKernel(cl_program program, const char *kernel_name,
 
 /* Memory Object APIs */
 cl_mem
-voclMigCreateBuffer(cl_context context,
+voclMigCreateBuffer(vocl_context context,
                     cl_mem_flags flags, size_t size, void *host_ptr, cl_int * errcode_ret)
 {
     struct strCreateBuffer tmpCreateBuffer;
     MPI_Status status[3];
     MPI_Request request[3];
-    vocl_mem memory;
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
     int requestNo = 0;
 
     /* initialize structure */
-    tmpCreateBuffer.context = voclVOCLContext2CLContextComm((vocl_context) context,
+    tmpCreateBuffer.context = voclVOCLContext2CLContextComm(context,
                                                             &proxyRank, &proxyIndex,
                                                             &proxyComm, &proxyCommData);
 
@@ -361,7 +413,6 @@ voclMigCreateSampler(cl_context context,
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
-    vocl_sampler sampler;
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
     struct strCreateSampler tmpCreateSampler;
@@ -590,3 +641,4 @@ cl_int clMigReleaseOldMemObject(vocl_mem memobj)
 
     return tmpReleaseMemObject.res;
 }
+

@@ -1,4 +1,17 @@
+#include <stdio.h>
 #include "voclMigrationDeviceProc.h"
+
+extern cl_int dlCLGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_platforms);
+extern cl_int dlCLGetDeviceIDs(cl_platform_id platform,
+                 cl_device_type device_type,
+                 cl_uint num_entries, cl_device_id * devices, cl_uint * num_devices);
+extern cl_int dlCLGetDeviceInfo(cl_device_id device,
+                  cl_device_info param_name,
+                  size_t param_value_size, void *param_value, size_t * param_value_size_ret);
+
+
+
+
 
 VOCL_LIB_DEVICE *voclLibDevicePtr = NULL;
 
@@ -8,6 +21,7 @@ void voclLibCreateDevice(cl_device_id device, size_t globalSize)
 	VOCL_LIB_DEVICE *devicePtr = (VOCL_LIB_DEVICE *)malloc(sizeof(VOCL_LIB_DEVICE));
 	devicePtr->device = device;
 	devicePtr->globalSize = globalSize;
+	devicePtr->globalSize = 400000000;
 	devicePtr->usedSize = 0;
 	devicePtr->cmdQueuePtr = NULL;
 	devicePtr->memPtr = NULL;
@@ -178,7 +192,7 @@ void voclLibUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queue cmdQu
 	voclLibUpdateCmdQueueOnDevicePtr(devicePtr, cmdQueue);
 }
 
-cl_device_id voclLibGetDeviceIDFromCmdQueue(cl_command_queue cmdQueue)
+VOCL_LIB_DEVICE *voclLibGetDeviceIDFromCmdQueue(cl_command_queue cmdQueue)
 {
 	LIB_CMD_QUEUE *cmdQueuePtr;
 	VOCL_LIB_DEVICE *devicePtr = voclLibDevicePtr;
@@ -290,12 +304,6 @@ void voclLibUpdateMemoryOnDevice(VOCL_LIB_DEVICE *devicePtr, cl_mem mem, size_t 
 
 	return;
 }
-
-//void voclLibUpdateMemoryOnDevice(cl_command_queue cmdQueue, cl_mem mem, size_t size)
-//{
-//	VOCL_LIB_DEVICE devicePtr = voclLibGetDeviceIDFromCmdQueue(cmdQueue);
-//	voclLibUpdateMemoryOnDevice(devicePtr, mem, size);
-//}
 
 int voclLibIsMemoryOnDevice(VOCL_LIB_DEVICE *devicePtr, cl_mem mem)
 /* is already on the device, return 1; otherwise, return 0 */

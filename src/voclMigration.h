@@ -18,6 +18,12 @@ struct strMigWriteLocalBuffer {
     MPI_Request request;
 };
 
+struct strMigWTLocalBufferPool {
+	struct strMigWriteLocalBuffer buffers[VOCL_MIG_BUF_NUM];
+	int voclMigWriteLocalBufferIndex;
+	int voclMigWriteLocalBufferRstNum;
+};
+
 /* read buffer */
 struct strMigReadLocalBuffer {
     int dest;
@@ -30,6 +36,12 @@ struct strMigReadLocalBuffer {
     MPI_Comm comm;
     MPI_Comm commData;
     MPI_Request request;
+};
+
+struct strMigRDLocalBufferPool {
+	struct strMigReadLocalBuffer buffers[VOCL_MIG_BUF_NUM];
+	int voclMigReadLocalBufferIndex;
+	int voclMigReadLocalBufferRstNum;
 };
 
 struct strMigRWLocalBuffer {

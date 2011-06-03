@@ -10,6 +10,7 @@ struct strMigGPUMemoryWrite {
     int source;
     int isFromLocal;
     MPI_Comm comm;
+	int res;
 };
 
 struct strMigGPUMemoryRead {
@@ -19,6 +20,7 @@ struct strMigGPUMemoryRead {
     int dest;
     int isToLocal;
     MPI_Comm comm;
+	int res;
 };
 
 struct strMigGPUMemoryWriteCmpd {
@@ -35,7 +37,43 @@ struct strMigGPUMemoryReadCmpd {
     int retCode;
 };
 
-int voclMigIssueGPUMemoryWrite(MPI_Comm oldComm, MPI_Comm oldCommData, int oldRank,
+struct strMigRemoteGPUMemoryRW {
+	cl_command_queue oldCmdQueue;
+	cl_command_queue newCmdQueue;
+	cl_mem           oldMem;
+	cl_mem           newMem;
+	size_t           size;
+	int              res;
+};
+
+struct strMigRemoteGPURWCmpd {
+	int    res;
+};
+
+extern int voclMigGetNextLocalWriteBufferIndex(int rank);
+extern struct strMigWriteLocalBuffer *voclMigGetWriteBufferInfoPtr(int rank, int index);
+extern MPI_Request *voclMigGetWriteBufferRequestPtr(int rank, int index);
+extern void voclMigSetWriteBufferFlag(int rank, int index, int flag);
+extern int voclMigGetNextLocalReadBufferIndex(int rank);
+extern struct strMigReadLocalBuffer *voclMigGetReadBufferInfoPtr(int rank, int index);
+extern cl_int dlCLEnqueueReadBuffer(cl_command_queue command_queue,
+                      cl_mem buffer,
+                      cl_bool blocking_read,
+                      size_t offset,
+                      size_t cb,
+                      void *ptr,
+                      cl_uint num_events_in_wait_list,
+                      const cl_event * event_wait_list, cl_event * event);
+extern void voclMigSetReadBufferFlag(int rank, int index, int flag);
+extern int voclMigFinishLocalDataWrite(int rank, MPI_Comm comm);
+extern int voclMigFinishLocalDataRead(int rank, MPI_Comm comm);
+extern int voclMigFinishLocalDataRW(cl_command_queue cmdQueue);
+extern int voclMigRWGetNextLocalBufferIndex();
+extern struct strMigRWLocalBuffer *voclMigRWGetBufferInfoPtr(int index);
+extern void voclMigSetRWBufferFlag(int index, int flag);
+
+
+int voclMigIssueGPUMemoryWrite(MPI_Comm oldComm, MPI_Comm oldCommData, int oldRank, int oldIndex,
                                MPI_Comm newComm, int newRank, int isFromLocal, int isToLocal,
                                cl_command_queue command_queue, cl_mem mem, size_t size)
 {
@@ -56,18 +94,17 @@ int voclMigIssueGPUMemoryWrite(MPI_Comm oldComm, MPI_Comm oldCommData, int oldRa
         for (i = 0; i <= bufferNum; i++) {
             if (i == bufferNum)
                 bufferSize = remainingSize;
-            bufferIndex = voclMigGetNextLocalWriteBufferIndex();
-            bufferPtr = voclMigGetWriteBufferInfoPtr(bufferIndex);
+            bufferIndex = voclMigGetNextLocalWriteBufferIndex(oldIndex);
+            bufferPtr = voclMigGetWriteBufferInfoPtr(oldIndex, bufferIndex);
             MPI_Irecv(bufferPtr->ptr, bufferSize, MPI_BYTE, oldRank,
-                      VOCL_MIG_TAG + bufferIndex, oldCommData,
-                      voclMigGetWriteBufferRequestPtr(bufferIndex));
+                      VOCL_MIG_TAG, oldCommData,
+                      voclMigGetWriteBufferRequestPtr(oldIndex, bufferIndex));
             bufferPtr->cmdQueue = command_queue;
             bufferPtr->mem = mem;
-            //bufferPtr->tag = VOCL_MIG_TAG+bufferIndex;
             bufferPtr->size = bufferSize;
             bufferPtr->offset = i * VOCL_MIG_BUF_SIZE;
             bufferPtr->comm = oldComm;
-            voclMigSetWriteBufferFlag(bufferIndex, VOCL_MIG_LOCAL_WT_BUF_WAITDATA);
+            voclMigSetWriteBufferFlag(oldIndex, bufferIndex, VOCL_MIG_LOCAL_WT_BUF_WAITDATA);
         }
     }
     else if (isToLocal == 0) {
@@ -88,7 +125,9 @@ int voclMigIssueGPUMemoryWrite(MPI_Comm oldComm, MPI_Comm oldCommData, int oldRa
 
         MPI_Isend(&migMemWrite, sizeof(struct strMigGPUMemoryWrite), MPI_BYTE, newRank,
                   MIG_MEM_WRITE_REQUEST, newComm, &request[0]);
-        MPI_Wait(&request[0], &status[0]);
+        MPI_Irecv(&migMemWrite, sizeof(struct strMigGPUMemoryWrite), MPI_BYTE, newRank,
+                  MIG_MEM_WRITE_REQUEST, newComm, &request[1]);
+        MPI_Waitall(2, request, status);
     }
 
     /* return the source rank for issuing complete request */
@@ -96,7 +135,7 @@ int voclMigIssueGPUMemoryWrite(MPI_Comm oldComm, MPI_Comm oldCommData, int oldRa
 }
 
 int voclMigIssueGPUMemoryRead(MPI_Comm oldComm, int oldRank, MPI_Comm newComm,
-                              MPI_Comm newCommData, int newRank, int isFromLocal,
+                              MPI_Comm newCommData, int newRank, int newIndex, int isFromLocal,
                               int isToLocal, cl_command_queue command_queue, cl_mem mem,
                               size_t size)
 {
@@ -116,17 +155,17 @@ int voclMigIssueGPUMemoryRead(MPI_Comm oldComm, int oldRank, MPI_Comm newComm,
         for (i = 0; i <= bufferNum; i++) {
             if (i == bufferNum)
                 bufferSize = remainingSize;
-            bufferIndex = voclMigGetNextLocalReadBufferIndex();
-            bufferPtr = voclMigGetReadBufferInfoPtr(bufferIndex);
+            bufferIndex = voclMigGetNextLocalReadBufferIndex(newIndex);
+            bufferPtr = voclMigGetReadBufferInfoPtr(newIndex, bufferIndex);
             dlCLEnqueueReadBuffer(command_queue, mem, CL_FALSE, i * VOCL_MIG_BUF_SIZE,
                                   bufferSize, bufferPtr->ptr, 0, NULL, &bufferPtr->event);
             bufferPtr->dest = newRank;
-            bufferPtr->tag = VOCL_MIG_TAG + bufferIndex;
+            bufferPtr->tag = VOCL_MIG_TAG;
             bufferPtr->size = bufferSize;
             bufferPtr->offset = i * VOCL_MIG_BUF_SIZE;
             bufferPtr->comm = newComm;
             bufferPtr->commData = newCommData;
-            voclMigSetReadBufferFlag(bufferIndex, VOCL_MIG_LOCAL_RD_BUF_RDGPUMEM);
+            voclMigSetReadBufferFlag(newIndex, bufferIndex, VOCL_MIG_LOCAL_RD_BUF_RDGPUMEM);
         }
     }
     else if (isFromLocal == 0) {
@@ -146,15 +185,31 @@ int voclMigIssueGPUMemoryRead(MPI_Comm oldComm, int oldRank, MPI_Comm newComm,
 
         MPI_Isend(&migMemRead, sizeof(struct strMigGPUMemoryRead), MPI_BYTE, oldRank,
                   MIG_MEM_READ_REQUEST, oldComm, &request[0]);
-        MPI_Wait(&request[0], &status[0]);
+        MPI_Irecv(&migMemRead, sizeof(struct strMigGPUMemoryRead), MPI_BYTE, oldRank,
+                  MIG_MEM_READ_REQUEST, oldComm, &request[1]);
+        MPI_Waitall(2, request, status);
     }
 
     /* return the source rank for issuing complete request */
     return migDest;
 }
 
-void voclMigFinishDataTransfer(MPI_Comm oldComm, int oldRank, cl_command_queue oldCmdQueue,
-                               MPI_Comm newComm, int newRank, cl_command_queue newCmdQueue,
+static int voclFinishMigrationOnSameRemoteNode(MPI_Comm comm, int rank)
+{
+	MPI_Request request[2];
+	MPI_Status  status[2];
+	struct strMigRemoteGPURWCmpd tmpRWCmpd;
+	MPI_Isend(&tmpRWCmpd, sizeof(struct strMigRemoteGPURWCmpd), MPI_BYTE, rank,
+		MIG_SAME_REMOTE_NODE_CMPLD, comm, &request[0]);
+	MPI_Irecv(&tmpRWCmpd, sizeof(struct strMigRemoteGPURWCmpd), MPI_BYTE, rank,
+		MIG_SAME_REMOTE_NODE_CMPLD, comm, &request[1]);
+	MPI_Waitall(2, request, status);
+
+	return tmpRWCmpd.res;	
+}
+
+void voclMigFinishDataTransfer(MPI_Comm oldComm, int oldRank, int oldIndex, cl_command_queue oldCmdQueue,
+                               MPI_Comm newComm, int newRank, int newIndex, cl_command_queue newCmdQueue,
                                int proxySourceRank, int proxyDestRank, int isFromLocal,
                                int isToLocal)
 {
@@ -174,23 +229,31 @@ void voclMigFinishDataTransfer(MPI_Comm oldComm, int oldRank, cl_command_queue o
     readCmpdRst.comm = oldComm;
 
     if (isFromLocal == 0 && isToLocal == 0) {
-        /* if source GPU is on a remote node */
-        MPI_Isend(&readCmpdRst, sizeof(struct strMigGPUMemoryReadCmpd), MPI_BYTE,
-                  oldRank, MIG_MEM_READ_CMPLD, oldComm, request + (requestNo++));
-        MPI_Irecv(&readCmpdRst, sizeof(struct strMigGPUMemoryReadCmpd), MPI_BYTE,
-                  oldRank, MIG_MEM_READ_CMPLD, oldComm, request + (requestNo++));
-        /* if destination GPU is on a remote node */
-        MPI_Isend(&writeCmpdRst, sizeof(struct strMigGPUMemoryWriteCmpd), MPI_BYTE,
-                  newRank, MIG_MEM_WRITE_CMPLD, newComm, request + (requestNo++));
-        MPI_Irecv(&writeCmpdRst, sizeof(struct strMigGPUMemoryWriteCmpd), MPI_BYTE,
-                  newRank, MIG_MEM_WRITE_CMPLD, newComm, request + (requestNo++));
-        MPI_Waitall(requestNo, request, status);
+		/* if migration is on the same remote node */
+		if (oldIndex == newIndex)
+		{
+			voclFinishMigrationOnSameRemoteNode(oldComm, oldRank);
+		}
+		else
+		{
+			/* if source GPU is on a remote node */
+			MPI_Isend(&readCmpdRst, sizeof(struct strMigGPUMemoryReadCmpd), MPI_BYTE,
+					  oldRank, MIG_MEM_READ_CMPLD, oldComm, request + (requestNo++));
+			MPI_Irecv(&readCmpdRst, sizeof(struct strMigGPUMemoryReadCmpd), MPI_BYTE,
+					  oldRank, MIG_MEM_READ_CMPLD, oldComm, request + (requestNo++));
+			/* if destination GPU is on a remote node */
+			MPI_Isend(&writeCmpdRst, sizeof(struct strMigGPUMemoryWriteCmpd), MPI_BYTE,
+					  newRank, MIG_MEM_WRITE_CMPLD, newComm, request + (requestNo++));
+			MPI_Irecv(&writeCmpdRst, sizeof(struct strMigGPUMemoryWriteCmpd), MPI_BYTE,
+					  newRank, MIG_MEM_WRITE_CMPLD, newComm, request + (requestNo++));
+			MPI_Waitall(requestNo, request, status);
+		}
     }
     else if (isFromLocal == 0 && isToLocal == 1) {
         /* if source GPU is on a remote node */
         MPI_Isend(&readCmpdRst, sizeof(struct strMigGPUMemoryReadCmpd), MPI_BYTE,
                   oldRank, MIG_MEM_READ_CMPLD, oldComm, request + (requestNo++));
-        voclMigFinishLocalDataWrite(oldComm);
+        voclMigFinishLocalDataWrite(oldIndex, oldComm);
         MPI_Irecv(&readCmpdRst, sizeof(struct strMigGPUMemoryReadCmpd), MPI_BYTE,
                   oldRank, MIG_MEM_READ_CMPLD, oldComm, request + (requestNo++));
         MPI_Waitall(requestNo, request, status);
@@ -200,7 +263,7 @@ void voclMigFinishDataTransfer(MPI_Comm oldComm, int oldRank, cl_command_queue o
         /* if destination GPU is on a remote node */
         MPI_Isend(&writeCmpdRst, sizeof(struct strMigGPUMemoryWriteCmpd), MPI_BYTE,
                   newRank, MIG_MEM_WRITE_CMPLD, newComm, request + (requestNo++));
-        voclMigFinishLocalDataRead(newComm);
+        voclMigFinishLocalDataRead(newIndex, newComm);
         MPI_Irecv(&writeCmpdRst, sizeof(struct strMigGPUMemoryWriteCmpd), MPI_BYTE,
                   newRank, MIG_MEM_WRITE_CMPLD, newComm, request + (requestNo++));
         MPI_Waitall(requestNo, request, status);
@@ -210,6 +273,27 @@ void voclMigFinishDataTransfer(MPI_Comm oldComm, int oldRank, cl_command_queue o
     }
 
     return;
+}
+
+void voclMigrationOnSameRemoteNode(MPI_Comm comm, int rank, cl_command_queue oldCmdQueue, 
+		cl_mem oldMem, cl_command_queue newCmdQueue, cl_mem newMem, size_t size)
+{
+	MPI_Request request[2];
+	MPI_Status  status[2];
+	struct strMigRemoteGPUMemoryRW tmpRWSameNode;
+	tmpRWSameNode.oldCmdQueue = oldCmdQueue;
+	tmpRWSameNode.newCmdQueue = newCmdQueue;
+	tmpRWSameNode.oldMem = oldMem;
+	tmpRWSameNode.newMem = newMem;
+	tmpRWSameNode.size = size;
+	/* send out message to request migration on the same remote node */
+	MPI_Isend(&tmpRWSameNode, sizeof(struct strMigRemoteGPUMemoryRW), MPI_BYTE, rank, 
+		MIG_SAME_REMOTE_NODE, comm, &request[0]);
+	MPI_Irecv(&tmpRWSameNode, sizeof(struct strMigRemoteGPUMemoryRW), MPI_BYTE, rank, 
+		MIG_SAME_REMOTE_NODE, comm, &request[1]);
+	MPI_Waitall(2, request, status);
+
+	return;
 }
 
 void voclMigLocalToLocal(cl_command_queue oldCmdQueue, cl_mem oldMem,
@@ -228,8 +312,8 @@ void voclMigLocalToLocal(cl_command_queue oldCmdQueue, cl_mem oldMem,
             bufferSize = remainingSize;
         bufferIndex = voclMigRWGetNextLocalBufferIndex();
         bufferPtr = voclMigRWGetBufferInfoPtr(bufferIndex);
-        dlCLEnqueueReadBuffer(oldCmdQueue, oldMem, CL_FALSE, 0, bufferSize,
-                              bufferPtr->ptr, 0, NULL, &bufferPtr->rdEvent);
+        dlCLEnqueueReadBuffer(oldCmdQueue, oldMem, CL_FALSE, i * VOCL_MIG_BUF_SIZE, 
+				bufferSize, bufferPtr->ptr, 0, NULL, &bufferPtr->rdEvent);
         bufferPtr->wtCmdQueue = newCmdQueue;
         bufferPtr->wtMem = newMem;
         bufferPtr->size = bufferSize;
