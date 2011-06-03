@@ -2,6 +2,11 @@
 #include <string.h>
 #include "voclStructures.h"
 
+extern cl_program
+voclMigCreateProgramWithSource(vocl_context context,
+                               cl_uint count,
+                               const char **strings, const size_t * lengths,
+                               cl_int * errcode_ret);
 
 static struct strVOCLProgram *voclProgramPtr = NULL;
 static vocl_program voclProgram;
@@ -183,7 +188,7 @@ void voclUpdateVOCLProgram(vocl_program voclProgram, int proxyRank, int proxyInd
     int err;
 
     /*release previous program */
-    clReleaseProgram(voclProgram);
+    clReleaseProgram((cl_program)voclProgram);
 
     programPtr->proxyRank = proxyRank;
     programPtr->proxyIndex = proxyIndex;

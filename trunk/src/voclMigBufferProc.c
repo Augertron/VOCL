@@ -4,121 +4,165 @@
 #include "voclOpencl.h"
 #include "voclMigration.h"
 
-/* ----------------------------Write Buffer-------------------------------*/
-struct strMigWriteLocalBuffer *migWriteLocalBufferInfo = NULL;
-int voclMigWriteLocalBufferIndex;
-int voclMigWriteLocalBufferRstNum;
+extern cl_int
+dlCLEnqueueWriteBuffer(cl_command_queue command_queue,
+                       cl_mem buffer,
+                       cl_bool blocking_write,
+                       size_t offset,
+                       size_t cb,
+                       const void *ptr,
+                       cl_uint num_events_in_wait_list,
+                       const cl_event * event_wait_list, cl_event * event);
+extern cl_int dlCLWaitForEvents(cl_uint num_events, const cl_event * event_list);
 
-void voclMigWriteLocalBufferInitialize()
+
+/* ----------------------------Write Buffer-------------------------------*/
+static struct strMigWTLocalBufferPool *voclMigLocalWTBufferPool = NULL;
+static int voclMigLocalWriteBufferNum = 0;
+
+static void voclMigWriteLocalBufferInitialize(int index)
 {
     int i;
-    migWriteLocalBufferInfo =
-        (struct strMigWriteLocalBuffer *) malloc(sizeof(struct strMigWriteLocalBuffer) *
-                                                 VOCL_MIG_BUF_NUM);
     for (i = 0; i < VOCL_MIG_BUF_NUM; i++) {
-        migWriteLocalBufferInfo[i].cmdQueue = NULL;
-        migWriteLocalBufferInfo[i].mem = NULL;
-        migWriteLocalBufferInfo[i].size = 0;
-        migWriteLocalBufferInfo[i].offset = 0;
-        migWriteLocalBufferInfo[i].event = NULL;
-        migWriteLocalBufferInfo[i].useFlag = VOCL_MIG_LOCAL_WT_BUF_AVALB;
-        migWriteLocalBufferInfo[i].ptr = (char *) malloc(VOCL_MIG_BUF_SIZE * sizeof(char));
+        voclMigLocalWTBufferPool[index].buffers[i].cmdQueue = NULL;
+        voclMigLocalWTBufferPool[index].buffers[i].mem = NULL;
+        voclMigLocalWTBufferPool[index].buffers[i].size = 0;
+        voclMigLocalWTBufferPool[index].buffers[i].offset = 0;
+        voclMigLocalWTBufferPool[index].buffers[i].event = NULL;
+        voclMigLocalWTBufferPool[index].buffers[i].useFlag = VOCL_MIG_LOCAL_WT_BUF_AVALB;
+        voclMigLocalWTBufferPool[index].buffers[i].ptr = (char *) malloc(VOCL_MIG_BUF_SIZE * sizeof(char));
     }
 
-    voclMigWriteLocalBufferIndex = 0;
-    voclMigWriteLocalBufferRstNum = 0;
+    voclMigLocalWTBufferPool[index].voclMigWriteLocalBufferIndex = 0;
+    voclMigLocalWTBufferPool[index].voclMigWriteLocalBufferRstNum = 0;
 
     return;
+}
+
+static void voclMigReallocLocalWTBuffer(int oldBufferNum, int newBufferNum)
+{
+	int i;
+	voclMigLocalWTBufferPool = (struct strMigWTLocalBufferPool*)realloc(voclMigLocalWTBufferPool, 
+			sizeof(struct strMigWTLocalBufferPool)* newBufferNum);
+	for (i = oldBufferNum; i < newBufferNum; i++)
+	{
+		voclMigWriteLocalBufferInitialize(i);
+	}
+
+	return;
+}
+
+void voclMigWriteLocalBufferInitializeAll()
+{
+	int i;
+	voclMigLocalWriteBufferNum = VOCL_MIG_POOL_NUM;
+	voclMigLocalWTBufferPool = (struct strMigWTLocalBufferPool*)malloc(sizeof(struct strMigWTLocalBufferPool)*
+			voclMigLocalWriteBufferNum);
+	for (i = 0; i < voclMigLocalWriteBufferNum; i++)
+	{
+		voclMigWriteLocalBufferInitialize(i);
+	}
+
+	return;
 }
 
 void voclMigWriteLocalBufferFinalize()
 {
-    int i;
-    for (i = 0; i < VOCL_MIG_BUF_NUM; i++) {
-        migWriteLocalBufferInfo[i].useFlag = VOCL_MIG_LOCAL_WT_BUF_AVALB;
-        free(migWriteLocalBufferInfo[i].ptr);
-        migWriteLocalBufferInfo[i].ptr = NULL;
-    }
+    int i, index;
+	for (index = 0; index < voclMigLocalWriteBufferNum; index++)
+	{
+		for (i = 0; i < VOCL_MIG_BUF_NUM; i++) {
+			voclMigLocalWTBufferPool[index].buffers[i].useFlag = VOCL_MIG_LOCAL_WT_BUF_AVALB;
+			free(voclMigLocalWTBufferPool[index].buffers[i].ptr);
+			voclMigLocalWTBufferPool[index].buffers[i].ptr = NULL;
+		}
 
-    voclMigWriteLocalBufferIndex = 0;
-    voclMigWriteLocalBufferRstNum = 0;
+		voclMigLocalWTBufferPool[index].voclMigWriteLocalBufferIndex = 0;
+		voclMigLocalWTBufferPool[index].voclMigWriteLocalBufferRstNum = 0;
+	}
 
-    free(migWriteLocalBufferInfo);
+    free(voclMigLocalWTBufferPool);
 
     return;
 }
 
-static int voclMigWriteToGPUMem(int index)
+static int voclMigWriteToGPUMem(int rank, int index)
 {
     int err;
-    err = dlCLEnqueueWriteBuffer(migWriteLocalBufferInfo[index].cmdQueue,
-                                 migWriteLocalBufferInfo[index].mem,
+    err = dlCLEnqueueWriteBuffer(voclMigLocalWTBufferPool[rank].buffers[index].cmdQueue,
+                                 voclMigLocalWTBufferPool[rank].buffers[index].mem,
                                  CL_FALSE,
-                                 migWriteLocalBufferInfo[index].offset,
-                                 migWriteLocalBufferInfo[index].size,
-                                 migWriteLocalBufferInfo[index].ptr,
-                                 0, NULL, &migWriteLocalBufferInfo[index].event);
+                                 voclMigLocalWTBufferPool[rank].buffers[index].offset,
+                                 voclMigLocalWTBufferPool[rank].buffers[index].size,
+                                 voclMigLocalWTBufferPool[rank].buffers[index].ptr,
+                                 0, NULL, &voclMigLocalWTBufferPool[rank].buffers[index].event);
     return err;
 }
 
-int voclMigGetNextLocalWriteBufferIndex()
+int voclMigGetNextLocalWriteBufferIndex(int rank)
 {
-    int index = voclMigWriteLocalBufferIndex;
+    int index = voclMigLocalWTBufferPool[rank].voclMigWriteLocalBufferIndex;
     MPI_Status status;
 
-    if (migWriteLocalBufferInfo[index].useFlag == VOCL_MIG_LOCAL_WT_BUF_WAITDATA) {
-        MPI_Wait(&migWriteLocalBufferInfo[index].request, &status);
-        voclMigWriteToGPUMem(index);
-        dlCLWaitForEvents(1, &migWriteLocalBufferInfo[index].event);
-    }
-    else if (migWriteLocalBufferInfo[index].useFlag == VOCL_MIG_LOCAL_WT_BUF_WTGPUMEM) {
-        dlCLWaitForEvents(1, &migWriteLocalBufferInfo[index].event);
-    }
-    migWriteLocalBufferInfo[index].useFlag = VOCL_MIG_LOCAL_WT_BUF_AVALB;
+	if (rank >= voclMigLocalWriteBufferNum)
+	{
+		voclMigReallocLocalWTBuffer(voclMigLocalWriteBufferNum, 2*voclMigLocalWriteBufferNum);
+		voclMigLocalWriteBufferNum *= 2;
+	}
 
-    if (++voclMigWriteLocalBufferIndex >= VOCL_MIG_BUF_NUM) {
-        voclMigWriteLocalBufferIndex = 0;
+    if (voclMigLocalWTBufferPool[rank].buffers[index].useFlag == VOCL_MIG_LOCAL_WT_BUF_WAITDATA) {
+        MPI_Wait(&voclMigLocalWTBufferPool[rank].buffers[index].request, &status);
+        voclMigWriteToGPUMem(rank, index);
+        dlCLWaitForEvents(1, &voclMigLocalWTBufferPool[rank].buffers[index].event);
+    }
+    else if (voclMigLocalWTBufferPool[rank].buffers[index].useFlag == VOCL_MIG_LOCAL_WT_BUF_WTGPUMEM) {
+        dlCLWaitForEvents(1, &voclMigLocalWTBufferPool[rank].buffers[index].event);
+    }
+    voclMigLocalWTBufferPool[rank].buffers[index].useFlag = VOCL_MIG_LOCAL_WT_BUF_AVALB;
+
+    if (++voclMigLocalWTBufferPool[rank].voclMigWriteLocalBufferIndex >= VOCL_MIG_BUF_NUM) {
+        voclMigLocalWTBufferPool[rank].voclMigWriteLocalBufferIndex = 0;
     }
 
-    if (++voclMigWriteLocalBufferRstNum > VOCL_MIG_BUF_NUM) {
-        voclMigWriteLocalBufferRstNum = VOCL_MIG_BUF_NUM;
+    if (++voclMigLocalWTBufferPool[rank].voclMigWriteLocalBufferRstNum > VOCL_MIG_BUF_NUM) {
+        voclMigLocalWTBufferPool[rank].voclMigWriteLocalBufferRstNum = VOCL_MIG_BUF_NUM;
     }
 
     return index;
 }
 
-void voclMigSetWriteBufferFlag(int index, int flag)
+void voclMigSetWriteBufferFlag(int rank, int index, int flag)
 {
-    migWriteLocalBufferInfo[index].useFlag = flag;
+    voclMigLocalWTBufferPool[rank].buffers[index].useFlag = flag;
     return;
 }
 
-MPI_Request *voclMigGetWriteBufferRequestPtr(int index)
+MPI_Request *voclMigGetWriteBufferRequestPtr(int rank, int index)
 {
-    return &migWriteLocalBufferInfo[index].request;
+    return &voclMigLocalWTBufferPool[rank].buffers[index].request;
 }
 
-cl_event *voclMigGetWriteBufferEventPtr(int index)
+cl_event *voclMigGetWriteBufferEventPtr(int rank, int index)
 {
-    return &migWriteLocalBufferInfo[index].event;
+    return &voclMigLocalWTBufferPool[rank].buffers[index].event;
 }
 
-struct strMigWriteLocalBuffer *voclMigGetWriteBufferInfoPtr(int index)
+struct strMigWriteLocalBuffer *voclMigGetWriteBufferInfoPtr(int rank, int index)
 {
-    return migWriteLocalBufferInfo + index;
+    return &voclMigLocalWTBufferPool[rank].buffers[index];
 }
 
-int voclMigFinishLocalDataWrite(MPI_Comm comm)
+int voclMigFinishLocalDataWrite(int rank, MPI_Comm comm)
 {
     int i, index, err;
     int startIndex, endIndex;
     cl_event eventList[VOCL_MIG_BUF_NUM];
-    int activeBufferFlag[VOCL_MIG_BUF_NUM];
+//    int activeBufferFlag[VOCL_MIG_BUF_NUM];
     int eventNo = 0;
     MPI_Status status;
 
-    endIndex = voclMigWriteLocalBufferIndex;
-    startIndex = endIndex - voclMigWriteLocalBufferRstNum;
+    endIndex = voclMigLocalWTBufferPool[rank].voclMigWriteLocalBufferIndex;
+    startIndex = endIndex - voclMigLocalWTBufferPool[rank].voclMigWriteLocalBufferRstNum;
     if (startIndex < 0) {
         startIndex += VOCL_MIG_BUF_NUM;
         endIndex += VOCL_MIG_BUF_NUM;
@@ -126,20 +170,15 @@ int voclMigFinishLocalDataWrite(MPI_Comm comm)
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_MIG_BUF_NUM;
-        activeBufferFlag[index] = 0;
-        if (migWriteLocalBufferInfo[index].comm == comm) {
-            if (migWriteLocalBufferInfo[index].useFlag == VOCL_MIG_LOCAL_WT_BUF_WAITDATA) {
-                MPI_Wait(&migWriteLocalBufferInfo[index].request, &status);
-                voclMigWriteToGPUMem(index);
-                eventList[eventNo++] = migWriteLocalBufferInfo[index].event;
-                activeBufferFlag[index] = 1;
+            if (voclMigLocalWTBufferPool[rank].buffers[index].useFlag == VOCL_MIG_LOCAL_WT_BUF_WAITDATA) {
+                MPI_Wait(&voclMigLocalWTBufferPool[rank].buffers[index].request, &status);
+                voclMigWriteToGPUMem(rank, index);
+                eventList[eventNo++] = voclMigLocalWTBufferPool[rank].buffers[index].event;
             }
-            else if (migWriteLocalBufferInfo[index].useFlag == VOCL_MIG_LOCAL_WT_BUF_WTGPUMEM) {
-                eventList[eventNo++] = migWriteLocalBufferInfo[index].event;
-                activeBufferFlag[index] = 1;
+            else if (voclMigLocalWTBufferPool[rank].buffers[index].useFlag == VOCL_MIG_LOCAL_WT_BUF_WTGPUMEM) {
+                eventList[eventNo++] = voclMigLocalWTBufferPool[rank].buffers[index].event;
             }
 
-        }
     }
 
     if (eventNo > 0) {
@@ -148,129 +187,159 @@ int voclMigFinishLocalDataWrite(MPI_Comm comm)
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_MIG_BUF_NUM;
-        if (activeBufferFlag[index] == 1) {
-            migWriteLocalBufferInfo[index].useFlag = VOCL_MIG_LOCAL_WT_BUF_AVALB;
-            migWriteLocalBufferInfo[index].comm = -1;
-        }
+            voclMigLocalWTBufferPool[rank].buffers[index].useFlag = VOCL_MIG_LOCAL_WT_BUF_AVALB;
+            voclMigLocalWTBufferPool[rank].buffers[index].comm = -1;
     }
 
     return err;
 }
 
 /* ------------------ read buffer ------------------------------------------------*/
-struct strMigReadLocalBuffer *migReadLocalBufferInfo = NULL;
-int voclMigReadLocalBufferIndex;
-int voclMigReadLocalBufferRstNum;
+static struct strMigRDLocalBufferPool *voclMigLocalRDBufferPool = NULL;
+static int voclMigLocalReadBufferNum = 0;
 
-void voclMigReadLocalBufferInitialize()
+static void voclMigReadLocalBufferInitialize(int index)
 {
     int i;
-    migReadLocalBufferInfo =
-        (struct strMigReadLocalBuffer *) malloc(sizeof(struct strMigReadLocalBuffer) *
-                                                VOCL_MIG_BUF_NUM);
     for (i = 0; i < VOCL_MIG_BUF_NUM; i++) {
-        migReadLocalBufferInfo[i].dest = -1;
-        migReadLocalBufferInfo[i].tag = -1;
-        migReadLocalBufferInfo[i].size = 0;
-        migReadLocalBufferInfo[i].offset = 0;
-        migReadLocalBufferInfo[i].event = NULL;
-        migReadLocalBufferInfo[i].useFlag = VOCL_MIG_LOCAL_RD_BUF_AVALB;
-        migReadLocalBufferInfo[i].ptr = (char *) malloc(VOCL_MIG_BUF_SIZE * sizeof(char));
+        voclMigLocalRDBufferPool[index].buffers[i].dest = -1;
+        voclMigLocalRDBufferPool[index].buffers[i].tag = -1;
+        voclMigLocalRDBufferPool[index].buffers[i].size = 0;
+        voclMigLocalRDBufferPool[index].buffers[i].offset = 0;
+        voclMigLocalRDBufferPool[index].buffers[i].event = NULL;
+        voclMigLocalRDBufferPool[index].buffers[i].useFlag = VOCL_MIG_LOCAL_RD_BUF_AVALB;
+        voclMigLocalRDBufferPool[index].buffers[i].ptr = (char *) malloc(VOCL_MIG_BUF_SIZE * sizeof(char));
     }
 
-    voclMigReadLocalBufferIndex = 0;
-    voclMigReadLocalBufferRstNum = 0;
+    voclMigLocalRDBufferPool[index].voclMigReadLocalBufferIndex = 0;
+    voclMigLocalRDBufferPool[index].voclMigReadLocalBufferRstNum = 0;
 
     return;
+}
+
+static void voclMigReallocLocalRDBuffer(int oldBufferNum, int newBufferNum)
+{
+	int i;
+	voclMigLocalRDBufferPool = (struct strMigRDLocalBufferPool*)realloc(voclMigLocalRDBufferPool, 
+			sizeof(struct strMigRDLocalBufferPool)* newBufferNum);
+	for (i = oldBufferNum; i < newBufferNum; i++)
+	{
+		voclMigReadLocalBufferInitialize(i);
+	}
+
+	return;
+}
+
+void voclMigReadLocalBufferInitializeAll()
+{
+	int i;
+	voclMigLocalReadBufferNum = VOCL_MIG_POOL_NUM;
+	voclMigLocalRDBufferPool = (struct strMigRDLocalBufferPool*)malloc(voclMigLocalReadBufferNum * 
+						sizeof(struct strMigRDLocalBufferPool));
+	for (i = 0; i < voclMigLocalReadBufferNum; i++)
+	{
+		voclMigReadLocalBufferInitialize(i);
+	}
+	return;
 }
 
 void voclMigReadLocalBufferFinalize()
 {
-    int i;
-    for (i = 0; i < VOCL_MIG_BUF_NUM; i++) {
-        migReadLocalBufferInfo[i].useFlag = VOCL_MIG_LOCAL_RD_BUF_AVALB;
-        free(migReadLocalBufferInfo[i].ptr);
-        migReadLocalBufferInfo[i].ptr = NULL;
-    }
+    int i, index;
+	for (index = 0; index < voclMigLocalReadBufferNum; index++)
+	{
+		for (i = 0; i < VOCL_MIG_BUF_NUM; i++) {
+			voclMigLocalRDBufferPool[index].buffers[i].useFlag = VOCL_MIG_LOCAL_RD_BUF_AVALB;
+			free(voclMigLocalRDBufferPool[index].buffers[i].ptr);
+			voclMigLocalRDBufferPool[index].buffers[i].ptr = NULL;
+		}
 
-    voclMigReadLocalBufferIndex = 0;
-    voclMigReadLocalBufferRstNum = 0;
+		voclMigLocalRDBufferPool[index].voclMigReadLocalBufferIndex = 0;
+		voclMigLocalRDBufferPool[index].voclMigReadLocalBufferRstNum = 0;
+	}
 
-    free(migReadLocalBufferInfo);
+    free(voclMigLocalRDBufferPool);
 
     return;
 }
 
-static int voclMigSendToLocalNode(int index)
+static int voclMigSendToLocalNode(int rank, int index)
 {
     int err;
-    err = MPI_Isend(migReadLocalBufferInfo[index].ptr,
-                    migReadLocalBufferInfo[index].size,
+    err = MPI_Isend(voclMigLocalRDBufferPool[rank].buffers[index].ptr,
+                    voclMigLocalRDBufferPool[rank].buffers[index].size,
                     MPI_BYTE,
-                    migReadLocalBufferInfo[index].dest,
-                    migReadLocalBufferInfo[index].tag,
-                    migReadLocalBufferInfo[index].commData,
-                    &migReadLocalBufferInfo[index].request);
+                    voclMigLocalRDBufferPool[rank].buffers[index].dest,
+                    voclMigLocalRDBufferPool[rank].buffers[index].tag,
+                    voclMigLocalRDBufferPool[rank].buffers[index].commData,
+                   &voclMigLocalRDBufferPool[rank].buffers[index].request);
     return err;
 }
 
-int voclMigGetNextLocalReadBufferIndex()
+int voclMigGetNextLocalReadBufferIndex(int rank)
 {
-    int index = voclMigReadLocalBufferIndex;
+    int index = voclMigLocalRDBufferPool[rank].voclMigReadLocalBufferIndex;
     MPI_Status status;
-    if (migReadLocalBufferInfo[index].useFlag == VOCL_MIG_LOCAL_RD_BUF_RDGPUMEM) {
-        dlCLWaitForEvents(1, &migReadLocalBufferInfo[index].event);
-        voclMigSendToLocalNode(index);
-        MPI_Wait(&migReadLocalBufferInfo[index].request, &status);
-    }
-    else if (migReadLocalBufferInfo[index].useFlag == VOCL_MIG_LOCAL_RD_BUF_MPISEND) {
-        MPI_Wait(&migReadLocalBufferInfo[index].request, &status);
-    }
-    migReadLocalBufferInfo[index].useFlag = VOCL_MIG_LOCAL_RD_BUF_AVALB;
 
-    if (++voclMigReadLocalBufferIndex >= VOCL_MIG_BUF_NUM) {
-        voclMigReadLocalBufferIndex = 0;
+	if (rank >= voclMigLocalReadBufferNum)
+	{
+		voclMigReallocLocalRDBuffer(voclMigLocalReadBufferNum, 2*voclMigLocalReadBufferNum);
+		voclMigLocalReadBufferNum *= 2;
+	}
+
+    if (voclMigLocalRDBufferPool[rank].buffers[index].useFlag == VOCL_MIG_LOCAL_RD_BUF_RDGPUMEM) {
+        dlCLWaitForEvents(1, &voclMigLocalRDBufferPool[rank].buffers[index].event);
+        voclMigSendToLocalNode(rank, index);
+        MPI_Wait(&voclMigLocalRDBufferPool[rank].buffers[index].request, &status);
+    }
+    else if (voclMigLocalRDBufferPool[rank].buffers[index].useFlag == VOCL_MIG_LOCAL_RD_BUF_MPISEND) {
+        MPI_Wait(&voclMigLocalRDBufferPool[rank].buffers[index].request, &status);
+    }
+    voclMigLocalRDBufferPool[rank].buffers[index].useFlag = VOCL_MIG_LOCAL_RD_BUF_AVALB;
+
+    if (++voclMigLocalRDBufferPool[rank].voclMigReadLocalBufferIndex >= VOCL_MIG_BUF_NUM) {
+        voclMigLocalRDBufferPool[rank].voclMigReadLocalBufferIndex = 0;
     }
 
-    if (++voclMigReadLocalBufferRstNum > VOCL_MIG_BUF_NUM) {
-        voclMigReadLocalBufferRstNum = VOCL_MIG_BUF_NUM;
+    if (++voclMigLocalRDBufferPool[rank].voclMigReadLocalBufferRstNum > VOCL_MIG_BUF_NUM) {
+        voclMigLocalRDBufferPool[rank].voclMigReadLocalBufferRstNum = VOCL_MIG_BUF_NUM;
     }
 
     return index;
 }
 
-void voclMigSetReadBufferFlag(int index, int flag)
+void voclMigSetReadBufferFlag(int rank, int index, int flag)
 {
-    migReadLocalBufferInfo[index].useFlag = flag;
+    voclMigLocalRDBufferPool[rank].buffers[index].useFlag = flag;
     return;
 }
 
-MPI_Request *voclMigGetReadBufferRequestPtr(int index)
+MPI_Request *voclMigGetReadBufferRequestPtr(int rank, int index)
 {
-    return &migReadLocalBufferInfo[index].request;
+    return &voclMigLocalRDBufferPool[rank].buffers[index].request;
 }
 
-cl_event *voclMigGetReadBufferEventPtr(int index)
+cl_event *voclMigGetReadBufferEventPtr(int rank, int index)
 {
-    return &migReadLocalBufferInfo[index].event;
+    return &voclMigLocalRDBufferPool[rank].buffers[index].event;
 }
 
-struct strMigReadLocalBuffer *voclMigGetReadBufferInfoPtr(int index)
+struct strMigReadLocalBuffer *voclMigGetReadBufferInfoPtr(int rank, int index)
 {
-    return &migReadLocalBufferInfo[index];
+    return &voclMigLocalRDBufferPool[rank].buffers[index];
 }
 
-int voclMigFinishLocalDataRead(MPI_Comm comm)
+int voclMigFinishLocalDataRead(int rank, MPI_Comm comm)
 {
     int i, index, err;
     int startIndex, endIndex;
     MPI_Request request[VOCL_MIG_BUF_NUM];
     MPI_Status status[VOCL_MIG_BUF_NUM];
-    int activeBufferFlag[VOCL_MIG_BUF_NUM];
+//    int activeBufferFlag[VOCL_MIG_BUF_NUM];
     int requestNo = 0;
 
-    endIndex = voclMigReadLocalBufferIndex;
-    startIndex = endIndex - voclMigReadLocalBufferRstNum;
+    endIndex = voclMigLocalRDBufferPool[rank].voclMigReadLocalBufferIndex;
+    startIndex = endIndex - voclMigLocalRDBufferPool[rank].voclMigReadLocalBufferRstNum;
     if (startIndex < 0) {
         startIndex += VOCL_MIG_BUF_NUM;
         endIndex += VOCL_MIG_BUF_NUM;
@@ -278,18 +347,13 @@ int voclMigFinishLocalDataRead(MPI_Comm comm)
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_MIG_BUF_NUM;
-        activeBufferFlag[index] = 0;
-        if (migReadLocalBufferInfo[index].comm == comm) {
-            if (migReadLocalBufferInfo[index].useFlag == VOCL_MIG_LOCAL_RD_BUF_RDGPUMEM) {
-                dlCLWaitForEvents(1, &migReadLocalBufferInfo[index].event);
-                voclMigSendToLocalNode(index);
-                request[requestNo++] = migReadLocalBufferInfo[index].request;
-                activeBufferFlag[index] = 1;
-            }
-            else if (migReadLocalBufferInfo[index].useFlag == VOCL_MIG_LOCAL_RD_BUF_MPISEND) {
-                request[requestNo++] = migReadLocalBufferInfo[index].request;
-                activeBufferFlag[index] = 1;
-            }
+        if (voclMigLocalRDBufferPool[rank].buffers[index].useFlag == VOCL_MIG_LOCAL_RD_BUF_RDGPUMEM) {
+            dlCLWaitForEvents(1, &voclMigLocalRDBufferPool[rank].buffers[index].event);
+            voclMigSendToLocalNode(rank, index);
+            request[requestNo++] = voclMigLocalRDBufferPool[rank].buffers[index].request;
+        }
+        else if (voclMigLocalRDBufferPool[rank].buffers[index].useFlag == VOCL_MIG_LOCAL_RD_BUF_MPISEND) {
+            request[requestNo++] = voclMigLocalRDBufferPool[rank].buffers[index].request;
         }
     }
 
@@ -299,10 +363,8 @@ int voclMigFinishLocalDataRead(MPI_Comm comm)
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_MIG_BUF_NUM;
-        if (activeBufferFlag[index] == 1) {
-            migReadLocalBufferInfo[index].useFlag = VOCL_MIG_LOCAL_RD_BUF_AVALB;
-            migReadLocalBufferInfo[index].comm = comm;
-        }
+            voclMigLocalRDBufferPool[rank].buffers[index].useFlag = VOCL_MIG_LOCAL_RD_BUF_AVALB;
+            voclMigLocalRDBufferPool[rank].buffers[index].comm = comm;
     }
 
     return err;
@@ -433,7 +495,6 @@ int voclMigFinishLocalDataRW(cl_command_queue cmdQueue)
             }
         }
     }
-
     if (eventNo > 0) {
         err = dlCLWaitForEvents(eventNo, eventList);
     }
@@ -449,3 +510,4 @@ int voclMigFinishLocalDataRW(cl_command_queue cmdQueue)
 
     return err;
 }
+

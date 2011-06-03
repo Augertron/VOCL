@@ -341,6 +341,7 @@ struct strMigGPUMemoryWrite {
     int source;
     int isFromLocal;
     MPI_Comm comm;
+	int res;
 };
 
 struct strMigGPUMemoryRead {
@@ -350,6 +351,7 @@ struct strMigGPUMemoryRead {
     int dest;
     int isToLocal;
     MPI_Comm comm;
+	int res;
 };
 
 struct strMigGPUMemoryWriteCmpd {
@@ -366,7 +368,18 @@ struct strMigGPUMemoryReadCmpd {
     int retCode;
 };
 
+struct strMigRemoteGPUMemoryRW {
+	cl_command_queue oldCmdQueue;
+	cl_command_queue newCmdQueue;
+	cl_mem           oldMem;
+	cl_mem           newMem;
+	size_t           size;
+	int res;
+};
 
+struct strMigRemoteGPURWCmpd {
+	int    res;
+};
 
 union CMSG_UNION {
     struct strGetPlatformIDs tmpGetPlatformID;
@@ -413,6 +426,8 @@ union CMSG_UNION {
     struct strMigGPUMemoryRead tmpMigGPUMemRead;
     struct strMigGPUMemoryWriteCmpd tmpMigWriteCmpd;
     struct strMigGPUMemoryReadCmpd tmpMigReadCmpd;
+	struct strMigRemoteGPUMemoryRW tmpMigGPUMemRW;
+	struct strMigRemoteGPURWCmpd tmpMigGPUMemRWCmpd;
 } CONTROL_MSG_UNION;
 
 #endif

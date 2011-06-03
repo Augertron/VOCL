@@ -49,8 +49,10 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define MIG_MEM_WRITE_CMPLD         52
 #define MIG_MEM_READ_CMPLD          53
 #define MIG_GET_PROXY_RANK          54
-#define MIGRATION_CHECK             55
-#define PROGRAM_END                 56
+#define MIG_SAME_REMOTE_NODE        55
+#define MIG_SAME_REMOTE_NODE_CMPLD  56
+#define MIGRATION_CHECK             57
+#define PROGRAM_END                 58
 
 #define CMSG_NUM                    50  /* number of buffers for control messages */
 #define DMSG_NUM      				100     /* number of buffers for data messages */
@@ -124,6 +126,7 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define READ_GPU_MEM_COMP 	3
 #define READ_SEND_DATA  	4
 
+#define VOCL_MIG_BUF_POOL 4
 /* macros for migration */
 #define VOCL_MIG_BUF_NUM 8
 //#define VOCL_MIG_BUF_SIZE 67108864
@@ -134,10 +137,13 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define MIG_WRT_MPIRECV  1
 #define MIG_WRT_WRTGPU   2
 
-#define MIG_READ_AVAILABLE 0
-#define MIG_READ_RDGPU     1
-#define MIG_READ_MPISEND   2
+#define MIG_READ_AVAILABLE 3
+#define MIG_READ_RDGPU     4
+#define MIG_READ_MPISEND   5
 
+#define MIG_RW_SAME_NODE_AVLB   6
+#define MIG_RW_SAME_NODE_RDMEM  7
+#define MIG_RW_SAME_NODE_WTMEM  8
 
 
 #endif

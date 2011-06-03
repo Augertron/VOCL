@@ -1,8 +1,13 @@
 #include <stdio.h>
 #include "voclStructures.h"
 
-extern void increaseObjCount(int proxyIndex);
+extern cl_command_queue
+voclMigCreateCommandQueue(vocl_context context,
+                          vocl_device_id device,
+                          cl_command_queue_properties properties, cl_int * errcode_ret);
 
+
+extern void increaseObjCount(int proxyIndex);
 static struct strVOCLCommandQueue *voclCommandQueuePtr = NULL;
 static vocl_command_queue voclCommandQueue;
 static int voclCommandQueueNo;

@@ -1,8 +1,12 @@
 #include <stdio.h>
 #include "voclStructures.h"
 
-extern void increaseObjCount(int proxyIndex);
+extern cl_mem voclMigCreateBuffer(vocl_context context,
+        cl_mem_flags flags, size_t size, 
+		void *host_ptr, cl_int * errcode_ret);
 
+
+extern void increaseObjCount(int proxyIndex);
 static struct strVOCLMemory *voclMemoryPtr = NULL;
 static vocl_mem voclMemory;
 static int voclMemoryNo;

@@ -1,7 +1,9 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include "vocl_proxyKernelArgProc.h"
 #include "vocl_proxyMigrationDeviceProc.h"
 
-extern cl_device_id voclProxyGetDeviceIDFromCmdQueue(cl_command_queue cmdQueue);
+extern VOCL_PROXY_DEVICE *voclProxyGetDeviceIDFromCmdQueue(cl_command_queue cmdQueue);
 extern int voclProxyIsMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem);
 extern void voclProxyUpdateMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem, size_t size);
 
@@ -22,26 +24,17 @@ int voclProxyIsMigrationNeeded(cl_command_queue cmdQueue, kernel_args *argsPtr, 
 			/* if the current global memory is not bind on the device */
 			/* check whether the global memory size is enougth */
 			memory = *((cl_mem *)argsPtr[i].arg_value);
-			if (voclProxyIsMemoryOnDevice(devicePtr, memory) == 0)
+			voclProxyUpdateMemoryOnDevice(devicePtr, memory, argsPtr[i].globalSize);
+			/* global memory size is not enough */
+			if (devicePtr->usedSize > devicePtr->globalSize)
 			{
-				/* not added to the device yet, add it now */
-				voclProxyUpdateMemoryOnDevice(devicePtr, memory, argsPtr[i].globalSize);
-				/* global memory size is not enough */
-				sizeForKernel += argsPtr[i].globalSize;
-				printf("i = %d, usedSize = %ld, sizeofKernel = %ld, argSize = %ld, globalSize = %ld\n",
-						i, devicePtr->usedSize, sizeForKernel, argsPtr[i].globalSize, devicePtr->globalSize);
-				if (devicePtr->usedSize + sizeForKernel > devicePtr->globalSize)
-				{
-					isMigrationNeeded = 1;
-					break;
-				}
+				isMigrationNeeded = 1;
 			}
 		}
 	}
-//	return 1;
 
-	printf("proxy, isMigrationNeeded = %d\n", isMigrationNeeded);
-
+	printf("proxy, usedSize = %ld, available = %ld, isMigrationNeeded = %d\n", 
+			devicePtr->usedSize, devicePtr->globalSize, isMigrationNeeded);
 	return isMigrationNeeded;
 }
 

@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include "vocl_proxyMigrationDeviceProc.h"
 
 VOCL_PROXY_DEVICE *voclProxyDevicePtr = NULL;
@@ -8,7 +10,7 @@ void voclProxyCreateDevice(cl_device_id device, size_t globalSize)
 	VOCL_PROXY_DEVICE *devicePtr = (VOCL_PROXY_DEVICE *)malloc(sizeof(VOCL_PROXY_DEVICE));
 	devicePtr->device = device;
 	devicePtr->globalSize = globalSize;
-	devicePtr->globalSize = 1000000000;
+	devicePtr->globalSize = 400000000;
 
 	devicePtr->usedSize = 0;
 	devicePtr->cmdQueuePtr = NULL;
@@ -147,6 +149,28 @@ VOCL_PROXY_DEVICE *voclProxyGetDevicePtr(cl_device_id device)
 	return devicePtr;
 }
 
+VOCL_PROXY_DEVICE *voclProxyIsDeviceExist(cl_device_id device)
+{
+	VOCL_PROXY_DEVICE *devicePtr = voclProxyDevicePtr;
+	while (devicePtr != NULL)
+	{
+		if (devicePtr->device == device)
+		{
+			break;
+		}
+		devicePtr = devicePtr->next;
+	}
+
+	if (devicePtr == NULL)
+	{
+		return 0;
+	}
+	else
+	{
+		return 1;
+	}
+}
+
 /* command queue operations */
 void voclProxyUpdateCmdQueueOnDevicePtr(VOCL_PROXY_DEVICE *devicePtr, cl_command_queue cmdQueue)
 {
@@ -180,7 +204,7 @@ void voclProxyUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queue cmd
 	voclProxyUpdateCmdQueueOnDevicePtr(devicePtr, cmdQueue);
 }
 
-cl_device_id voclProxyGetDeviceIDFromCmdQueue(cl_command_queue cmdQueue)
+VOCL_PROXY_DEVICE *voclProxyGetDeviceIDFromCmdQueue(cl_command_queue cmdQueue)
 {
 	PROXY_CMD_QUEUE *cmdQueuePtr;
 	VOCL_PROXY_DEVICE *devicePtr = voclProxyDevicePtr;
@@ -287,8 +311,8 @@ void voclProxyUpdateMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem, siz
 		memPtr->mem = mem;
 		memPtr->next = devicePtr->memPtr;
 		devicePtr->memPtr = memPtr;
-		devicePtr->usedSize += size;
 		printf("devicePtr = %p, usedSize = %ld, size = %ld\n", devicePtr, devicePtr->usedSize, size);
+		devicePtr->usedSize += size;
 	}
 
 	return;

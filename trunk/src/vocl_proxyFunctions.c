@@ -1,6 +1,8 @@
 #include "vocl_proxy.h"
 #include "vocl_proxyKernelArgProc.h"
 
+extern void voclProxyUpdateMemoryOnCmdQueue(cl_command_queue cmdQueue, cl_mem mem, size_t size);
+
 void mpiOpenCLGetPlatformIDs(struct strGetPlatformIDs *tmpGetPlatform,
                              cl_platform_id * platforms)
 {
@@ -51,10 +53,8 @@ void mpiOpenCLCreateCommandQueue(struct strCreateCommandQueue *tmpCreateCommandQ
     cl_device_id device = tmpCreateCommandQueue->device;
     cl_context hInContext = tmpCreateCommandQueue->context;
 
-
     cl_command_queue hCmdQueue =
         clCreateCommandQueue(hInContext, device, properties, &err_code);
-	printf("proxyCmdQueue, hCmdQueue = %p, device = %p\n", hCmdQueue, device);
 
     tmpCreateCommandQueue->errcode_ret = err_code;
     tmpCreateCommandQueue->clCommand = hCmdQueue;

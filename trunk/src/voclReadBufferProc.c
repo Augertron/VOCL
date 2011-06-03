@@ -68,7 +68,7 @@ void setReadBufferNum(int proxyIndex, int index, int bufferNum)
     voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].bufferNum = bufferNum;
 }
 
-void getReadBufferNum(int proxyIndex, int index)
+int getReadBufferNum(int proxyIndex, int index)
 {
     return voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].bufferNum;
 }

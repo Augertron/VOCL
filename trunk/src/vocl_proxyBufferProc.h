@@ -14,12 +14,10 @@ struct strReadMPISendProcInfo {
 struct strWriteBufferInfo {
     /*write buffer state, defined in voclProxy.h */
     int isInUse;
-    //int appRank;
     MPI_Request request;
     cl_command_queue commandQueue;
     size_t size;
     char *dataPtr;
-    //int buffIndex;
     size_t offset;
     cl_mem mem;
     cl_int blocking_write;
@@ -48,7 +46,6 @@ struct strReadBufferInfo {
     int appRank;                /* indicate which app proc to send */
     size_t size;
     char *dataPtr;
-    //int buffIndex;
     cl_event event;
 
     int numReadBuffers;
@@ -75,6 +72,12 @@ struct strMigWriteBufferInfo {
     char *ptr;
 };
 
+struct strProxyMigWriteBufferAll {
+	struct strMigWriteBufferInfo buffers[VOCL_MIG_BUF_NUM];
+	int voclMigWriteBufferIndex;
+	int voclMigWriteBufferRequestNum;
+};
+
 struct strMigReadBufferInfo {
     size_t size;
     size_t offset;
@@ -87,6 +90,30 @@ struct strMigReadBufferInfo {
     MPI_Request request;
     int useFlag;
     char *ptr;
+};
+
+struct strProxyMigReadBufferAll {
+	struct strMigReadBufferInfo buffers[VOCL_MIG_BUF_NUM];
+	int voclMigReadBufferIndex;
+	int voclMigReadBufferRequestNum;
+};
+
+/* for migration on the same remote node */
+struct strMigRWBufferSameNode {
+	cl_command_queue wtCmdQueue;
+	cl_mem wtMem;
+	size_t size;
+	size_t offset;
+	int useFlag;
+	char *ptr;
+	cl_event rdEvent;
+	cl_event wtEvent;
+};
+
+struct strProxyMigRWBufferAll {
+	struct strMigRWBufferSameNode buffers[VOCL_MIG_BUF_NUM];
+	int voclMigRWBufferIndex;
+	int voclMigRWBufferRequestNum;
 };
 
 #endif

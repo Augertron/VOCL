@@ -19,6 +19,7 @@ extern int voclProxyAppIndex;
 
 static struct voclReadBufferInfo *voclProxyReadBufferPtr = NULL;
 static int voclProxyReadSupportAppNum;
+cl_int processAllReads(int rank);
 
 /* for sending data from GPU to local node */
 static void initializeReadBuffer(int rank)

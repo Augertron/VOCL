@@ -1,6 +1,13 @@
 #include <stdio.h>
 #include "voclStructures.h"
 
+extern cl_context voclMigCreateContext(const cl_context_properties * properties,
+                     cl_uint num_devices,
+                     vocl_device_id * devices,
+                     void (CL_CALLBACK * pfn_notify) (const char *, const void *, size_t,
+                                                      void *), void *user_data,
+                     cl_int * errcode_ret);
+
 static struct strVOCLContext *voclContextPtr = NULL;
 static vocl_context voclContext;
 static int voclContextNo;
@@ -105,7 +112,7 @@ void voclUpdateVOCLContext(vocl_context voclContext, int proxyRank, int proxyInd
     int err;
 
     /* release previous context */
-    clReleaseContext(voclContext);
+    clReleaseContext((cl_context)voclContext);
 
     contextPtr->proxyRank = proxyRank;
     contextPtr->proxyIndex = proxyIndex;

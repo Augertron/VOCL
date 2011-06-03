@@ -1,5 +1,9 @@
 #include <stdio.h>
+#include <string.h>
 #include "voclStructures.h"
+
+extern cl_kernel voclMigCreateKernel(vocl_program program, const char *kernel_name,
+                              cl_int * errcode_ret);
 
 static struct strVOCLKernel *voclKernelPtr = NULL;
 static vocl_kernel voclKernel;
@@ -132,7 +136,7 @@ void voclUpdateVOCLKernel(vocl_kernel voclKernel, int proxyRank, int proxyIndex,
     int err;
 
     /* release previous kernel */
-    clReleaseKernel(voclKernel);
+    clReleaseKernel((cl_kernel)voclKernel);
 
     kernelPtr->proxyRank = proxyRank;
     kernelPtr->proxyIndex = proxyIndex;

@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include <mpi.h>
 #include "vocl_proxy_macro.h"
@@ -107,9 +109,6 @@ void *proxyCommAcceptThread(void *p)
     while (voclProxyTerminateFlag == 0) {
         MPI_Comm_accept(voclPortName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &comm);
         index = voclGetAppIndex();
-		//debug------------------------
-		int rank;
-		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         appComm[index] = comm;
         MPI_Comm_dup(appComm[index], &appCommData[index]);
         voclIssueConMsgIrecv(index);

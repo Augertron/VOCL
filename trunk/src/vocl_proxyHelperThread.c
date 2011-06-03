@@ -49,5 +49,5 @@ void *proxyHelperThread(void *p)
         pthread_barrier_wait(&barrier);
     }
 
-    return;
+    return NULL;
 }
