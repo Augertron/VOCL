@@ -66,7 +66,8 @@ char voclPortName[MPI_MAX_PORT_NAME];
 int voclTotalRequestNum;
 
 /* control message buffer */
-CON_MSG_BUFFER *conMsgBuffer;
+//CON_MSG_BUFFER *conMsgBuffer;
+char **conMsgBuffer = NULL;
 
 /* variables needed by the helper thread */
 extern void *proxyHelperThread(void *);
@@ -179,7 +180,7 @@ extern void mpiOpenCLEnqueueUnmapMemObject(struct strEnqueueUnmapMemObject
 extern void voclProxyCommInitialize();
 extern void voclProxyCommFinalize();
 extern void voclProxyAcceptOneApp();
-extern void voclProxySetTerminateFlag(int flag);
+//extern void voclProxySetTerminateFlag(int flag);
 extern void *proxyCommAcceptThread(void *p);
 
 /* migration functions */
@@ -237,7 +238,9 @@ int main(int argc, char *argv[])
     /* issue non-blocking receive for all control messages */
     MPI_Status *curStatus;
     MPI_Request *curRequest;
-    int requestNo, index, requestOffset, canceledRequestNum;
+    int requestNo, index;
+	int requestOffset;
+	//int canceledRequestNum;
     int bufferNum, bufferIndex;
     size_t bufferSize, remainingSize;
 
@@ -331,10 +334,8 @@ int main(int argc, char *argv[])
     /* create a helper thread */
     pthread_barrier_init(&barrier, NULL, 2);
     pthread_create(&th, NULL, proxyHelperThread, NULL);
-    voclProxySetTerminateFlag(0);
     pthread_create(&thAppComm, NULL, proxyCommAcceptThread, NULL);
-    /* voclTotalRequestNum is set in the Comm accept file */
-	canceledRequestNum = 0;
+
     while (1) {
         /* wait for any msg from the master process */
         MPI_Waitany(voclTotalRequestNum, conMsgRequest, &index, &status);
@@ -1434,7 +1435,7 @@ int main(int argc, char *argv[])
 
 
         if (status.MPI_TAG == PROGRAM_END) {
-			/* cancel the corresponding irecv and communicator */
+			/* cancel the corresponding requests */
 			requestOffset = commIndex * CMSG_NUM;
 			for (requestNo = 0; requestNo < CMSG_NUM; requestNo++)
 			{
@@ -1444,14 +1445,17 @@ int main(int argc, char *argv[])
 					MPI_Request_free(&conMsgRequest[requestOffset + requestNo]);
 				}
 			}
-			canceledRequestNum += CMSG_NUM;
-			MPI_Comm_disconnect(&appComm[commIndex]);
-			MPI_Comm_disconnect(&appCommData[commIndex]);
-			if (canceledRequestNum >= voclTotalRequestNum)
-			{
-				MPI_Barrier(MPI_COMM_WORLD);
-				break;
-			}
+//			MPI_Comm_disconnect(&appComm[commIndex]);
+//			MPI_Comm_disconnect(&appCommData[commIndex]);
+//			/* remove the correponding requests, communicator, etc */
+			voclProxyDisconnectOneApp(commIndex);
+
+			
+//			if (canceledRequestNum >= voclTotalRequestNum)
+//			{
+//				MPI_Barrier(MPI_COMM_WORLD);
+//				break;
+//			}
 			continue;
             //break;
         }
