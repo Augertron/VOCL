@@ -7,7 +7,6 @@
 struct strMigWriteLocalBuffer {
     cl_command_queue cmdQueue;
     cl_mem mem;
-    //int source;
     int tag;
     size_t size;
     size_t offset;
