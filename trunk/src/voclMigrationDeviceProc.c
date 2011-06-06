@@ -21,7 +21,7 @@ void voclLibCreateDevice(cl_device_id device, size_t globalSize)
 	VOCL_LIB_DEVICE *devicePtr = (VOCL_LIB_DEVICE *)malloc(sizeof(VOCL_LIB_DEVICE));
 	devicePtr->device = device;
 	devicePtr->globalSize = globalSize;
-	devicePtr->globalSize = 400000000;
+	devicePtr->globalSize = 800000000;
 	devicePtr->usedSize = 0;
 	devicePtr->cmdQueuePtr = NULL;
 	devicePtr->memPtr = NULL;

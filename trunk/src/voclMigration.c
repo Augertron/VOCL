@@ -127,6 +127,11 @@ vocl_device_id voclSearchTargetGPU(size_t size)
     }
 
     /* get global memory size of each GPU */
+//	//debug-----------------------
+//	int tmp;
+//	MPI_Comm_rank(MPI_COMM_WORLD, &tmp);
+//	//----------------------------------
+
     for (i = 3; i < totalDeviceNum; i++) {
         err =
             clGetDeviceInfo(deviceID[i], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(mem_size),
