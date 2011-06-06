@@ -10,6 +10,9 @@
 		exit(1); \
 	}
 
+/* whether migration is needed. no migration by default */
+static int voclTaskMigrationCheckCondition = 0;
+
 extern int voclMigIssueGPUMemoryWrite(MPI_Comm oldComm, MPI_Comm oldCommData, int oldRank, int oldIndex,
                                       MPI_Comm newComm, int newRank, int isFromLocal,
                                       int isToLocal, cl_command_queue command_queue,
@@ -86,10 +89,6 @@ extern cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
 extern cl_int dlCLSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void *arg_value);
 
 
-
-
-
-
 vocl_device_id voclSearchTargetGPU(size_t size)
 {
     int i, j, index, err;
@@ -126,12 +125,6 @@ vocl_device_id voclSearchTargetGPU(size_t size)
         totalDeviceNum += numDevices[i];
     }
 
-    /* get global memory size of each GPU */
-//	//debug-----------------------
-//	int tmp;
-//	MPI_Comm_rank(MPI_COMM_WORLD, &tmp);
-//	//----------------------------------
-
     for (i = 3; i < totalDeviceNum; i++) {
         err =
             clGetDeviceInfo(deviceID[i], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(mem_size),
@@ -149,6 +142,39 @@ vocl_device_id voclSearchTargetGPU(size_t size)
 
     return targetDeviceID;
 
+}
+
+/* set whether migration is needed according to an environment variable */
+void voclSetTaskMigrationCondition()
+{
+	char *migrationConditionsPtr, tmpFlagPtr;
+	migrationConditionsPtr = getenv("VOCL_MIGRATION_CONDITION");
+	if (migrationConditionsPtr == NULL)
+	{
+		voclTaskMigrationCheckCondition = 0;
+	}
+	else
+	{
+		tmpFlagPtr = strtok(migrationConditionsPtr, ",");
+		while (tmpFlagPtr != NULL)
+		{
+			if (strcmp(tmpFlagPtr, "MEMORY_FULL") == 0)
+			{
+				voclTaskMigrationCheckCondition = 1;
+			}
+			else //more conditions are added later
+			{
+				
+			}
+		}
+	}
+
+	return;
+}
+
+int voclGetTaskMigrationCondition()
+{
+	return voclTaskMigrationCheckCondition;
 }
 
 int voclCheckIsMigrationNeeded(vocl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)

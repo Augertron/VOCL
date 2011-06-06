@@ -1432,8 +1432,6 @@ int main(int argc, char *argv[])
                      appRank, MIG_MEM_READ_CMPLD, appComm[commIndex]);
         }
 
-
-
         if (status.MPI_TAG == PROGRAM_END) {
 			/* cancel the corresponding requests */
 			requestOffset = commIndex * CMSG_NUM;
@@ -1445,19 +1443,11 @@ int main(int argc, char *argv[])
 					MPI_Request_free(&conMsgRequest[requestOffset + requestNo]);
 				}
 			}
-//			MPI_Comm_disconnect(&appComm[commIndex]);
-//			MPI_Comm_disconnect(&appCommData[commIndex]);
-//			/* remove the correponding requests, communicator, etc */
+
+			/* remove the correponding requests, communicator, etc */
 			voclProxyDisconnectOneApp(commIndex);
 
-			
-//			if (canceledRequestNum >= voclTotalRequestNum)
-//			{
-//				MPI_Barrier(MPI_COMM_WORLD);
-//				break;
-//			}
 			continue;
-            //break;
         }
 
         /* issue it for later call of this function */
@@ -1477,18 +1467,8 @@ int main(int argc, char *argv[])
     }
     pthread_barrier_destroy(&barrier);
 
-    /* set the termination flag */
-//      voclProxySetTerminateFlag(1);
-
     /* unpublish the server name */
     MPI_Unpublish_name(serviceName, MPI_INFO_NULL, voclPortName);
-    /* bug, we need an approach to terminate the process */
-    //pthread_cancel(thAppComm);
-//      if (pthread_join(thAppComm, NULL) != 0)
-//      {
-//              printf("pthread_join of thAppComm thread error.\n");
-//              exit(1);
-//      }
 
     /* release the write and read buffer pool */
     finalizeReadBufferAll();

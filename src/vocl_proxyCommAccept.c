@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <mpi.h>
 #include "vocl_proxy_macro.h"
 
@@ -88,8 +89,8 @@ void voclIssueConMsgIrecv(int index)
         MPI_Irecv(conMsgBuffer[index * CMSG_NUM + i], MAX_CMSG_SIZE, MPI_BYTE, MPI_ANY_SOURCE,
                   MPI_ANY_TAG, appComm[index], conMsgRequest+(index * CMSG_NUM + i));
     }
-
     voclTotalRequestNum += CMSG_NUM;
+
     return;
 }
 
@@ -162,13 +163,8 @@ void voclProxyDisconnectOneApp(int commIndex)
 
 void *proxyCommAcceptThread(void *p)
 {
-    int index, oldType;
+    int index;
     MPI_Comm comm;
-    if (pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &oldType) != 0) {
-        printf("set aynchronous interrupt stataus error!\n");
-        exit(1);
-    }
-
     while (1) {
         MPI_Comm_accept(voclPortName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &comm);
         index = voclGetAppIndex();
