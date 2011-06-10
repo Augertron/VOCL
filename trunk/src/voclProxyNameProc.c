@@ -153,7 +153,7 @@ void voclCreateProxyHostNameList()
     /* host name is indicated directory */
     if (envPtr != NULL) {
         size = strlen(envPtr);
-        hostNamePtr = (char *) malloc(size * sizeof(char));
+        hostNamePtr = (char *) malloc((size + 1)* sizeof(char));
         strcpy(hostNamePtr, envPtr);
 
         tmpNamePtr = strtok(hostNamePtr, ",");

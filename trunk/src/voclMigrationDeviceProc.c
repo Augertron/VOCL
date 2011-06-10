@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include "voclStructures.h"
+#include "voclKernelArgProc.h"
 #include "voclMigrationDeviceProc.h"
 
 extern cl_int dlCLGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_platforms);
@@ -8,10 +10,9 @@ extern cl_int dlCLGetDeviceIDs(cl_platform_id platform,
 extern cl_int dlCLGetDeviceInfo(cl_device_id device,
                   cl_device_info param_name,
                   size_t param_value_size, void *param_value, size_t * param_value_size_ret);
-
-
-
-
+extern size_t voclCommandQueueGetDeviceMemorySize(vocl_command_queue cmdQueue);
+extern cl_command_queue voclVOCLCommandQueue2CLCommandQueue(vocl_command_queue command_queue);
+extern kernel_info *getKernelPtr(cl_kernel kernel);
 
 VOCL_LIB_DEVICE *voclLibDevicePtr = NULL;
 
@@ -21,7 +22,7 @@ void voclLibCreateDevice(cl_device_id device, size_t globalSize)
 	VOCL_LIB_DEVICE *devicePtr = (VOCL_LIB_DEVICE *)malloc(sizeof(VOCL_LIB_DEVICE));
 	devicePtr->device = device;
 	devicePtr->globalSize = globalSize;
-	devicePtr->globalSize = 800000000;
+	devicePtr->globalSize = 300000000;
 	devicePtr->usedSize = 0;
 	devicePtr->cmdQueuePtr = NULL;
 	devicePtr->memPtr = NULL;
@@ -413,4 +414,70 @@ void voclGetLocalDeviceInfo()
 	return;
 }
 
+void voclLibUpdateGlobalMemUsage(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)
+{
+	int i;
+	cl_mem memory;
+	VOCL_LIB_DEVICE *devicePtr;
+	devicePtr = voclLibGetDeviceIDFromCmdQueue(cmdQueue);
 
+	for (i = 0; i < argsNum; i++)
+	{
+		if (argsPtr[i].isGlobalMemory == 1)
+		{
+			/* add new memory to the device */
+			memory = *((cl_mem *)argsPtr[i].arg_value);
+			voclLibUpdateMemoryOnDevice(devicePtr, memory, argsPtr[i].globalSize);
+		}
+	}
+
+	return;
+}
+
+int voclCheckMigrationInKernelLaunch(vocl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)
+{
+	VOCL_LIB_DEVICE *devicePtr;
+	int isMigrationNeeded = 0;
+	size_t sizeForKernel = 0;
+	cl_mem memory;
+	int i;
+
+	devicePtr = voclLibGetDeviceIDFromCmdQueue((cl_command_queue)cmdQueue);
+	for (i = 0; i < argsNum; i++)
+	{
+		/* if it is glboal memory. check if device memory is enough */
+		if (argsPtr[i].isGlobalMemory == 1)
+		{
+			/* if the current global memory is not bind on the device */
+			/* check whether the global memory size is enougth */
+			memory = *((cl_mem *)argsPtr[i].arg_value);
+			voclLibUpdateMemoryOnDevice(devicePtr, memory, argsPtr[i].globalSize);
+			if (devicePtr->usedSize > devicePtr->globalSize)
+			{
+				isMigrationNeeded = 1;
+			}
+		}
+	}
+	printf("local, isMigrationNeeded = %d\n", isMigrationNeeded);
+	return isMigrationNeeded;
+}
+
+int voclCheckMigrationInWriteBuffer(cl_command_queue cmdQueue, size_t size)
+{
+	size_t cmdQueueMemSize;
+	cl_command_queue clCmdQueue;
+	VOCL_LIB_DEVICE *devicePtr;
+
+	cmdQueueMemSize = voclCommandQueueGetDeviceMemorySize(cmdQueue);
+	clCmdQueue = voclVOCLCommandQueue2CLCommandQueue(cmdQueue);
+	devicePtr = voclLibGetDeviceIDFromCmdQueue(clCmdQueue);
+
+	if (devicePtr->usedSize + cmdQueueMemSize + size > devicePtr->globalSize)
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}

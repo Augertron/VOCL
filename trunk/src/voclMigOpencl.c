@@ -54,6 +54,7 @@ extern void voclLibUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queu
 extern int voclIsOnLocalNode(int index);
 extern void increaseObjCount(int proxyIndex);
 extern void decreaseObjCount(int proxyIndex);
+extern int voclIsOldMemoryValid(vocl_mem memory);
 
 /* vocl and cl convertion */
 extern cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyRank,
@@ -615,29 +616,35 @@ cl_int clMigReleaseOldMemObject(vocl_mem memobj)
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo;
+	int isOldValid;
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
-
     struct strReleaseMemObject tmpReleaseMemObject;
-    tmpReleaseMemObject.memobj = voclVOCLMemory2OldCLMemoryComm((vocl_mem) memobj,
-                                                                &proxyRank, &proxyIndex,
-                                                                &proxyComm, &proxyCommData);
-    if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
-        tmpReleaseMemObject.res = dlCLReleaseMemObject(tmpReleaseMemObject.memobj);
-    }
-    else {
-        requestNo = 0;
-        MPI_Isend(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE,
-                  proxyRank, RELEASE_MEM_OBJ, proxyComm, request + (requestNo++));
-        MPI_Irecv(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE,
-                  proxyRank, RELEASE_MEM_OBJ, proxyComm, request + (requestNo++));
-        MPI_Waitall(requestNo, request, status);
-    }
+	isOldValid = voclIsOldMemoryValid(memobj);
+	tmpReleaseMemObject.res = CL_SUCCESS;
 
-    /* decrease the number of OpenCL objects count */
-    decreaseObjCount(proxyIndex);
+	if (isOldValid == 1)
+	{
+		tmpReleaseMemObject.memobj = voclVOCLMemory2OldCLMemoryComm((vocl_mem) memobj,
+																	&proxyRank, &proxyIndex,
+																	&proxyComm, &proxyCommData);
+		if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
+			tmpReleaseMemObject.res = dlCLReleaseMemObject(tmpReleaseMemObject.memobj);
+		}
+		else {
+			requestNo = 0;
+			MPI_Isend(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE,
+					  proxyRank, RELEASE_MEM_OBJ, proxyComm, request + (requestNo++));
+			MPI_Irecv(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE,
+					  proxyRank, RELEASE_MEM_OBJ, proxyComm, request + (requestNo++));
+			MPI_Waitall(requestNo, request, status);
+		}
 
-    voclSetOldMemoryReleased(memobj);
+		/* decrease the number of OpenCL objects count */
+		decreaseObjCount(proxyIndex);
+
+		voclSetOldMemoryReleased(memobj);
+	}
 
     return tmpReleaseMemObject.res;
 }

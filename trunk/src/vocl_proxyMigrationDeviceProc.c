@@ -10,7 +10,7 @@ void voclProxyCreateDevice(cl_device_id device, size_t globalSize)
 	VOCL_PROXY_DEVICE *devicePtr = (VOCL_PROXY_DEVICE *)malloc(sizeof(VOCL_PROXY_DEVICE));
 	devicePtr->device = device;
 	devicePtr->globalSize = globalSize;
-	devicePtr->globalSize = 800000000;
+	devicePtr->globalSize = 300000000;
 
 	devicePtr->usedSize = 0;
 	devicePtr->cmdQueuePtr = NULL;
@@ -311,7 +311,6 @@ void voclProxyUpdateMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem, siz
 		memPtr->mem = mem;
 		memPtr->next = devicePtr->memPtr;
 		devicePtr->memPtr = memPtr;
-		printf("devicePtr = %p, usedSize = %ld, size = %ld\n", devicePtr, devicePtr->usedSize, size);
 		devicePtr->usedSize += size;
 	}
 
@@ -321,7 +320,6 @@ void voclProxyUpdateMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem, siz
 void voclProxyUpdateMemoryOnCmdQueue(cl_command_queue cmdQueue, cl_mem mem, size_t size)
 {
 	VOCL_PROXY_DEVICE *devicePtr = voclProxyGetDeviceIDFromCmdQueue(cmdQueue);
-	//printf("devicePtr = %p, devicePtr->device = %p\n", devicePtr, devicePtr->device);
 	voclProxyUpdateMemoryOnDevice(devicePtr, mem, size);
 }
 
@@ -358,7 +356,6 @@ int voclProxyIsMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem)
 
 void voclProxyReleaseMem(cl_mem mem)
 {
-	int isMemoryFound = 0;
 	PROXY_MEM *preMemPtr, *curMemPtr;
 	VOCL_PROXY_DEVICE *devicePtr = voclProxyDevicePtr;
 	while (devicePtr != NULL)
@@ -372,7 +369,6 @@ void voclProxyReleaseMem(cl_mem mem)
 				devicePtr->memPtr = curMemPtr->next;
 				devicePtr->usedSize -= curMemPtr->size;
 				free(curMemPtr);
-				isMemoryFound = 1;
 			}
 			else
 			{
@@ -385,7 +381,6 @@ void voclProxyReleaseMem(cl_mem mem)
 						preMemPtr->next = curMemPtr->next;
 						devicePtr->usedSize -= curMemPtr->size;
 						free(curMemPtr);
-						isMemoryFound = 1;
 						break;
 					}
 					preMemPtr = curMemPtr;
@@ -394,13 +389,6 @@ void voclProxyReleaseMem(cl_mem mem)
 			}
 		}
 		devicePtr = devicePtr->next;
-	}
-
-
-	if (isMemoryFound == 0)
-	{
-		printf("voclProxyReleaseMem, mem does not exist!\n");
-		exit (1);
 	}
 
 	return;

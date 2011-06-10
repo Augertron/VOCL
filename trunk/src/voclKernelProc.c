@@ -4,6 +4,7 @@
 
 extern cl_kernel voclMigCreateKernel(vocl_program program, const char *kernel_name,
                               cl_int * errcode_ret);
+extern int voclProgramGetMigrationStatus(vocl_program program);
 
 static struct strVOCLKernel *voclKernelPtr = NULL;
 static vocl_kernel voclKernel;
@@ -110,6 +111,19 @@ vocl_program voclGetProgramFromKernel(vocl_kernel kernel)
     return kernelPtr->program;
 }
 
+void voclKernelSetMigrationStatus(vocl_kernel kernel, int status)
+{
+	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+	kernelPtr->migrationStatus = status;
+	return;
+}
+
+int voclKernelGetMigrationStatus(vocl_kernel kernel)
+{
+	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+	return kernelPtr->migrationStatus;
+}
+
 cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
                                       int *proxyIndex, MPI_Comm * proxyComm,
                                       MPI_Comm * proxyCommData)
@@ -142,11 +156,11 @@ void voclUpdateVOCLKernel(vocl_kernel voclKernel, int proxyRank, int proxyIndex,
     kernelPtr->proxyIndex = proxyIndex;
     kernelPtr->proxyComm = proxyComm;
     kernelPtr->proxyCommData = proxyCommData;
-
     kernelPtr->clKernel = voclMigCreateKernel(program, kernelPtr->kernelName, &err);
     if (err != CL_SUCCESS) {
-        printf("create kernel error!\n", err);
+        printf("create kernel error, %d!\n", err);
     }
+	kernelPtr->migrationStatus = voclProgramGetMigrationStatus(program);
 
     return;
 }

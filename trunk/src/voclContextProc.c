@@ -71,6 +71,19 @@ void voclContextFinalize()
     voclContext = 0;
 }
 
+void voclContextSetMigrationStatus(vocl_context context, int status)
+{
+	struct strVOCLContext *contextPtr = getVOCLContextPtr(context);
+	contextPtr->migrationStatus = status;
+	return;
+}
+
+int voclContextGetMigrationStatus(vocl_context context)
+{
+	struct strVOCLContext *contextPtr = getVOCLContextPtr(context);
+	return contextPtr->migrationStatus;
+}
+
 vocl_context voclCLContext2VOCLContext(cl_context context, int proxyRank,
                                        int proxyIndex, MPI_Comm proxyComm,
                                        MPI_Comm proxyCommData)
@@ -120,6 +133,10 @@ void voclUpdateVOCLContext(vocl_context voclContext, int proxyRank, int proxyInd
     contextPtr->proxyCommData = proxyCommData;
 
     contextPtr->clContext = voclMigCreateContext(0, 1, &deviceID, NULL, NULL, &err);
+
+	/* context is the higheest-level object to be migrated, each time */
+	/* a migration is performed, migration status is increased by one */
+	contextPtr->migrationStatus++;
 
     return;
 }

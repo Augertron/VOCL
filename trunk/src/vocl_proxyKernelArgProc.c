@@ -7,7 +7,7 @@ extern VOCL_PROXY_DEVICE *voclProxyGetDeviceIDFromCmdQueue(cl_command_queue cmdQ
 extern int voclProxyIsMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem);
 extern void voclProxyUpdateMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem, size_t size);
 
-int voclProxyIsMigrationNeeded(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)
+int voclProxyMigrationCheckKernelLaunch(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)
 {
 	VOCL_PROXY_DEVICE *devicePtr;
 	int isMigrationNeeded = 0;
@@ -38,6 +38,20 @@ int voclProxyIsMigrationNeeded(cl_command_queue cmdQueue, kernel_args *argsPtr, 
 	return isMigrationNeeded;
 }
 
+int voclProxyMigrationCheckWriteBuffer(cl_command_queue cmdQueue, size_t size)
+{
+	VOCL_PROXY_DEVICE *devicePtr;
+	devicePtr = voclProxyGetDeviceIDFromCmdQueue(cmdQueue);
+	if (devicePtr->usedSize + size > devicePtr->globalSize)
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 void voclProxyUpdateGlobalMemUsage(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)
 {
 	int i;
@@ -57,3 +71,4 @@ void voclProxyUpdateGlobalMemUsage(cl_command_queue cmdQueue, kernel_args *argsP
 
 	return;
 }
+

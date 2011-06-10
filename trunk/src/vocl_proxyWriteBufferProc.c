@@ -22,6 +22,8 @@ extern int voclProxyAppIndex;
 extern struct voclReadBufferInfo *voclReadBufferPtr;
 extern struct strReadBufferInfo *getReadBufferInfoPtr(int rank, int index);
 extern struct voclReadBufferInfo *getVOCLReadBufferInfoPtr(int rank);
+extern void setReadBufferFlag(int rank, int index, int flag);
+extern int readSendToLocal(int rank, int index);
 
 /*------------------------------------------------ */
 /* functions and variables defined in this file */
