@@ -5,9 +5,40 @@ extern cl_command_queue
 voclMigCreateCommandQueue(vocl_context context,
                           vocl_device_id device,
                           cl_command_queue_properties properties, cl_int * errcode_ret);
+extern int voclContextGetMigrationStatus(vocl_context context);
+extern cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyRank,
+                                             int *proxyIndex, MPI_Comm * proxyComm,
+                                             MPI_Comm * proxyCommData);
+extern void voclUpdateVOCLContext(vocl_context voclContext, int proxyRank, int proxyIndex,
+                           MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_device_id deviceID);
+extern size_t voclGetVOCLMemorySize(vocl_mem memory);
+extern int voclGetMemWrittenFlag(vocl_mem memory);
+extern cl_mem voclVOCLMemory2CLMemory(vocl_mem memory);
+extern void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
+                          MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context);
+extern cl_int clMigReleaseOldMemObject(vocl_mem memobj);
+
+extern void voclMigrationOnSameRemoteNode(MPI_Comm comm, int rank, cl_command_queue oldCmdQueue,
+        cl_mem oldMem, cl_command_queue newCmdQueue, cl_mem newMem, size_t size);
+extern int voclMigIssueGPUMemoryRead(MPI_Comm oldComm, int oldRank, MPI_Comm newComm,
+                              MPI_Comm newCommData, int newRank, int newIndex, int isFromLocal,
+                              int isToLocal, cl_command_queue command_queue, cl_mem mem, size_t size);
+extern int voclMigIssueGPUMemoryWrite(MPI_Comm oldComm, MPI_Comm oldCommData, int oldRank, int oldIndex,
+                               MPI_Comm newComm, int newRank, int isFromLocal, int isToLocal,
+                               cl_command_queue command_queue, cl_mem mem, size_t size);
+extern void voclMigLocalToLocal(cl_command_queue oldCmdQueue, cl_mem oldMem,
+                         cl_command_queue newCmdQueue, cl_mem newMem, size_t size);
+extern void voclMigFinishDataTransfer(MPI_Comm oldComm, int oldRank, int oldIndex, cl_command_queue oldCmdQueue,
+                               MPI_Comm newComm, int newRank, int newIndex, cl_command_queue newCmdQueue,
+                               int proxySourceRank, int proxyDestRank, int isFromLocal, int isToLocal);
 
 
+extern int voclIsOnLocalNode(int index);
 extern void increaseObjCount(int proxyIndex);
+extern vocl_device_id voclSearchTargetGPU(size_t size);
+
+
+
 static struct strVOCLCommandQueue *voclCommandQueuePtr = NULL;
 static vocl_command_queue voclCommandQueue;
 static int voclCommandQueueNo;
@@ -26,6 +57,9 @@ static struct strVOCLCommandQueue *createVOCLCommandQueue()
     commandQueuePtr =
         (struct strVOCLCommandQueue *) malloc(sizeof(struct strVOCLCommandQueue));
     commandQueuePtr->isOldValid = 0;
+    commandQueuePtr->migrationStatus = 0; /* not migrated yet */
+	commandQueuePtr->deviceMemSize = 0;
+	commandQueuePtr->memPtr = NULL;
     commandQueuePtr->next = voclCommandQueuePtr;
     voclCommandQueuePtr = commandQueuePtr;
 
@@ -61,9 +95,17 @@ void voclCommandQueueInitialize()
 void voclCommandQueueFinalize()
 {
     struct strVOCLCommandQueue *commandQueuePtr, *tmpCmdQueuePtr;
+	struct strVOCLMemInfo *memPtr, *tmpMemPtr;
     commandQueuePtr = voclCommandQueuePtr;
     while (commandQueuePtr != NULL) {
         tmpCmdQueuePtr = commandQueuePtr->next;
+		memPtr = commandQueuePtr->memPtr;
+		while (memPtr != NULL)
+		{
+			tmpMemPtr = memPtr->next;
+			free(memPtr);
+			memPtr = tmpMemPtr;
+		}
         free(commandQueuePtr);
         commandQueuePtr = tmpCmdQueuePtr;
     }
@@ -114,6 +156,25 @@ vocl_context voclGetCommandQueueContext(vocl_command_queue cmdQueue)
     return commandQueuePtr->context;
 }
 
+void voclCommandQueueSetMigrationStatus(vocl_command_queue cmdQueue, int status)
+{
+	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(cmdQueue);
+	commandQueuePtr->migrationStatus = status;
+	return;
+}
+
+int voclCommandQueueGetMigrationStatus(vocl_command_queue cmdQueue)
+{
+	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(cmdQueue);
+	return commandQueuePtr->migrationStatus;
+}
+
+size_t voclCommandQueueGetDeviceMemorySize(vocl_command_queue cmdQueue)
+{
+	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(cmdQueue);
+	return commandQueuePtr->deviceMemSize;
+}
+
 cl_command_queue voclVOCLCommandQueue2CLCommandQueueComm(vocl_command_queue command_queue,
                                                          int *proxyRank, int *proxyIndex,
                                                          MPI_Comm * proxyComm,
@@ -153,7 +214,7 @@ void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, int proxyRank, 
                                 vocl_device_id device)
 {
     struct strVOCLCommandQueue *cmdQueuePtr = getVOCLCommandQueuePtr(voclCmdQueue);
-    int err;
+    int err, migrationStatus;
 
     /* store the command queue information before migration */
     cmdQueuePtr->oldCommandQueue = cmdQueuePtr->clCommandQueue;
@@ -161,14 +222,17 @@ void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, int proxyRank, 
     cmdQueuePtr->oldProxyIndex = cmdQueuePtr->proxyIndex;
     cmdQueuePtr->oldProxyComm = cmdQueuePtr->proxyComm;
     cmdQueuePtr->oldProxyCommData = cmdQueuePtr->proxyCommData;
+	cmdQueuePtr->oldDeviceID = cmdQueuePtr->deviceID;
     cmdQueuePtr->isOldValid = 1;
 
     cmdQueuePtr->proxyRank = proxyRank;
     cmdQueuePtr->proxyIndex = proxyIndex;
     cmdQueuePtr->proxyComm = comm;
     cmdQueuePtr->proxyCommData = commData;
+	cmdQueuePtr->deviceID = device;
     cmdQueuePtr->clCommandQueue = voclMigCreateCommandQueue(context, device,
                                                             cmdQueuePtr->properties, &err);
+	cmdQueuePtr->migrationStatus = voclContextGetMigrationStatus(context);
 
     return;
 }
@@ -190,6 +254,8 @@ int voclIsOldCommandQueueValid(vocl_command_queue command_queue)
 int voclReleaseCommandQueue(vocl_command_queue command_queue)
 {
     struct strVOCLCommandQueue *commandQueuePtr, *preCommandQueuePtr, *curCommandQueuePtr;
+	struct strVOCLMemInfo *memPtr, *tmpMemPtr;
+
     /* the first node in the link list */
     if (command_queue == voclCommandQueuePtr->voclCommandQueue) {
         commandQueuePtr = voclCommandQueuePtr;
@@ -218,7 +284,206 @@ int voclReleaseCommandQueue(vocl_command_queue command_queue)
 
     /* remote the current node from link list */
     preCommandQueuePtr->next = curCommandQueuePtr->next;
+	memPtr = curCommandQueuePtr->memPtr;
+	while (memPtr != NULL)
+	{
+		tmpMemPtr = memPtr->next;
+		free(memPtr);
+		memPtr = tmpMemPtr;
+	}
     free(curCommandQueuePtr);
 
     return 0;
 }
+
+void voclUpdateMemoryInCommandQueuePtr(struct strVOCLCommandQueue *commandQueuePtr, 
+			vocl_mem mem, size_t size)
+{
+	struct strVOCLMemInfo *memPtr, *curMemPtr;
+	curMemPtr = commandQueuePtr->memPtr;
+	while (curMemPtr != NULL)
+	{
+		if (mem == curMemPtr->memory)
+		{
+			break;
+		}
+		curMemPtr = curMemPtr->next;
+	}
+
+	/* if the vocl memory is not added yet, add it here */
+	if (curMemPtr == NULL)
+	{
+		memPtr = (struct strVOCLMemInfo *)malloc(sizeof(struct strVOCLMemInfo));
+		memPtr->memory = mem;
+		memPtr->size = size;
+		memPtr->migrationStatus = 0; /* not migrated yet */
+		memPtr->next = commandQueuePtr->memPtr;
+		commandQueuePtr->memPtr = memPtr;
+		commandQueuePtr->deviceMemSize += size;
+	}
+
+	return;
+}
+
+/* add vocl memory to command queue in case migration is needed */
+void voclUpdateMemoryInCommandQueue(vocl_command_queue command_queue, vocl_mem mem, size_t size)
+{
+	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(command_queue);
+	voclUpdateMemoryInCommandQueuePtr(commandQueuePtr, mem, size);
+	return;
+}
+
+void voclReleaseMemoryFromCommandQueuePtr(struct strVOCLCommandQueue *commandQueuePtr, vocl_mem mem)
+{
+	struct strVOCLMemInfo *memPtr, *preMemPtr;
+	int isMemFound = 0;
+	memPtr = commandQueuePtr->memPtr;
+	if (memPtr != NULL)
+	{
+		if (memPtr->memory == mem)
+		{
+			commandQueuePtr->memPtr = memPtr->next;
+			commandQueuePtr->deviceMemSize -= memPtr->size;
+			free(memPtr);
+			isMemFound = 1;
+		}
+		
+		preMemPtr = memPtr;
+		memPtr = memPtr->next;
+		while (memPtr != NULL)
+		{
+			if (memPtr->memory == mem)
+			{
+				preMemPtr->next = memPtr->next;
+				commandQueuePtr->deviceMemSize -= memPtr->size;
+				free(memPtr);
+				isMemFound = 1;
+				break;
+			}
+			preMemPtr = memPtr;
+			memPtr = memPtr->next;
+		}
+	}
+
+	if (isMemFound == 0)
+	{
+		printf("voclReleaseMemoryFromCommandQueuePtr, memory not found!\n");
+		exit (1);
+	}
+
+	return;
+}
+
+void voclReleaseMemoryFromCommandQueue(vocl_command_queue command_queue, vocl_mem mem)
+{
+	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(command_queue);
+	voclReleaseMemoryFromCommandQueuePtr(commandQueuePtr, mem);
+}
+
+void voclCommandQueueMigration(vocl_command_queue command_queue)
+{
+	vocl_device_id oldDeviceID, newDeviceID;
+	cl_device_id oldClDeviceID, newClDeviceID;
+	vocl_context context;
+	cl_command_queue oldCmdQueue, newCmdQueue;
+	cl_mem oldMem, newMem;
+	MPI_Comm newComm, newCommData, oldComm, oldCommData;
+	size_t size;
+	int newRank, newIndex, oldRank, oldIndex;
+	int isFromLocal, isToLocal;
+	int proxyDestRank, proxySourceRank;
+	int isMemoryWritten, flag;
+	struct strVOCLCommandQueue *commandQueuePtr;
+	struct strVOCLMemInfo *memPtr;
+
+	clFinish(command_queue);
+	/* migrate the related context, memory corresponding to it */
+	oldDeviceID = voclGetCommandQueueDeviceID(command_queue);
+	size = voclCommandQueueGetDeviceMemorySize(command_queue);
+	newDeviceID = voclSearchTargetGPU(size);
+	context = voclGetCommandQueueContext(command_queue);
+	
+	/* get data communication info of the new vocl device */
+	oldClDeviceID = voclVOCLDeviceID2CLDeviceIDComm(oldDeviceID, &oldRank, &oldIndex,
+					&oldComm, &oldCommData);
+	newClDeviceID = voclVOCLDeviceID2CLDeviceIDComm(newDeviceID, &newRank, &newIndex, 
+					&newComm, &newCommData);
+	printf("newDeviceID = %ld, newIndex = %d\n", newDeviceID, newIndex);
+
+	/* migrate context to the new device */
+	voclUpdateVOCLContext(context, newRank, newIndex, newComm, newCommData, newDeviceID);
+
+	/* migrate the command queue */
+	oldCmdQueue = voclVOCLCommandQueue2CLCommandQueue(command_queue);
+	voclUpdateVOCLCommandQueue(command_queue, newRank, newIndex,
+					newComm, newCommData, context, newDeviceID);
+	newCmdQueue = voclVOCLCommandQueue2CLCommandQueue(command_queue);
+	
+	isFromLocal = voclIsOnLocalNode(oldIndex);
+	isToLocal = voclIsOnLocalNode(newIndex);
+
+	printf("cmdQueue migration, isFromLocal = %d, isToLocal = %d\n", 
+			isFromLocal, isToLocal);
+
+	/* migrate all memory in the command to the new device */
+	commandQueuePtr = getVOCLCommandQueuePtr(command_queue);
+	memPtr = commandQueuePtr->memPtr;
+	isMemoryWritten = 0;
+	while (memPtr != NULL)
+	{
+		size = voclGetVOCLMemorySize(memPtr->memory);
+		flag = voclGetMemWrittenFlag(memPtr->memory);
+
+		if (flag == 1)
+		{
+			oldMem = voclVOCLMemory2CLMemory(memPtr->memory);
+			voclUpdateVOCLMemory(memPtr->memory, newRank, newIndex, newComm,
+					newCommData, context);
+			newMem = voclVOCLMemory2CLMemory(memPtr->memory);
+			if (isFromLocal == 0 || isToLocal == 0)
+			{
+				if (isFromLocal == 0 && isToLocal == 0 && oldIndex == newIndex)
+				{
+					voclMigrationOnSameRemoteNode(oldComm, oldRank, oldCmdQueue, oldMem,
+						newCmdQueue, newMem, size);
+				}
+
+				proxyDestRank = voclMigIssueGPUMemoryRead(oldComm, oldRank, newComm, newCommData,
+						newRank, newIndex, isFromLocal, isToLocal, oldCmdQueue,
+						oldMem, size);
+                proxySourceRank = voclMigIssueGPUMemoryWrite(oldComm, oldCommData, oldRank, 
+						oldIndex, newComm, newRank, isFromLocal, isToLocal,
+						newCmdQueue, newMem, size);
+			}
+			else
+			{
+				voclMigLocalToLocal(oldCmdQueue, oldMem, newCmdQueue, newMem, size);
+			}
+			isMemoryWritten = 1;
+		}
+		else
+		{
+			voclUpdateVOCLMemory(memPtr->memory, newRank, newIndex, 
+					newComm, newCommData, context);
+		}
+		memPtr = memPtr->next;
+	}
+
+	if (isMemoryWritten == 1)
+	{
+		voclMigFinishDataTransfer(oldComm, oldRank, oldIndex, oldCmdQueue, newComm, newRank,
+			newIndex, newCmdQueue, proxySourceRank, proxyDestRank,
+			isFromLocal, isToLocal);
+	}
+
+	/* release old memory */
+	memPtr = commandQueuePtr->memPtr;
+	while (memPtr != NULL)
+	{
+		clMigReleaseOldMemObject(memPtr->memory);
+		memPtr = memPtr->next;
+	}
+	
+	return;
+}
+

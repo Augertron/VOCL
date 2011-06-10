@@ -100,7 +100,9 @@ struct strSetKernelArg {
 
 struct strMigrationCheck {
 	cl_command_queue command_queue;
+	int              checkLocation;
 	int              argsNum;
+	size_t           memSize;
 	int              isMigrationNeeded;
 };
 

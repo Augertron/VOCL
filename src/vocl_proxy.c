@@ -214,7 +214,8 @@ extern void voclProxyUpdateMemoryOnCmdQueue(cl_command_queue cmdQueue, cl_mem me
 /* migration functions related to device info stored in teh proxy */
 extern void voclProxyCreateDevice(cl_device_id device, size_t globalSize);
 extern void voclProxyReleaseAllDevices();
-extern int voclProxyIsMigrationNeeded(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum);
+extern int voclProxyMigrationCheckKernelLaunch(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum);
+extern int voclProxyMigrationCheckWriteBuffer(cl_command_queue cmdQueue, size_t size);
 extern void voclProxyUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queue cmdQueue);
 extern void voclProxyReleaseMem(cl_mem mem);
 extern void voclProxyUpdateGlobalMemUsage(cl_command_queue comman_queue, kernel_args *argsPtr, int argsNum);
@@ -650,21 +651,30 @@ int main(int argc, char *argv[])
 		if (status.MPI_TAG == MIGRATION_CHECK)
 		{
 			memcpy(&tmpMigrationCheck, conMsgBuffer[index], sizeof(struct strMigrationCheck));
-			requestNo = 0;
-			args_ptr =
-				(kernel_args *) malloc(tmpMigrationCheck.argsNum * sizeof(kernel_args));
-			MPI_Irecv(args_ptr, tmpMigrationCheck.argsNum * sizeof(kernel_args),
-					  MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL4, appCommData[commIndex],
-					  curRequest + (requestNo++));
-			MPI_Waitall(requestNo, curRequest, curStatus);
+			/* requested from kernel launch */
+			if (tmpMigrationCheck.checkLocation == 0)
+			{
+				args_ptr =
+					(kernel_args *) malloc(tmpMigrationCheck.argsNum * sizeof(kernel_args));
+				MPI_Irecv(args_ptr, tmpMigrationCheck.argsNum * sizeof(kernel_args),
+						  MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL4, appCommData[commIndex],
+						  curRequest + (requestNo++));
+				MPI_Wait(curRequest, curStatus);
 
-			tmpMigrationCheck.isMigrationNeeded = 
-				voclProxyIsMigrationNeeded(tmpMigrationCheck.command_queue,
-										   args_ptr, tmpMigrationCheck.argsNum);
+				tmpMigrationCheck.isMigrationNeeded = 
+					voclProxyMigrationCheckKernelLaunch(tmpMigrationCheck.command_queue,
+											   args_ptr, tmpMigrationCheck.argsNum);
+				free(args_ptr);
+			}
+			/* requested from enqueue write buffer */
+			else if (tmpMigrationCheck.checkLocation == 1)
+			{
+				tmpMigrationCheck.isMigrationNeeded =
+					voclProxyMigrationCheckWriteBuffer(tmpMigrationCheck.command_queue, tmpMigrationCheck.memSize);
+			}
 			MPI_Isend(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE, appRank,
 					  MIGRATION_CHECK, appComm[commIndex], curRequest);
 			MPI_Wait(curRequest, curStatus);
-			free(args_ptr);
 		}
 
         if (status.MPI_TAG == ENQUEUE_ND_RANGE_KERNEL) {

@@ -422,6 +422,7 @@ void voclMigRWBufferFinalize()
 static int voclMigRWWriteToGPUMem(int rank, int index)
 {
     int err;
+	float *tmp = (float *)proxyMigRWBufferPtr[rank].buffers[index].ptr;
     err = clEnqueueWriteBuffer(proxyMigRWBufferPtr[rank].buffers[index].wtCmdQueue,
                                proxyMigRWBufferPtr[rank].buffers[index].wtMem,
                                CL_FALSE,

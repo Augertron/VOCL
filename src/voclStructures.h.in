@@ -47,9 +47,19 @@ struct strVOCLContext {
     cl_context clContext;
     int proxyRank;
     int proxyIndex;
+	int migrationStatus;
     MPI_Comm proxyComm;
     MPI_Comm proxyCommData;
     struct strVOCLContext *next;
+};
+
+/* record the device memory corresponding to */
+/* the current command */
+struct strVOCLMemInfo {
+	vocl_mem memory;
+	size_t   size;
+	int      migrationStatus;
+	struct strVOCLMemInfo *next;
 };
 
 struct strVOCLCommandQueue {
@@ -59,6 +69,7 @@ struct strVOCLCommandQueue {
     int proxyIndex;
     MPI_Comm proxyComm;
     MPI_Comm proxyCommData;
+    vocl_device_id deviceID;
 
     /* old cl command queue information for migration */
     int isOldValid;
@@ -67,11 +78,17 @@ struct strVOCLCommandQueue {
     int oldProxyIndex;
     MPI_Comm oldProxyComm;
     MPI_Comm oldProxyCommData;
+	vocl_device_id oldDeviceID;
 
     /* properties used for migration */
     cl_command_queue_properties properties;
     vocl_context context;
-    vocl_device_id deviceID;
+
+	/* command queue state */
+	int migrationStatus;
+	size_t deviceMemSize;
+	struct strVOCLMemInfo *memPtr;
+
     struct strVOCLCommandQueue *next;
 };
 
@@ -92,7 +109,8 @@ struct strVOCLMemory {
     MPI_Comm oldProxyCommData;
 
     /* used for migration */
-    cl_mem_flags flags;
+	int migrationStatus;
+    cl_mem_flags flags;    /* indicate whether a kernel argument is device memory */
     size_t size;
     int isWritten;              /* 1: not written, 1, written, incomplete, 2 written, completed */
 	void *hostPtr;
@@ -109,6 +127,7 @@ struct strVOCLProgram {
     MPI_Comm proxyComm;
     MPI_Comm proxyCommData;
     /* to store source code for migration */
+	int migrationStatus;
     char *voclSourceString;
     size_t sourceSize;
     char *buildOptions;
@@ -126,6 +145,7 @@ struct strVOCLKernel {
     MPI_Comm proxyCommData;
 
     /*used for migration */
+	int migrationStatus;
     char *kernelName;
     vocl_program program;
     vocl_context context;
@@ -148,6 +168,7 @@ struct strVOCLSampler {
     cl_sampler clSampler;
     int proxyRank;
     int proxyIndex;
+	int migrationStatus;
     MPI_Comm proxyComm;
     MPI_Comm proxyCommData;
     struct strVOCLSampler *next;

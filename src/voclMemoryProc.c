@@ -4,9 +4,16 @@
 extern cl_mem voclMigCreateBuffer(vocl_context context,
         cl_mem_flags flags, size_t size, 
 		void *host_ptr, cl_int * errcode_ret);
-
+extern int voclContextGetMigrationStatus(vocl_context context);
+extern cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyRank,
+                                         int *proxyIndex, MPI_Comm * proxyComm,
+										 MPI_Comm * proxyCommData);
 
 extern void increaseObjCount(int proxyIndex);
+vocl_context voclMemGetContext(vocl_mem mem);
+void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
+                          MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context);
+
 static struct strVOCLMemory *voclMemoryPtr = NULL;
 static vocl_mem voclMemory;
 static int voclMemoryNo;
@@ -148,6 +155,25 @@ cl_mem voclVOCLMemory2CLMemory(vocl_mem memory)
     return memoryPtr->clMemory;
 }
 
+void voclUpdateSingleMemory(vocl_mem mem)
+{
+	int proxyRank, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
+	vocl_context voclContext;
+	cl_context clContext;
+	int err;
+
+	voclContext = voclMemGetContext(mem);
+	clContext = voclVOCLContext2CLContextComm(voclContext, &proxyRank,
+				&proxyIndex, &proxyComm, &proxyCommData);
+	printf("voclContext = %ld, proxyIndex = %d\n", voclContext, proxyIndex);
+	
+	voclUpdateVOCLMemory(mem, proxyRank, proxyIndex, proxyComm, proxyCommData,
+		voclContext);
+
+	return;
+}
+
 void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
                           MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context)
 {
@@ -170,8 +196,7 @@ void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
 
     memoryPtr->clMemory = voclMigCreateBuffer(context, memoryPtr->flags,
                                               memoryPtr->size, NULL, &err);
-    //printf("update mem");
-    //increaseObjCount(proxyIndex);
+	memoryPtr->migrationStatus = voclContextGetMigrationStatus(context);
 
     return;
 }
@@ -200,6 +225,25 @@ void * voclGetMemHostPtr(vocl_mem memory)
 {
     struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
     return memoryPtr->hostPtr;
+}
+
+void voclMemSetMigrationStatus(vocl_mem mem, int status)
+{
+	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(mem);
+	memoryPtr->migrationStatus = status;
+	return;
+}
+
+int voclMemGetMigrationStatus(vocl_mem mem)
+{
+	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(mem);
+	return memoryPtr->migrationStatus;
+}
+
+vocl_context voclMemGetContext(vocl_mem mem)
+{
+	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(mem);
+	return memoryPtr->context;
 }
 
 int voclReleaseMemory(vocl_mem memory)

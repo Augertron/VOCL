@@ -45,13 +45,14 @@ extern void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, int prox
                                        vocl_context context, vocl_device_id device);
 extern cl_command_queue voclVOCLCommandQueue2CLCommandQueue(vocl_command_queue command_queue);
 extern cl_int clMigReleaseOldCommandQueue(vocl_command_queue command_queue);
+extern int voclCommandQueueGetMigrationStatus(vocl_command_queue cmdQueue);
 
-extern kernel_info *getKernelPtr(cl_kernel kernel);
 extern vocl_program voclGetProgramFromKernel(vocl_kernel kernel);
 extern void voclUpdateVOCLKernel(vocl_kernel voclKernel, int proxyRank, int proxyIndex,
                                  MPI_Comm proxyComm, MPI_Comm proxyCommData,
                                  vocl_program program);
 extern cl_kernel voclVOCLKernel2CLKernel(vocl_kernel kernel);
+extern int voclKernelGetMigrationStatus(vocl_kernel kernel);
 
 extern cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyRank,
                                                     int *proxyIndex, MPI_Comm * proxyComm,
@@ -72,6 +73,7 @@ extern void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIn
                                  MPI_Comm proxyComm, MPI_Comm proxyCommData,
                                  vocl_context context);
 extern cl_int clMigReleaseOldMemObject(vocl_mem memobj);
+extern int voclMemGetMigrationStatus(vocl_mem mem);
 extern VOCL_LIB_DEVICE *voclLibGetDeviceIDFromCmdQueue(cl_command_queue cmdQueue);
 extern void voclLibUpdateMemoryOnDevice(VOCL_LIB_DEVICE *devicePtr, cl_mem mem, size_t size);
 extern cl_command_queue voclVOCLCommandQueue2OldCLCommandQueueComm(vocl_command_queue command_queue,
@@ -83,9 +85,11 @@ extern int voclGetMemWrittenFlag(vocl_mem memory);
 extern void voclMigLocalToLocal(cl_command_queue oldCmdQueue, cl_mem oldMem,
                          cl_command_queue newCmdQueue, cl_mem newMem, size_t size);
 extern char *voclGetProgramBuildOptions(vocl_program program);
+extern int voclProgramGetMigrationStatus(vocl_program program);
 extern cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
                                       int *proxyIndex, MPI_Comm * proxyComm,
                                       MPI_Comm * proxyCommData);
+extern kernel_info *getKernelPtr(cl_kernel kernel);
 extern cl_int dlCLSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void *arg_value);
 
 
@@ -125,7 +129,7 @@ vocl_device_id voclSearchTargetGPU(size_t size)
         totalDeviceNum += numDevices[i];
     }
 
-    for (i = 3; i < totalDeviceNum; i++) {
+    for (i = 2; i < totalDeviceNum; i++) {
         err =
             clGetDeviceInfo(deviceID[i], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(mem_size),
                             &mem_size, NULL);
@@ -147,7 +151,11 @@ vocl_device_id voclSearchTargetGPU(size_t size)
 /* set whether migration is needed according to an environment variable */
 void voclSetTaskMigrationCondition()
 {
-	char *migrationConditionsPtr, tmpFlagPtr;
+	char *migrationConditionsPtr, *tmpFlagPtr;
+	char migrationConditions[][20] = {{"MEMORY_FULL"}};
+	char *conditionList;
+	size_t len;
+
 	migrationConditionsPtr = getenv("VOCL_MIGRATION_CONDITION");
 	if (migrationConditionsPtr == NULL)
 	{
@@ -155,10 +163,14 @@ void voclSetTaskMigrationCondition()
 	}
 	else
 	{
-		tmpFlagPtr = strtok(migrationConditionsPtr, ",");
+		len = strlen(migrationConditionsPtr) + 1;
+		conditionList = (char *)malloc(sizeof(char) * len);
+		strcpy(conditionList, migrationConditionsPtr);
+
+		tmpFlagPtr = strtok(conditionList, ",");
 		while (tmpFlagPtr != NULL)
 		{
-			if (strcmp(tmpFlagPtr, "MEMORY_FULL") == 0)
+			if (strcmp(tmpFlagPtr, migrationConditions[0]) == 0)
 			{
 				voclTaskMigrationCheckCondition = 1;
 			}
@@ -166,7 +178,10 @@ void voclSetTaskMigrationCondition()
 			{
 				
 			}
+			tmpFlagPtr = strtok(NULL, ",");
 		}
+
+		free(conditionList);
 	}
 
 	return;
@@ -177,53 +192,6 @@ int voclGetTaskMigrationCondition()
 	return voclTaskMigrationCheckCondition;
 }
 
-int voclCheckIsMigrationNeeded(vocl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)
-{
-	VOCL_LIB_DEVICE *devicePtr;
-	int isMigrationNeeded = 0;
-	size_t sizeForKernel = 0;
-	cl_mem memory;
-	int i;
-
-	devicePtr = voclLibGetDeviceIDFromCmdQueue((cl_command_queue)cmdQueue);
-	for (i = 0; i < argsNum; i++)
-	{
-		/* if it is glboal memory. check if device memory is enough */
-		if (argsPtr[i].isGlobalMemory == 1)
-		{
-			/* if the current global memory is not bind on the device */
-			/* check whether the global memory size is enougth */
-			memory = *((cl_mem *)argsPtr[i].arg_value);
-			voclLibUpdateMemoryOnDevice(devicePtr, memory, argsPtr[i].globalSize);
-			if (devicePtr->usedSize > devicePtr->globalSize)
-			{
-				isMigrationNeeded = 1;
-			}
-		}
-	}
-	printf("local, isMigrationNeeded = %d\n", isMigrationNeeded);
-	return isMigrationNeeded;
-}
-
-void voclLibUpdateGlobalMemUsage(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)
-{
-	int i;
-	cl_mem memory;
-	VOCL_LIB_DEVICE *devicePtr;
-	devicePtr = voclLibGetDeviceIDFromCmdQueue(cmdQueue);
-
-	for (i = 0; i < argsNum; i++)
-	{
-		if (argsPtr[i].isGlobalMemory == 1)
-		{
-			/* add new memory to the device */
-			memory = *((cl_mem *)argsPtr[i].arg_value);
-			voclLibUpdateMemoryOnDevice(devicePtr, memory, argsPtr[i].globalSize);
-		}
-	}
-
-	return;
-}
 
 void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
 {
@@ -238,88 +206,99 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
     int newRank, newIndex, oldRank, oldIndex;
     int proxySourceRank, proxyDestRank;
     int isFromLocal, isToLocal;
+	int cmdQueueMigStatus, memMigStatus, programMigStatus, kernelMigStatus;
     MPI_Comm newComm, newCommData, oldComm, oldCommData;
     int i, err, memWrittenFlag, flag;
     size_t size;
-    char *tmpBuf;
 
-    /* finish previous tasks in the command queue */
-    clFinish(command_queue);
+	/* if the command queue is already migrated */
+	kernelPtr = getKernelPtr(kernel);
+	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus(command_queue);
+	context = voclGetCommandQueueContext(command_queue);
+	if (cmdQueueMigStatus == 0)
+	{
+		/* finish previous tasks in the command queue */
+		clFinish(command_queue);
 
-    kernelPtr = getKernelPtr(kernel);
-    oldDeviceID = voclGetCommandQueueDeviceID(command_queue);
-    newDeviceID = voclSearchTargetGPU(kernelPtr->globalMemSize);
-    printf("newDeviceID = %ld\n", newDeviceID);
-    context = voclGetCommandQueueContext(command_queue);
-    program = voclGetProgramFromKernel(kernel);
+		oldDeviceID = voclGetCommandQueueDeviceID(command_queue);
+		newDeviceID = voclSearchTargetGPU(kernelPtr->globalMemSize);
 
-    clDeviceID =
-        voclVOCLDeviceID2CLDeviceIDComm(newDeviceID, &newRank, &newIndex, &newComm,
-                                        &newCommData);
-    /* re-create context */
-    voclUpdateVOCLContext(context, newRank, newIndex, newComm, newCommData, newDeviceID);
-	
-    /* re-create command queue */
-    voclUpdateVOCLCommandQueue(command_queue, newRank, newIndex,
-                               newComm, newCommData, context, newDeviceID);
-    oldCmdQueue =
-        voclVOCLCommandQueue2OldCLCommandQueueComm(command_queue, &oldRank, &oldIndex,
-                                                   &oldComm, &oldCommData);
+		clDeviceID =
+			voclVOCLDeviceID2CLDeviceIDComm(newDeviceID, &newRank, &newIndex, &newComm,
+											&newCommData);
+		/* re-create context */
+		voclUpdateVOCLContext(context, newRank, newIndex, newComm, newCommData, newDeviceID);
+		
+		/* re-create command queue */
+		voclUpdateVOCLCommandQueue(command_queue, newRank, newIndex,
+								   newComm, newCommData, context, newDeviceID);
+	}
 
-    newCmdQueue = voclVOCLCommandQueue2CLCommandQueue(command_queue);
+	oldCmdQueue = voclVOCLCommandQueue2OldCLCommandQueueComm(command_queue, &oldRank, 
+					&oldIndex, &oldComm, &oldCommData);
+	newCmdQueue = voclVOCLCommandQueue2CLCommandQueueComm(command_queue, &newRank,
+					&newIndex, &newComm, &newCommData);
 
     isFromLocal = voclIsOnLocalNode(oldIndex);
     isToLocal = voclIsOnLocalNode(newIndex);
+	newDeviceID = voclGetCommandQueueDeviceID(command_queue);
+	printf("newDeviceID = %ld\n", newDeviceID);
 
-    printf("isFromLocal = %d, isToLocal = %d\n", isFromLocal, isToLocal);
+    printf("kernelLaunch, isFromLocal = %d, isToLocal = %d\n", isFromLocal, isToLocal);
 
+	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus(command_queue);
     /* go throught all argument of the kernel */
     memWrittenFlag = 0;
     for (i = 0; i < kernelPtr->args_num; i++) {
         if (kernelPtr->args_flag[i] == 1) {     /* it is global memory */
             size = voclGetVOCLMemorySize(kernelPtr->args_ptr[i].memory);
 			flag = voclGetMemWrittenFlag(kernelPtr->args_ptr[i].memory);
-			printf("i = %d, size = %ld, flag = %d\n", i, size, flag);
-
+			memMigStatus = voclMemGetMigrationStatus(kernelPtr->args_ptr[i].memory);
+			printf("i = %d, size = %ld, flag = %d, memMigStatus = %d, cmdMigStatus = %d\n", 
+					i, size, flag, memMigStatus, cmdQueueMigStatus);
+			
 			/* write to gpu memory is completed */
-            if (flag == 1) {
-                    /* send a message to the source proxy process for migration data transfer */
-                oldMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
-                /* update the memory to the new device */
-                voclUpdateVOCLMemory(kernelPtr->args_ptr[i].memory, newRank, newIndex,
-                                     newComm, newCommData, context);
-                /* send a message to the dest proxy process for migration data transfer */
-                newMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
+			if (memMigStatus < cmdQueueMigStatus)
+			{
+				if (flag == 1) {
+						/* send a message to the source proxy process for migration data transfer */
+					oldMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
+					/* update the memory to the new device */
+					voclUpdateVOCLMemory(kernelPtr->args_ptr[i].memory, newRank, newIndex,
+										 newComm, newCommData, context);
+					/* send a message to the dest proxy process for migration data transfer */
+					newMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
 
-                if (isFromLocal == 0 || isToLocal == 0) {
-					/* if migration is on the same remote node */
-					if (isFromLocal == 0 && isToLocal == 0 && oldIndex == newIndex)
-					{
-						voclMigrationOnSameRemoteNode(oldComm, oldRank, oldCmdQueue, oldMem,
-							newCmdQueue, newMem, size);
+					if (isFromLocal == 0 || isToLocal == 0) {
+						/* if migration is on the same remote node */
+						if (isFromLocal == 0 && isToLocal == 0 && oldIndex == newIndex)
+						{
+							voclMigrationOnSameRemoteNode(oldComm, oldRank, oldCmdQueue, oldMem,
+								newCmdQueue, newMem, size);
+						}
+
+						proxyDestRank =
+							voclMigIssueGPUMemoryRead(oldComm, oldRank, newComm, newCommData,
+													  newRank, newIndex, isFromLocal, isToLocal, oldCmdQueue,
+													  oldMem, size);
+						proxySourceRank =
+							voclMigIssueGPUMemoryWrite(oldComm, oldCommData, oldRank, oldIndex, newComm,
+													   newRank, isFromLocal, isToLocal,
+													   newCmdQueue, newMem, size);
 					}
-
-                    proxyDestRank =
-                        voclMigIssueGPUMemoryRead(oldComm, oldRank, newComm, newCommData,
-                                                  newRank, newIndex, isFromLocal, isToLocal, oldCmdQueue,
-                                                  oldMem, size);
-                    proxySourceRank =
-                        voclMigIssueGPUMemoryWrite(oldComm, oldCommData, oldRank, oldIndex, newComm,
-                                                   newRank, isFromLocal, isToLocal,
-                                                   newCmdQueue, newMem, size);
-                }
-                else {
-                    voclMigLocalToLocal(oldCmdQueue, oldMem, newCmdQueue, newMem, size);
-                }
-                memWrittenFlag = 1;
-            }
-			/*either not written at all, or written is incomplete */
-            else {
-                voclUpdateVOCLMemory(kernelPtr->args_ptr[i].memory, newRank, newIndex,
-                                     newComm, newCommData, context);
-            }
-            newMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
-            memcpy(kernelPtr->args_ptr[i].arg_value, (void *) &newMem, sizeof(cl_mem));
+					else {
+						voclMigLocalToLocal(oldCmdQueue, oldMem, newCmdQueue, newMem, size);
+					}
+					memWrittenFlag = 1;
+				}
+				/*either not written at all, or written is incomplete */
+				else {
+					voclUpdateVOCLMemory(kernelPtr->args_ptr[i].memory, newRank, newIndex,
+										 newComm, newCommData, context);
+				}
+				newMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
+				memcpy(kernelPtr->args_ptr[i].arg_value, (void *) &newMem, sizeof(cl_mem));
+			}
         }
     }
 
@@ -339,14 +318,22 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
         }
     }
 
-    /* re-create program */
-    voclUpdateVOCLProgram(program, newRank, newIndex, newComm, newCommData, context);
+	program = voclGetProgramFromKernel(kernel);
+    /* cmdQueue is migrated, but kernel is not yet */
+	programMigStatus = voclProgramGetMigrationStatus((vocl_program)program);
+	if (programMigStatus < cmdQueueMigStatus)
+	{
+		voclUpdateVOCLProgram(program, newRank, newIndex, newComm, newCommData, context);
+		/* build the program, only one target device is searched */
+		/* the last two arguments are ignored currently */
+		err = clBuildProgram(program, 1, &newDeviceID, voclGetProgramBuildOptions(program), 0, 0);
+	}
 
-    /* build the program, only one target device is searched */
-    /* the last two arguments are ignored currently */
-    err = clBuildProgram(program, 1, &newDeviceID, voclGetProgramBuildOptions(program), 0, 0);
-
-    voclUpdateVOCLKernel(kernel, newRank, newIndex, newComm, newCommData, program);
+	kernelMigStatus = voclKernelGetMigrationStatus((vocl_kernel)kernel);
+	if (kernelMigStatus < cmdQueueMigStatus)
+	{
+		voclUpdateVOCLKernel(kernel, newRank, newIndex, newComm, newCommData, program);
+	}
 
     if (isToLocal == 1) {
         clKernel = voclVOCLKernel2CLKernel(kernel);

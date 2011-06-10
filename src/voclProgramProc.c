@@ -7,6 +7,7 @@ voclMigCreateProgramWithSource(vocl_context context,
                                cl_uint count,
                                const char **strings, const size_t * lengths,
                                cl_int * errcode_ret);
+extern int voclContextGetMigrationStatus(vocl_context context);
 
 static struct strVOCLProgram *voclProgramPtr = NULL;
 static vocl_program voclProgram;
@@ -139,6 +140,21 @@ vocl_context voclGetContextFromProgram(vocl_program program)
     return programPtr->context;
 }
 
+void voclProgramSetMigrationStatus(vocl_program program, int status)
+{
+	struct strVOCLProgram *programPtr;
+	programPtr = getVOCLProgramPtr(program);
+	programPtr->migrationStatus = status;
+	return;
+}
+
+int voclProgramGetMigrationStatus(vocl_program program)
+{
+	struct strVOCLProgram *programPtr;
+	programPtr = getVOCLProgramPtr(program);
+	return programPtr->migrationStatus;
+}
+
 char *voclGetProgramSource(vocl_program program, size_t * sourceSize)
 {
     struct strVOCLProgram *programPtr;
@@ -199,7 +215,11 @@ void voclUpdateVOCLProgram(vocl_program voclProgram, int proxyRank, int proxyInd
 
     programPtr->clProgram = voclMigCreateProgramWithSource(context, 1,
                                                            &cSource, &sourceSize, &err);
+    if (err != CL_SUCCESS) {
+        printf("create program error, %d!\n", err);
+    }
 
+	programPtr->migrationStatus = voclContextGetMigrationStatus(context);
     return;
 }
 
