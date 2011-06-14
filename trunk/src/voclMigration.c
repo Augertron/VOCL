@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "voclOpencl.h"
 #include "voclStructures.h"
 #include "voclKernelArgProc.h"
 #include "voclMigrationDeviceProc.h"
@@ -205,9 +206,11 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
     cl_kernel clKernel;
     int newRank, newIndex, oldRank, oldIndex;
     int proxySourceRank, proxyDestRank;
+	struct strMigrationCheck tmpMigrationCheck;
     int isFromLocal, isToLocal;
 	int cmdQueueMigStatus, memMigStatus, programMigStatus, kernelMigStatus;
     MPI_Comm newComm, newCommData, oldComm, oldCommData;
+	MPI_Status status;
     int i, err, memWrittenFlag, flag;
     size_t size;
 
@@ -352,6 +355,16 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
             }
         }
     }
+
+	/* tell proxy process migration is completed and it can process other messages */
+	if (isFromLocal == 0)
+	{
+		tmpMigrationCheck.releaseMigLock = 1;
+		MPI_Send(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE, 
+			oldRank, MIGRATION_CHECK, oldComm);
+		MPI_Recv(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE,
+			oldRank, MIGRATION_CHECK, oldComm, &status);
+	}
 
     return;
 }

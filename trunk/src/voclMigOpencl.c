@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "voclOpencl.h"
+#include "voclOpenclMacro.h"
 #include "voclStructures.h"
 #include "voclKernelArgProc.h"
 #include <sys/time.h>
@@ -52,8 +53,8 @@ extern void voclLibUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queu
 
 /* proxy name processing */
 extern int voclIsOnLocalNode(int index);
-extern void increaseObjCount(int proxyIndex);
-extern void decreaseObjCount(int proxyIndex);
+extern void voclObjCountIncrease(int proxyIndex);
+extern void voclObjCountDecrease(int proxyIndex);
 extern int voclIsOldMemoryValid(vocl_mem memory);
 
 /* vocl and cl convertion */
@@ -164,7 +165,7 @@ voclMigCreateContext(const cl_context_properties * properties,
     }
 
     /* increase OpenCL object count */
-    increaseObjCount(proxyIndex);
+    voclObjCountIncrease(proxyIndex);
 
     /*convert opencl context to vocl context */
     free(clDevices);
@@ -220,7 +221,7 @@ voclMigCreateCommandQueue(vocl_context context,
     }
 
     /* increase OpenCL object count */
-    increaseObjCount(proxyIndex);
+    voclObjCountIncrease(proxyIndex);
 
     return tmpCreateCommandQueue.clCommand;
 }
@@ -305,7 +306,7 @@ voclMigCreateProgramWithSource(vocl_context context,
     }
 
     /* increase OpenCL object count */
-    increaseObjCount(proxyIndex);
+    voclObjCountIncrease(proxyIndex);
 
     free(allStrings);
     free(lengthsArray);
@@ -350,7 +351,7 @@ cl_kernel voclMigCreateKernel(vocl_program program, const char *kernel_name,
     }
 
     /* increase OpenCL object count */
-    increaseObjCount(proxyIndex);
+    voclObjCountIncrease(proxyIndex);
 
     return tmpCreateKernel.kernel;
 }
@@ -400,7 +401,7 @@ voclMigCreateBuffer(vocl_context context,
     }
 
     /* increase OpenCL object count */
-    increaseObjCount(proxyIndex);
+    voclObjCountIncrease(proxyIndex);
 
     return tmpCreateBuffer.deviceMem;
 }
@@ -447,7 +448,7 @@ voclMigCreateSampler(cl_context context,
     }
 
     /* increase OpenCL object count */
-    increaseObjCount(proxyIndex);
+    voclObjCountIncrease(proxyIndex);
 
     return tmpCreateSampler.sampler;
 }
@@ -604,7 +605,7 @@ cl_int clMigReleaseOldCommandQueue(vocl_command_queue command_queue)
     }
 
     /* decrease the number of OpenCL objects count */
-    decreaseObjCount(proxyIndex);
+    voclObjCountDecrease(proxyIndex);
 
     voclSetOldCommandQueueReleased(command_queue);
 
@@ -641,7 +642,7 @@ cl_int clMigReleaseOldMemObject(vocl_mem memobj)
 		}
 
 		/* decrease the number of OpenCL objects count */
-		decreaseObjCount(proxyIndex);
+		voclObjCountDecrease(proxyIndex);
 
 		voclSetOldMemoryReleased(memobj);
 	}

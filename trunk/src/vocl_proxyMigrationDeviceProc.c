@@ -10,7 +10,7 @@ void voclProxyCreateDevice(cl_device_id device, size_t globalSize)
 	VOCL_PROXY_DEVICE *devicePtr = (VOCL_PROXY_DEVICE *)malloc(sizeof(VOCL_PROXY_DEVICE));
 	devicePtr->device = device;
 	devicePtr->globalSize = globalSize;
-	devicePtr->globalSize = 300000000;
+	//devicePtr->globalSize = 3000000000;
 
 	devicePtr->usedSize = 0;
 	devicePtr->cmdQueuePtr = NULL;

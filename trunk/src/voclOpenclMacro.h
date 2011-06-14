@@ -1,9 +1,54 @@
-#ifndef __VOCL_PROXY_MACRO_H__
-#define __VOCL_PROXY_MACRO_H__
+#ifndef __VOCL_LIB_MACRO_H__
+#define __VOCL_LIB_MACRO_H__
 
-#define MAX_CMSG_SIZE @control_msg_size@        /* max control message size */
-typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+/* number of slave process */
+#define MAX_NPS 100
+
+/* for kernel arguments */
+#define MAX_TAG 65535
+
+/* vocl true and false */
+#define VOCL_TRUE  1
+#define VOCL_FALSE 0
+
+/* parameters of buffer pool */
+/* write buffer */
+#define VOCL_WRITE_BUFFER_NUM 8
+//#define VOCL_WRITE_BUFFER_SIZE 64108864 /* 64MB 1024 X 1024 X 64 */
+#define VOCL_WRITE_BUFFER_SIZE 33554432 /* 64MB 1024 X 1024 X 64 */
+#define VOCL_WRITE_TAG 5000
+
+/* read buffer */
+#define VOCL_READ_BUFFER_NUM 16
+//#define VOCL_READ_BUFFER_SIZE 64108864  /* 64MB 1024 X 1024 X 64 */
+#define VOCL_READ_BUFFER_SIZE 33554432  /* 64MB 1024 X 1024 X 64 */
+#define VOCL_READ_TAG 4000
+
+/* macros for migration */
+#define VOCL_MIG_BUF_NUM 8
+#define VOCL_MIG_POOL_NUM 4
+//#define VOCL_MIG_BUF_SIZE 64108864
+#define VOCL_MIG_BUF_SIZE 33554432
+#define VOCL_MIG_TAG 6000
+
+#define VOCL_MIG_LOCAL_WT_BUF_AVALB     0
+#define VOCL_MIG_LOCAL_WT_BUF_WAITDATA  1
+#define VOCL_MIG_LOCAL_WT_BUF_WTGPUMEM  2
+
+#define VOCL_MIG_LOCAL_RD_BUF_AVALB     3
+#define VOCL_MIG_LOCAL_RD_BUF_RDGPUMEM  4
+#define VOCL_MIG_LOCAL_RD_BUF_MPISEND   5
+
+/* flag use for local to local migration */
+#define VOCL_MIG_LOCAL_RW_BUF_AVALB     6
+#define VOCL_MIG_LOCAL_RW_BUF_RDGPUMEM  7
+#define VOCL_MIG_LOCAL_RW_BUF_WTGPUMEM  8
+
+/* for api function identification */
 #define GET_PLATFORM_ID_FUNC        10
 #define GET_DEVICE_ID_FUNC          11
 #define CREATE_CONTEXT_FUNC         12
@@ -19,7 +64,7 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define ENQUEUE_READ_BUFFER         22
 #define RELEASE_MEM_OBJ             23
 #define FINISH_FUNC                 24
-#define GET_CONTEXT_INFO_FUNC	    25
+#define GET_CONTEXT_INFO_FUNC       25
 #define CL_RELEASE_KERNEL_FUNC      26
 #define GET_BUILD_INFO_FUNC         27
 #define GET_PROGRAM_INFO_FUNC       28
@@ -28,7 +73,7 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define REL_CONTEXT_FUNC            31
 #define GET_DEVICE_INFO_FUNC        32
 #define GET_PLATFORM_INFO_FUNC      33
-#define FLUSH_FUNC				    34
+#define FLUSH_FUNC                  34
 #define WAIT_FOR_EVENT_FUNC         35
 #define GET_CMD_QUEUE_INFO_FUNC     36
 #define CREATE_SAMPLER_FUNC         37
@@ -55,12 +100,11 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define FORCED_MIGRATION            58
 #define PROGRAM_END                 59
 
-#define CMSG_NUM                    50  /* number of buffers for control messages */
-#define DMSG_NUM      				100     /* number of buffers for data messages */
-#define TOTAL_MSG_NUM				(CMSG_NUM + DMSG_NUM)
-#define DEFAULT_APP_NUM             20
+#define CMSG_NUM                    60
+#define DATAMSG_NUM                 100
+#define TOTAL_MSG_NUM               (CMSG_NUM + DATAMSG_NUM)
 
-#define GET_PLATFORM_ID_FUNC1	    10000
+#define GET_PLATFORM_ID_FUNC1       10000
 #define GET_DEVICE_ID_FUNC1         10001
 #define CREATE_CONTEXT_FUNC1        10002
 #define LOAD_SOURCE_FUNC1           10003
@@ -77,13 +121,13 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define ENQUEUE_ND_RANGE_KERNEL3    10014
 #define ENQUEUE_ND_RANGE_KERNEL4    10015
 #define ENQUEUE_READ_BUFFER1        10016
-#define GET_CONTEXT_INFO_FUNC1	    10017
+#define GET_CONTEXT_INFO_FUNC1      10017
 #define GET_BUILD_INFO_FUNC1        10018
 #define GET_PROGRAM_INFO_FUNC1      10019
 #define GET_DEVICE_INFO_FUNC1       10020
 #define GET_PLATFORM_INFO_FUNC1     10021
 #define WAIT_FOR_EVENT_FUNC1        10022
-#define GET_CMD_QUEUE_INFO_FUNC1 	10023
+#define GET_CMD_QUEUE_INFO_FUNC1    10023
 #define ENQUEUE_MAP_BUFF_FUNC1      10024
 #define GET_EVENT_PROF_INFO_FUNC1   10025
 #define GET_KERNEL_WGP_INFO_FUNC1   10026
@@ -91,60 +135,7 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define ENQ_COPY_BUFF_FUNC1         10028
 #define ENQ_UNMAP_MEMOBJ_FUNC1      10029
 
-/* number of applications supported by each proxy */
-#define VOCL_PROXY_APP_NUM 4
-
-/* flags for helper thread */
-#define GPU_MEM_READ        0
-#define GPU_MEM_WRITE       1
-#define GPU_WRITE_SINGLE    2
-#define GPU_ENQ_WRITE       3
-#define GPU_MEM_NULL        4
-#define SEND_LOCAL_PREVIOUS 5
-
-#define VOCL_PROXY_WRITE_BUFFER_NUM 8
-//#define VOCL_PROXY_WRITE_BUFFER_SIZE 67108864   /*64MB 1024 X 1024 X 64 */
-#define VOCL_PROXY_WRITE_BUFFER_SIZE 33554432   /*64MB 1024 X 1024 X 64 */
-
-#define VOCL_PROXY_READ_BUFFER_NUM 16
-//#define VOCL_PROXY_READ_BUFFER_SIZE 67108864    /*64MB 1024 X 1024 X 64 */
-#define VOCL_PROXY_READ_BUFFER_SIZE 33554432    /*64MB 1024 X 1024 X 64 */
-
-#define VOCL_PROXY_READ_TAG  4000
-#define VOCL_PROXY_WRITE_TAG 5000
-#define VOCL_PROXY_MIG_TAG   6000
-
-/* states of write buffer pool */
-#define WRITE_AVAILABLE 	0
-#define WRITE_RECV_DATA    	1
-#define WRITE_RECV_COMPLED	2
-#define WRITE_GPU_MEM	   	3
-
-/* states of read buffer pool */
-#define READ_AVAILABLE 		0
-#define READ_GPU_MEM    	1
-#define READ_GPU_MEM_SUB	2
-#define READ_GPU_MEM_COMP 	3
-#define READ_SEND_DATA  	4
-
-#define VOCL_MIG_BUF_POOL 4
-/* macros for migration */
-#define VOCL_MIG_BUF_NUM 8
-//#define VOCL_MIG_BUF_SIZE 67108864
-#define VOCL_MIG_BUF_SIZE 33554432
-
-/* migration buffer states */
-#define MIG_WRT_AVAILABLE 0
-#define MIG_WRT_MPIRECV  1
-#define MIG_WRT_WRTGPU   2
-
-#define MIG_READ_AVAILABLE 3
-#define MIG_READ_RDGPU     4
-#define MIG_READ_MPISEND   5
-
-#define MIG_RW_SAME_NODE_AVLB   6
-#define MIG_RW_SAME_NODE_RDMEM  7
-#define MIG_RW_SAME_NODE_WTMEM  8
-
-
+#ifdef __cplusplus
+}
+#endif
 #endif

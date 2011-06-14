@@ -1,8 +1,9 @@
 #include <stdio.h>
+#include <string.h>
+#include "voclOpencl.h"
 #include "voclStructures.h"
 
-extern cl_command_queue
-voclMigCreateCommandQueue(vocl_context context,
+extern cl_command_queue voclMigCreateCommandQueue(vocl_context context,
                           vocl_device_id device,
                           cl_command_queue_properties properties, cl_int * errcode_ret);
 extern int voclContextGetMigrationStatus(vocl_context context);
@@ -34,7 +35,6 @@ extern void voclMigFinishDataTransfer(MPI_Comm oldComm, int oldRank, int oldInde
 
 
 extern int voclIsOnLocalNode(int index);
-extern void increaseObjCount(int proxyIndex);
 extern vocl_device_id voclSearchTargetGPU(size_t size);
 
 
@@ -387,7 +387,9 @@ void voclCommandQueueMigration(vocl_command_queue command_queue)
 	vocl_context context;
 	cl_command_queue oldCmdQueue, newCmdQueue;
 	cl_mem oldMem, newMem;
+	struct strMigrationCheck tmpMigrationCheck;
 	MPI_Comm newComm, newCommData, oldComm, oldCommData;
+	MPI_Status status;
 	size_t size;
 	int newRank, newIndex, oldRank, oldIndex;
 	int isFromLocal, isToLocal;
@@ -447,6 +449,8 @@ void voclCommandQueueMigration(vocl_command_queue command_queue)
 					voclMigrationOnSameRemoteNode(oldComm, oldRank, oldCmdQueue, oldMem,
 						newCmdQueue, newMem, size);
 				}
+				else
+				{
 
 				proxyDestRank = voclMigIssueGPUMemoryRead(oldComm, oldRank, newComm, newCommData,
 						newRank, newIndex, isFromLocal, isToLocal, oldCmdQueue,
@@ -454,6 +458,7 @@ void voclCommandQueueMigration(vocl_command_queue command_queue)
                 proxySourceRank = voclMigIssueGPUMemoryWrite(oldComm, oldCommData, oldRank, 
 						oldIndex, newComm, newRank, isFromLocal, isToLocal,
 						newCmdQueue, newMem, size);
+				}
 			}
 			else
 			{
@@ -483,7 +488,17 @@ void voclCommandQueueMigration(vocl_command_queue command_queue)
 		clMigReleaseOldMemObject(memPtr->memory);
 		memPtr = memPtr->next;
 	}
-	
+
+	/* tell proxy process migration is completed and it can process other messages */
+	if (isFromLocal == 0)
+	{
+		tmpMigrationCheck.releaseMigLock = 1;
+		MPI_Send(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE, 
+			oldRank, MIGRATION_CHECK, oldComm);
+		MPI_Recv(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE,
+			oldRank, MIGRATION_CHECK, oldComm, &status);
+	}
+
 	return;
 }
 

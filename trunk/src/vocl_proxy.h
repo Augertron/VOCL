@@ -100,6 +100,7 @@ struct strSetKernelArg {
 
 struct strMigrationCheck {
 	cl_command_queue command_queue;
+	int              releaseMigLock;
 	int              checkLocation;
 	int              argsNum;
 	size_t           memSize;
@@ -383,6 +384,11 @@ struct strMigRemoteGPURWCmpd {
 	int    res;
 };
 
+struct strForcedMigration {
+	int status;
+	int res;
+};
+
 union CMSG_UNION {
     struct strGetPlatformIDs tmpGetPlatformID;
     struct strGetDeviceIDs tmpGetDeviceIDs;
@@ -430,6 +436,7 @@ union CMSG_UNION {
     struct strMigGPUMemoryReadCmpd tmpMigReadCmpd;
 	struct strMigRemoteGPUMemoryRW tmpMigGPUMemRW;
 	struct strMigRemoteGPURWCmpd tmpMigGPUMemRWCmpd;
+	struct strForcedMigration tmpForcedMigration;
 } CONTROL_MSG_UNION;
 
 #endif

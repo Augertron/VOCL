@@ -1,4 +1,4 @@
-#include "voclOpencl.h"
+#include "voclOpenclMacro.h"
 #include "voclStructures.h"
 
 static struct voclWriteBuffer *voclWriteBufferPtr = NULL;

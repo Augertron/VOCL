@@ -9,7 +9,6 @@ extern cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxy
                                          int *proxyIndex, MPI_Comm * proxyComm,
 										 MPI_Comm * proxyCommData);
 
-extern void increaseObjCount(int proxyIndex);
 vocl_context voclMemGetContext(vocl_mem mem);
 void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
                           MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context);
@@ -166,7 +165,6 @@ void voclUpdateSingleMemory(vocl_mem mem)
 	voclContext = voclMemGetContext(mem);
 	clContext = voclVOCLContext2CLContextComm(voclContext, &proxyRank,
 				&proxyIndex, &proxyComm, &proxyCommData);
-	printf("voclContext = %ld, proxyIndex = %d\n", voclContext, proxyIndex);
 	
 	voclUpdateVOCLMemory(mem, proxyRank, proxyIndex, proxyComm, proxyCommData,
 		voclContext);

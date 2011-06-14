@@ -5,6 +5,14 @@
 extern cl_kernel voclMigCreateKernel(vocl_program program, const char *kernel_name,
                               cl_int * errcode_ret);
 extern int voclProgramGetMigrationStatus(vocl_program program);
+extern int voclContextGetMigrationStatus(vocl_context context);
+extern cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyRank,
+					int *proxyIndex, MPI_Comm * proxyComm,
+					MPI_Comm * proxyCommData);
+extern void voclUpdateVOCLProgram(vocl_program voclProgram, int proxyRank, int proxyIndex,
+                           MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context);
+extern vocl_device_id voclGetCommandQueueDeviceID(vocl_command_queue cmdQueue);
+extern char *voclGetProgramBuildOptions(vocl_program program);
 
 static struct strVOCLKernel *voclKernelPtr = NULL;
 static vocl_kernel voclKernel;
@@ -111,6 +119,12 @@ vocl_program voclGetProgramFromKernel(vocl_kernel kernel)
     return kernelPtr->program;
 }
 
+vocl_context voclGetContextFromKernel(vocl_kernel kernel)
+{
+    struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+    return kernelPtr->context;
+}
+
 void voclKernelSetMigrationStatus(vocl_kernel kernel, int status)
 {
 	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
@@ -163,6 +177,45 @@ void voclUpdateVOCLKernel(vocl_kernel voclKernel, int proxyRank, int proxyIndex,
 	kernelPtr->migrationStatus = voclProgramGetMigrationStatus(program);
 
     return;
+}
+
+void voclUpdateSingleKernel(vocl_kernel kernel, vocl_command_queue command_queue)
+{
+	vocl_context context; 
+	vocl_program program;
+	vocl_device_id deviceID;
+	cl_context clContext;
+	int proxyRank, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
+	int contextMigStatus, programMigStatus, kernelMigStatus;
+
+	context = voclGetContextFromKernel(kernel);
+	program = voclGetProgramFromKernel(kernel);
+
+	clContext = voclVOCLContext2CLContextComm(context, &proxyRank, &proxyIndex,
+					&proxyComm, &proxyCommData);
+
+	contextMigStatus = voclContextGetMigrationStatus(context);
+	programMigStatus = voclProgramGetMigrationStatus(program);
+	kernelMigStatus = voclKernelGetMigrationStatus(kernel);
+
+	if (programMigStatus < contextMigStatus)
+	{
+		voclUpdateVOCLProgram(program, proxyRank, proxyIndex,
+				proxyComm, proxyCommData, context);
+		deviceID = voclGetCommandQueueDeviceID(command_queue);
+		clBuildProgram(program, 1, &deviceID, voclGetProgramBuildOptions(program), 0, 0);
+	}
+
+	programMigStatus = voclProgramGetMigrationStatus(program);
+	kernelMigStatus = voclKernelGetMigrationStatus(kernel);
+	if (kernelMigStatus < programMigStatus)
+	{
+		voclUpdateVOCLKernel(kernel, proxyRank, proxyIndex,
+				proxyComm, proxyCommData, program);
+	}
+
+	return;
 }
 
 int voclReleaseKernel(vocl_kernel kernel)
