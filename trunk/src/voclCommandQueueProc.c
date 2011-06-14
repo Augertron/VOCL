@@ -37,7 +37,25 @@ extern void voclMigFinishDataTransfer(MPI_Comm oldComm, int oldRank, int oldInde
 extern int voclIsOnLocalNode(int index);
 extern vocl_device_id voclSearchTargetGPU(size_t size);
 
+extern cl_int
+clMigEnqueueWriteBuffer(cl_command_queue command_queue,
+                     cl_mem buffer,
+                     cl_bool blocking_write,
+                     size_t offset,
+                     size_t cb,
+                     const void *ptr,
+                     cl_uint num_events_in_wait_list,
+                     const cl_event * event_wait_list, cl_event * event);
 
+extern cl_int 
+clMigEnqueueReadBuffer(cl_command_queue command_queue /* actual opencl command */ ,
+                              cl_mem buffer,
+                              cl_bool blocking_read,
+                              size_t offset,
+                              size_t cb,
+                              void *ptr,
+                              cl_uint num_events_in_wait_list,
+                              const cl_event * event_wait_list, cl_event * event);
 
 static struct strVOCLCommandQueue *voclCommandQueuePtr = NULL;
 static vocl_command_queue voclCommandQueue;
@@ -395,6 +413,7 @@ void voclCommandQueueMigration(vocl_command_queue command_queue)
 	int isFromLocal, isToLocal;
 	int proxyDestRank, proxySourceRank;
 	int isMemoryWritten, flag;
+	char *hostBufPtr;
 	struct strVOCLCommandQueue *commandQueuePtr;
 	struct strVOCLMemInfo *memPtr;
 
@@ -424,8 +443,7 @@ void voclCommandQueueMigration(vocl_command_queue command_queue)
 	isFromLocal = voclIsOnLocalNode(oldIndex);
 	isToLocal = voclIsOnLocalNode(newIndex);
 
-	printf("cmdQueue migration, isFromLocal = %d, isToLocal = %d\n", 
-			isFromLocal, isToLocal);
+	printf("cmdQueue migration, isFromLocal = %d, isToLocal = %d\n", isFromLocal, isToLocal);
 
 	/* migrate all memory in the command to the new device */
 	commandQueuePtr = getVOCLCommandQueuePtr(command_queue);
@@ -438,33 +456,43 @@ void voclCommandQueueMigration(vocl_command_queue command_queue)
 
 		if (flag == 1)
 		{
-			oldMem = voclVOCLMemory2CLMemory(memPtr->memory);
+			/* allocate host buffer */
+			hostBufPtr = (char *)malloc(size);
+			/* Read data from device memory */
+			clMigEnqueueReadBuffer(oldCmdQueue, memPtr->memory,
+					CL_TRUE, 0, size, hostBufPtr, 0, NULL, NULL);
+			
+			//oldMem = voclVOCLMemory2CLMemory(memPtr->memory);
 			voclUpdateVOCLMemory(memPtr->memory, newRank, newIndex, newComm,
 					newCommData, context);
-			newMem = voclVOCLMemory2CLMemory(memPtr->memory);
-			if (isFromLocal == 0 || isToLocal == 0)
-			{
-				if (isFromLocal == 0 && isToLocal == 0 && oldIndex == newIndex)
-				{
-					voclMigrationOnSameRemoteNode(oldComm, oldRank, oldCmdQueue, oldMem,
-						newCmdQueue, newMem, size);
-				}
-				else
-				{
 
-				proxyDestRank = voclMigIssueGPUMemoryRead(oldComm, oldRank, newComm, newCommData,
-						newRank, newIndex, isFromLocal, isToLocal, oldCmdQueue,
-						oldMem, size);
-                proxySourceRank = voclMigIssueGPUMemoryWrite(oldComm, oldCommData, oldRank, 
-						oldIndex, newComm, newRank, isFromLocal, isToLocal,
-						newCmdQueue, newMem, size);
-				}
-			}
-			else
-			{
-				voclMigLocalToLocal(oldCmdQueue, oldMem, newCmdQueue, newMem, size);
-			}
-			isMemoryWritten = 1;
+			clMigEnqueueWriteBuffer(command_queue, memPtr->memory,
+					CL_TRUE, 0, size, hostBufPtr, 0, NULL, NULL);
+			free(hostBufPtr);
+//			newMem = voclVOCLMemory2CLMemory(memPtr->memory);
+//			if (isFromLocal == 0 || isToLocal == 0)
+//			{
+//				if (isFromLocal == 0 && isToLocal == 0 && oldIndex == newIndex)
+//				{
+//					voclMigrationOnSameRemoteNode(oldComm, oldRank, oldCmdQueue, oldMem,
+//						newCmdQueue, newMem, size);
+//				}
+//				else
+//				{
+//
+//				proxyDestRank = voclMigIssueGPUMemoryRead(oldComm, oldRank, newComm, newCommData,
+//						newRank, newIndex, isFromLocal, isToLocal, oldCmdQueue,
+//						oldMem, size);
+//                proxySourceRank = voclMigIssueGPUMemoryWrite(oldComm, oldCommData, oldRank, 
+//						oldIndex, newComm, newRank, isFromLocal, isToLocal,
+//						newCmdQueue, newMem, size);
+//				}
+//			}
+//			else
+//			{
+//				voclMigLocalToLocal(oldCmdQueue, oldMem, newCmdQueue, newMem, size);
+//			}
+//			isMemoryWritten = 1;
 		}
 		else
 		{
@@ -474,12 +502,12 @@ void voclCommandQueueMigration(vocl_command_queue command_queue)
 		memPtr = memPtr->next;
 	}
 
-	if (isMemoryWritten == 1)
-	{
-		voclMigFinishDataTransfer(oldComm, oldRank, oldIndex, oldCmdQueue, newComm, newRank,
-			newIndex, newCmdQueue, proxySourceRank, proxyDestRank,
-			isFromLocal, isToLocal);
-	}
+//	if (isMemoryWritten == 1)
+//	{
+//		voclMigFinishDataTransfer(oldComm, oldRank, oldIndex, oldCmdQueue, newComm, newRank,
+//			newIndex, newCmdQueue, proxySourceRank, proxyDestRank,
+//			isFromLocal, isToLocal);
+//	}
 
 	/* release old memory */
 	memPtr = commandQueuePtr->memPtr;

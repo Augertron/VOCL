@@ -300,9 +300,12 @@ void voclFinalize()
         /* only for remote node */
         if (voclIsOnLocalNode(i) == VOCL_FALSE)
         {	
+			printf("desconnect1, i = %d\n", i);
             MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
             MPI_Comm_disconnect(&voclProxyComm[i]);
+			printf("desconnect2, i = %d\n", i);
             MPI_Comm_disconnect(&voclProxyCommData[i]);
+			printf("desconnect3, i = %d\n", i);
         }
     }
 
@@ -1576,6 +1579,7 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     tmpEnqueueReadBuffer.buffer =
         voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
                                     &proxyCommData);
+	voclUpdateMemoryInCommandQueue((vocl_command_queue)command_queue, (vocl_mem)buffer, cb);
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         errCode =
             dlCLEnqueueReadBuffer(tmpEnqueueReadBuffer.command_queue,
@@ -1594,7 +1598,6 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
         return errCode;
     }
 
-	voclUpdateMemoryInCommandQueue((vocl_command_queue)command_queue, (vocl_mem)buffer, cb);
 
     tmpEnqueueReadBuffer.blocking_read = blocking_read;
     tmpEnqueueReadBuffer.readBufferTag = ENQUEUE_READ_BUFFER1;

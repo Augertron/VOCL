@@ -548,6 +548,7 @@ cl_int clMigEnqueueReadBuffer(cl_command_queue command_queue /* actual opencl co
         MPI_Irecv((void *) ((char *) ptr + VOCL_READ_BUFFER_SIZE * i), bufferSize, MPI_BYTE,
                   proxyRank, VOCL_READ_TAG + bufferIndex, proxyCommData,
                   getReadRequestPtr(proxyIndex, bufferIndex));
+		setReadBufferInUse(proxyIndex, bufferIndex);
     }
 
     requestNo = 0;
@@ -579,6 +580,139 @@ cl_int clMigEnqueueReadBuffer(cl_command_queue command_queue /* actual opencl co
         }
     }
 }
+
+
+cl_int
+clMigEnqueueWriteBuffer(cl_command_queue command_queue,
+                     cl_mem buffer,
+                     cl_bool blocking_write,
+                     size_t offset,
+                     size_t cb,
+                     const void *ptr,
+                     cl_uint num_events_in_wait_list,
+                     const cl_event * event_wait_list, cl_event * event)
+{
+    struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
+    MPI_Status status[4];
+    MPI_Request request[4];
+    int proxyRank, proxyIndex;
+    MPI_Comm proxyComm, proxyCommData;
+    int requestNo = 0, errCode;
+    int bufferNum, i, bufferIndex;
+    size_t remainingSize, bufferSize;
+    vocl_event voclEvent;
+    cl_event *eventList = NULL;
+
+    tmpEnqueueWriteBuffer.command_queue =
+        voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
+                                                &proxyIndex, &proxyComm, &proxyCommData);
+    /* initialize structure */
+    tmpEnqueueWriteBuffer.buffer =
+        voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
+                                    &proxyCommData);
+
+    if (num_events_in_wait_list > 0) {
+        eventList = (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
+        if (eventList == NULL) {
+            printf("enqueueWriteBuffer, allocate eventList error!\n");
+        }
+
+        /* convert vocl events to opencl events */
+        voclVOCLEvents2CLEvents((vocl_event *) event_wait_list, eventList,
+                                num_events_in_wait_list);
+    }
+
+    /* local GPU, call native opencl function */
+    if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
+        errCode = dlCLEnqueueWriteBuffer(tmpEnqueueWriteBuffer.command_queue,
+                                         tmpEnqueueWriteBuffer.buffer, blocking_write, offset,
+                                         cb, ptr, num_events_in_wait_list, eventList, event);
+        if (event != NULL) {
+            /* convert to vocl event */
+            *event = (cl_event) voclCLEvent2VOCLEvent((*event),
+                                                      proxyRank, proxyIndex, proxyComm,
+                                                      proxyCommData);
+        }
+
+        if (num_events_in_wait_list > 0) {
+            free(eventList);
+        }
+
+        return errCode;
+    }
+
+    tmpEnqueueWriteBuffer.blocking_write = blocking_write;
+    tmpEnqueueWriteBuffer.offset = offset;
+    tmpEnqueueWriteBuffer.cb = cb;
+    tmpEnqueueWriteBuffer.tag = ENQUEUE_WRITE_BUFFER1;
+    tmpEnqueueWriteBuffer.num_events_in_wait_list = num_events_in_wait_list;
+    if (event == NULL) {
+        tmpEnqueueWriteBuffer.event_null_flag = 1;
+    }
+    else {
+        tmpEnqueueWriteBuffer.event_null_flag = 0;
+    }
+
+    /* send parameters to remote node */
+    MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(struct strEnqueueWriteBuffer), MPI_BYTE,
+              proxyRank, ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
+    MPI_Waitall(requestNo, request, status);
+
+    if (num_events_in_wait_list > 0) {
+        MPI_Isend((void *) eventList, sizeof(cl_event) * num_events_in_wait_list,
+                  MPI_BYTE, proxyRank, tmpEnqueueWriteBuffer.tag, proxyCommData,
+                  request + (requestNo++));
+    }
+
+    bufferNum = (cb - 1) / VOCL_WRITE_BUFFER_SIZE;
+    bufferSize = VOCL_WRITE_BUFFER_SIZE;
+    remainingSize = cb - bufferNum * bufferSize;
+    for (i = 0; i <= bufferNum; i++) {
+        bufferIndex = getNextWriteBufferIndex(proxyIndex);
+        if (i == bufferNum) {
+            bufferSize = remainingSize;
+        }
+
+        MPI_Isend((void *) ((char *) ptr + i * VOCL_WRITE_BUFFER_SIZE), bufferSize, MPI_BYTE,
+                  proxyRank, VOCL_WRITE_TAG + bufferIndex, proxyCommData,
+                  getWriteRequestPtr(proxyIndex, bufferIndex));
+        /* current buffer is used */
+        setWriteBufferInUse(proxyIndex, bufferIndex);
+    }
+    setWriteBufferNum(proxyIndex, bufferIndex, bufferNum + 1);
+
+    if (blocking_write == CL_TRUE || event != NULL) {
+        MPI_Irecv(&tmpEnqueueWriteBuffer, sizeof(struct strEnqueueWriteBuffer), MPI_BYTE,
+                  proxyRank, ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
+        /* for a blocking write, process all previous non-blocking ones */
+        if (blocking_write == CL_TRUE) {
+            voclSetMemWrittenFlag((vocl_mem) buffer, 2); /* memory write is completed */
+            processAllWrites(proxyIndex);
+        }
+        else if (event != NULL) {
+            processWriteBuffer(proxyIndex, bufferIndex, bufferNum + 1);
+        }
+
+        MPI_Waitall(requestNo, request, status);
+        if (event != NULL) {
+            /* covert opencl event to vocl event */
+            voclEvent =
+                voclCLEvent2VOCLEvent(tmpEnqueueWriteBuffer.event, proxyRank, proxyIndex,
+                                      proxyComm, proxyCommData);
+            setWriteBufferEvent(proxyIndex, bufferIndex, voclEvent);
+            *event = (cl_event) voclEvent;
+        }
+        return tmpEnqueueWriteBuffer.res;
+    }
+
+    /* delete buffer for vocl events */
+    if (num_events_in_wait_list > 0) {
+        free(eventList);
+    }
+
+    return CL_SUCCESS;
+}
+
 
 cl_int clMigReleaseOldCommandQueue(vocl_command_queue command_queue)
 {
