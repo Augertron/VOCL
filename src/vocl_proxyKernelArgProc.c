@@ -33,23 +33,28 @@ int voclProxyMigrationCheckKernelLaunch(cl_command_queue cmdQueue, kernel_args *
 		}
 	}
 
-	printf("proxy, usedSize = %ld, available = %ld, isMigrationNeeded = %d\n", 
-			devicePtr->usedSize, devicePtr->globalSize, isMigrationNeeded);
+//	printf("proxy, kernelLaunch, usedSize = %ld, available = %ld, isMigrationNeeded = %d\n", 
+//			devicePtr->usedSize, devicePtr->globalSize, isMigrationNeeded);
 	return isMigrationNeeded;
 }
 
 int voclProxyMigrationCheckWriteBuffer(cl_command_queue cmdQueue, size_t size)
 {
 	VOCL_PROXY_DEVICE *devicePtr;
+	int isMigrationNeeded = 0;
 	devicePtr = voclProxyGetDeviceIDFromCmdQueue(cmdQueue);
 	if (devicePtr->usedSize + size > devicePtr->globalSize)
 	{
-		return 1;
+		isMigrationNeeded = 1;
 	}
 	else
 	{
-		return 0;
+		isMigrationNeeded = 0;
 	}
+//	printf("proxy, writeBuffer, usedSize = %ld, available = %ld, isMigrationNeeded = %d\n", 
+//			devicePtr->usedSize, devicePtr->globalSize, isMigrationNeeded);
+
+	return isMigrationNeeded;
 }
 
 void voclProxyUpdateGlobalMemUsage(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)

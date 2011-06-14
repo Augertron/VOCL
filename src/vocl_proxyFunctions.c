@@ -3,6 +3,35 @@
 
 extern void voclProxyUpdateMemoryOnCmdQueue(cl_command_queue cmdQueue, cl_mem mem, size_t size);
 
+/* record number of objects accocated in the current proxy process */
+static voclProxyObjCount = 0;
+
+void voclProxyObjCountInitialize()
+{
+	voclProxyObjCount = 0;
+	return;
+}
+
+void voclProxyObjCountFinalize()
+{
+	voclProxyObjCount = 0;
+	return;
+}
+
+void voclProxyObjCountIncrease()
+{
+	voclProxyObjCount++;
+	return;
+}
+
+
+void voclProxyObjCountDecrease()
+{
+	voclProxyObjCount--;
+	return;
+}
+
+/* functions to call native opencl functions */
 void mpiOpenCLGetPlatformIDs(struct strGetPlatformIDs *tmpGetPlatform,
                              cl_platform_id * platforms)
 {
@@ -44,6 +73,7 @@ void mpiOpenCLCreateContext(struct strCreateContext *tmpCreateContext, cl_device
     cl_context hContext = clCreateContext(0, num_devices, devices, 0, 0, &err_code);
     tmpCreateContext->hContext = hContext;
     tmpCreateContext->errcode_ret = err_code;
+	voclProxyObjCountIncrease();
 }
 
 void mpiOpenCLCreateCommandQueue(struct strCreateCommandQueue *tmpCreateCommandQueue)
@@ -58,6 +88,7 @@ void mpiOpenCLCreateCommandQueue(struct strCreateCommandQueue *tmpCreateCommandQ
 
     tmpCreateCommandQueue->errcode_ret = err_code;
     tmpCreateCommandQueue->clCommand = hCmdQueue;
+	voclProxyObjCountIncrease();
 }
 
 void mpiOpenCLCreateProgramWithSource(struct strCreateProgramWithSource
@@ -88,6 +119,7 @@ void mpiOpenCLCreateProgramWithSource(struct strCreateProgramWithSource
     for (strIndex = 0; strIndex < count; strIndex++) {
         free(strings[strIndex]);
     }
+	voclProxyObjCountIncrease();
     free(strings);
 }
 
@@ -109,6 +141,7 @@ void mpiOpenCLCreateKernel(struct strCreateKernel *tmpCreateKernel, char *kernel
     cl_kernel hKernel = clCreateKernel(hInProgram, kernel_name, &err_code);
     tmpCreateKernel->kernel = hKernel;
     tmpCreateKernel->errcode_ret = err_code;
+	voclProxyObjCountIncrease();
 }
 
 void mpiOpenCLCreateBuffer(struct strCreateBuffer *tmpCreateBuffer, void *host_ptr)
@@ -125,6 +158,7 @@ void mpiOpenCLCreateBuffer(struct strCreateBuffer *tmpCreateBuffer, void *host_p
 
     tmpCreateBuffer->errcode_ret = err_code;
     tmpCreateBuffer->deviceMem = deviceMem;
+	voclProxyObjCountIncrease();
 }
 
 void mpiOpenCLEnqueueWriteBuffer(struct strEnqueueWriteBuffer *tmpEnqueueWriteBuffer,
@@ -230,6 +264,7 @@ void mpiOpenCLReleaseMemObject(struct strReleaseMemObject *tmpReleaseMemObject)
     cl_mem deviceMem = tmpReleaseMemObject->memobj;
     err_code = clReleaseMemObject(deviceMem);
     tmpReleaseMemObject->res = err_code;
+	voclProxyObjCountDecrease();
 }
 
 void mpiOpenCLReleaseKernel(struct strReleaseKernel *tmpReleaseKernel)
@@ -238,6 +273,7 @@ void mpiOpenCLReleaseKernel(struct strReleaseKernel *tmpReleaseKernel)
     cl_kernel hInKernel = tmpReleaseKernel->kernel;
     err_code = clReleaseKernel(hInKernel);
     tmpReleaseKernel->res = err_code;
+	voclProxyObjCountDecrease();
 }
 
 void mpiOpenCLGetContextInfo(struct strGetContextInfo *tmpGetContextInfo, void *param_value)
@@ -295,6 +331,7 @@ void mpiOpenCLReleaseProgram(struct strReleaseProgram *tmpReleaseProgram)
     cl_program program = tmpReleaseProgram->program;
     errcode = clReleaseProgram(program);
     tmpReleaseProgram->res = errcode;
+	voclProxyObjCountDecrease();
 }
 
 void mpiOpenCLReleaseCommandQueue(struct strReleaseCommandQueue *tmpReleaseCommandQueue)
@@ -303,6 +340,7 @@ void mpiOpenCLReleaseCommandQueue(struct strReleaseCommandQueue *tmpReleaseComma
     cl_command_queue command_queue = tmpReleaseCommandQueue->command_queue;
     errcode = clReleaseCommandQueue(command_queue);
     tmpReleaseCommandQueue->res = errcode;
+	voclProxyObjCountDecrease();
 }
 
 void mpiOpenCLReleaseContext(struct strReleaseContext *tmpReleaseContext)
@@ -311,6 +349,7 @@ void mpiOpenCLReleaseContext(struct strReleaseContext *tmpReleaseContext)
     cl_context context = tmpReleaseContext->context;
     errcode = clReleaseContext(context);
     tmpReleaseContext->res = errcode;
+	voclProxyObjCountDecrease();
 }
 
 void mpiOpenCLFinish(struct strFinish *tmpFinish)
@@ -380,6 +419,7 @@ void mpiOpenCLCreateSampler(struct strCreateSampler *tmpCreateSampler)
 
     tmpCreateSampler->sampler =
         clCreateSampler(context, normalized_coords, addressing_mode, filter_mode, errcode);
+	voclProxyObjCountIncrease();
 }
 
 void mpiOpenCLGetCommandQueueInfo(struct strGetCommandQueueInfo *tmpGetCommandQueueInfo,
@@ -459,6 +499,7 @@ void mpiOpenCLReleaseSampler(struct strReleaseSampler *tmpReleaseSampler)
     cl_sampler sampler = tmpReleaseSampler->sampler;
     err_code = clReleaseSampler(sampler);
     tmpReleaseSampler->res = err_code;
+	voclProxyObjCountDecrease();
 }
 
 void mpiOpenCLGetKernelWorkGroupInfo(struct strGetKernelWorkGroupInfo
@@ -500,6 +541,7 @@ void mpiOpenCLCreateImage2D(struct strCreateImage2D *tmpCreateImage2D, void *hos
                         flags,
                         &img_format,
                         image_width, image_height, image_row_pitch, host_ptr, errcode_ptr);
+	voclProxyObjCountIncrease();
 }
 
 void mpiOpenCLEnqueueCopyBuffer(struct strEnqueueCopyBuffer *tmpEnqueueCopyBuffer,
@@ -577,3 +619,5 @@ void mpiOpenCLEnqueueUnmapMemObject(struct strEnqueueUnmapMemObject *tmpEnqueueU
                                       num_events_in_wait_list, event_wait_list, event_ptr);
     tmpEnqueueUnmapMemObject->res = errcode;
 }
+
+

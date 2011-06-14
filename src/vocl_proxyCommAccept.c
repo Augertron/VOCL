@@ -7,15 +7,20 @@
 
 static int voclAppNo;
 static int voclAppNum;
+static int voclCommUsedSize;
+static char *voclCommUsedFlag;
 static char **conMsgBufferStartPtr;
+static int  voclTmpRequestNumForMigration;
 
 extern MPI_Request *conMsgRequest;
 extern MPI_Comm *appComm, *appCommData;
 extern int voclTotalRequestNum;
+extern int voclAppIndexOffset;
 extern char voclPortName[MPI_MAX_PORT_NAME];
 extern char **conMsgBuffer;
 
 pthread_t thAppComm;
+static pthread_mutex_t commLock;
 
 void voclProxyCommInitialize()
 {
@@ -23,15 +28,22 @@ void voclProxyCommInitialize()
     voclAppNum = DEFAULT_APP_NUM;
     voclAppNo = 0;
     voclTotalRequestNum = 0;
+	voclAppIndexOffset = 0;
+	voclCommUsedSize = 0;
     conMsgRequest = (MPI_Request *) malloc(voclAppNum * CMSG_NUM * sizeof(MPI_Request));
     appComm = (MPI_Comm *) malloc(voclAppNum * sizeof(MPI_Comm));
     appCommData = (MPI_Comm *) malloc(voclAppNum * sizeof(MPI_Comm));
+	voclCommUsedFlag = (char *)malloc(voclAppNum * sizeof(char));
+	/* initialize all flag as being not used */
+	memset(voclCommUsedFlag, 0, sizeof(char) * voclAppNum);
 	conMsgBuffer = (char **)malloc(voclAppNum * CMSG_NUM * sizeof(char *));
 	conMsgBufferStartPtr = conMsgBuffer;
 	for (i = 0; i < voclAppNum*CMSG_NUM; i++)
 	{
 		conMsgBuffer[i] = (char *)malloc(sizeof(CON_MSG_BUFFER));
 	}
+	/*initialize the lock */
+	pthread_mutex_init(&commLock, NULL);
 }
 
 void voclProxyCommFinalize()
@@ -41,6 +53,7 @@ void voclProxyCommFinalize()
 	totalBufferNum = voclAppNum * CMSG_NUM;
 
     free(conMsgRequest);
+	free(voclCommUsedFlag);
     free(appComm);
     free(appCommData);
 
@@ -52,13 +65,30 @@ void voclProxyCommFinalize()
 	
 	/* free control msg pointer buffer */
     free(conMsgBufferStartPtr);
+	/*destroy the lock */
+	pthread_mutex_destroy(&commLock);
 
     return;
 }
 
+void voclProxyRecvOnlyMigrationMsgs(int index)
+{
+	voclTmpRequestNumForMigration = voclTotalRequestNum;
+	voclTotalRequestNum = CMSG_NUM;
+	voclAppIndexOffset = index;
+	return;
+}
+
+void voclProxyRecvAllMsgs(int index)
+{
+	voclTotalRequestNum = voclTmpRequestNumForMigration;
+	voclAppIndexOffset = 0;
+	return;
+}
+
 static int voclGetAppIndex()
 {
-	int i;
+	int i, returnIndex;
     /* if memory is not enought */
     if (voclAppNo >= voclAppNum) {
         voclAppNum *= 2;
@@ -67,29 +97,46 @@ static int voclGetAppIndex()
                                     (voclAppNum * CMSG_NUM) * sizeof(MPI_Request));
         appComm = (MPI_Comm *) realloc(appComm, voclAppNum * sizeof(MPI_Comm));
         appCommData = (MPI_Comm *) realloc(appCommData, voclAppNum * sizeof(MPI_Comm));
+		voclCommUsedFlag = (char *) realloc(voclCommUsedFlag, voclAppNum * sizeof(char));
+		memset(&voclCommUsedFlag[voclAppNum/2], 0, sizeof(char) * (voclAppNum/2));
         conMsgBufferStartPtr =
             (char **) realloc(conMsgBufferStartPtr,
                                      voclAppNum * CMSG_NUM * sizeof(CON_MSG_BUFFER));
 		/* allocate control message buffer */
-		for (i = voclAppNum/2; i <= voclAppNum; i++)
+		for (i = voclAppNum/2*CMSG_NUM; i <= (voclAppNum*CMSG_NUM); i++)
 		{
 			conMsgBuffer[i] = (char *)malloc(sizeof(CON_MSG_BUFFER));
 		}
     }
-
-    return voclAppNo++;
+	
+	/* search the communicator with the min index not being used */
+	voclAppNo++;
+	for (i = 0; i < voclAppNum; i++)
+	{
+		if (voclCommUsedFlag[i] == 0)
+		{
+			voclCommUsedFlag[i] = 1;
+			return i;
+		}
+	}
 }
 
 /* a new app process is connected */
 void voclIssueConMsgIrecv(int index)
 {
     int i;
+	/* get the locker and issue irecv */
     /* issue MPI_Irecv for control message */
     for (i = 0; i < CMSG_NUM; i++) {
         MPI_Irecv(conMsgBuffer[index * CMSG_NUM + i], MAX_CMSG_SIZE, MPI_BYTE, MPI_ANY_SOURCE,
                   MPI_ANY_TAG, appComm[index], conMsgRequest+(index * CMSG_NUM + i));
     }
-    voclTotalRequestNum += CMSG_NUM;
+
+	if (index >= voclCommUsedSize)
+	{
+		voclCommUsedSize = index + 1;
+		voclTotalRequestNum = voclCommUsedSize * CMSG_NUM;
+	}
 
     return;
 }
@@ -112,46 +159,44 @@ void voclProxyAcceptOneApp()
 
 void voclProxyDisconnectOneApp(int commIndex)
 {
-	int requestOffset, lastAppOffset, requestNo;
+	int requestOffset, requestNo, i;
 	char *temp;
 	requestOffset = commIndex * CMSG_NUM;
-	lastAppOffset = (voclAppNo - 1) * CMSG_NUM;
 
 	/*disconnect connections */
 	MPI_Comm_disconnect(&appComm[commIndex]);
 	MPI_Comm_disconnect(&appCommData[commIndex]);
 
+	/* get the locker to update communicator info */
+	pthread_mutex_lock(&commLock);
 	/* if not the last communicator, move the last */
 	/* communicator to the disconnected one*/
-	if (commIndex < voclAppNo - 1)
-	{
-		/* for communicators */
-		appComm[commIndex] = appComm[voclAppNo - 1];
-		appCommData[commIndex] = appCommData[voclAppNo - 1];
-		for (requestNo = 0; requestNo < CMSG_NUM; requestNo++)
-		{
-			/* for irecv requests */
-			conMsgRequest[requestOffset + requestNo] = conMsgRequest[lastAppOffset + requestNo];
-			conMsgRequest[lastAppOffset + requestNo] = MPI_REQUEST_NULL;
-			
-			/* for control msg buffers */
-			temp = conMsgBuffer[requestOffset + requestNo];
-			conMsgBuffer[requestOffset + requestNo] = conMsgBuffer[lastAppOffset + requestNo];
-			conMsgBuffer[lastAppOffset + requestNo] = temp;
-		}
-	}
-	else
-	{
-		for (requestNo = 0; requestNo < CMSG_NUM; requestNo++)
-		{
-			conMsgRequest[lastAppOffset + requestNo] = MPI_REQUEST_NULL;
-		}
-	}
-
-	voclTotalRequestNum -= CMSG_NUM;
 	voclAppNo--;
+	voclCommUsedFlag[commIndex] = 0;
+	for (requestNo = 0; requestNo < CMSG_NUM; requestNo++)
+	{
+		conMsgRequest[requestOffset + requestNo] = MPI_REQUEST_NULL;
+	}
 
-	/* continuously checking whether a new application issue connection requests */
+	if (commIndex == voclCommUsedSize - 1)
+	{
+		for (i = voclCommUsedSize - 1; i >= 0; i--)
+		{
+			if (voclCommUsedFlag[i] != 0)
+			{
+				break;
+			}
+		}
+
+		voclCommUsedSize = i+1;
+		voclTotalRequestNum = voclCommUsedSize * CMSG_NUM;
+	}
+
+	/* release the locker */
+	pthread_mutex_unlock(&commLock);
+
+	/* continuously checking whether there is a new application */
+	/* issuing connection requests */
 	while (voclAppNo == 0)
 	{
 		sleep(1);
@@ -167,10 +212,15 @@ void *proxyCommAcceptThread(void *p)
     MPI_Comm comm;
     while (1) {
         MPI_Comm_accept(voclPortName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &comm);
+		/* lock the mutex to do update */
+		pthread_mutex_lock(&commLock);
+
         index = voclGetAppIndex();
         appComm[index] = comm;
         MPI_Comm_dup(appComm[index], &appCommData[index]);
         voclIssueConMsgIrecv(index);
+
+		pthread_mutex_unlock(&commLock);
     }
 
     return NULL;
