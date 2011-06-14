@@ -227,7 +227,6 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
     int proxySourceRank, proxyDestRank;
 	struct strMigrationCheck tmpMigrationCheck;
     int isFromLocal, isToLocal;
-	char *hostBufPtr;
 	int cmdQueueMigStatus, memMigStatus, programMigStatus, kernelMigStatus;
     MPI_Comm newComm, newCommData, oldComm, oldCommData;
 	MPI_Status status;
@@ -284,41 +283,35 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
 			if (memMigStatus < cmdQueueMigStatus)
 			{
 				if (flag == 1) {
-					hostBufPtr = (char *)malloc(size);
-					clMigEnqueueReadBuffer(oldCmdQueue, kernelPtr->args_ptr[i].memory, 
-							CL_TRUE, 0, size, hostBufPtr, 0, NULL, NULL);
 					/* send a message to the source proxy process for migration data transfer */
-					//oldMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
+					oldMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
 					/* update the memory to the new device */
 					voclUpdateVOCLMemory(kernelPtr->args_ptr[i].memory, newRank, newIndex,
 										 newComm, newCommData, context);
-					clMigEnqueueWriteBuffer(command_queue, kernelPtr->args_ptr[i].memory,
-							CL_TRUE, 0, size, hostBufPtr, 0, NULL, NULL);
-					free(hostBufPtr);
-//					/* send a message to the dest proxy process for migration data transfer */
-//					newMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
-//
-//					if (isFromLocal == 0 || isToLocal == 0) {
-//						/* if migration is on the same remote node */
-//						if (isFromLocal == 0 && isToLocal == 0 && oldIndex == newIndex)
-//						{
-//							voclMigrationOnSameRemoteNode(oldComm, oldRank, oldCmdQueue, oldMem,
-//								newCmdQueue, newMem, size);
-//						}
-//
-//						proxyDestRank =
-//							voclMigIssueGPUMemoryRead(oldComm, oldRank, newComm, newCommData,
-//													  newRank, newIndex, isFromLocal, isToLocal, oldCmdQueue,
-//													  oldMem, size);
-//						proxySourceRank =
-//							voclMigIssueGPUMemoryWrite(oldComm, oldCommData, oldRank, oldIndex, newComm,
-//													   newRank, isFromLocal, isToLocal,
-//													   newCmdQueue, newMem, size);
-//					}
-//					else {
-//						voclMigLocalToLocal(oldCmdQueue, oldMem, newCmdQueue, newMem, size);
-//					}
-//					memWrittenFlag = 1;
+					/* send a message to the dest proxy process for migration data transfer */
+					newMem = voclVOCLMemory2CLMemory(kernelPtr->args_ptr[i].memory);
+
+					if (isFromLocal == 0 || isToLocal == 0) {
+						/* if migration is on the same remote node */
+						if (isFromLocal == 0 && isToLocal == 0 && oldIndex == newIndex)
+						{
+							voclMigrationOnSameRemoteNode(oldComm, oldRank, oldCmdQueue, oldMem,
+								newCmdQueue, newMem, size);
+						}
+
+						proxyDestRank =
+							voclMigIssueGPUMemoryRead(oldComm, oldRank, newComm, newCommData,
+													  newRank, newIndex, isFromLocal, isToLocal, oldCmdQueue,
+													  oldMem, size);
+						proxySourceRank =
+							voclMigIssueGPUMemoryWrite(oldComm, oldCommData, oldRank, oldIndex, newComm,
+													   newRank, isFromLocal, isToLocal,
+													   newCmdQueue, newMem, size);
+					}
+					else {
+						voclMigLocalToLocal(oldCmdQueue, oldMem, newCmdQueue, newMem, size);
+					}
+					memWrittenFlag = 1;
 				}
 				/*either not written at all, or written is incomplete */
 				else {
@@ -333,11 +326,11 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
 
     /* if there are memory transfer from one proxy process  to another */
     /* tell the proxy process to complete the data transfer */
-//    if (memWrittenFlag == 1) {
-//        voclMigFinishDataTransfer(oldComm, oldRank, oldIndex, oldCmdQueue, newComm, newRank,
-//                                  newIndex, newCmdQueue, proxySourceRank, proxyDestRank, isFromLocal,
-//                                  isToLocal);
-//    }
+    if (memWrittenFlag == 1) {
+        voclMigFinishDataTransfer(oldComm, oldRank, oldIndex, oldCmdQueue, newComm, newRank,
+                                  newIndex, newCmdQueue, proxySourceRank, proxyDestRank, isFromLocal,
+                                  isToLocal);
+    }
 
     /* data transfer is completed, release old command queue and gpu memory */
     clMigReleaseOldCommandQueue(command_queue);
