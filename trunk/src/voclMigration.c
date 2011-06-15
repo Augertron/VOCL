@@ -149,7 +149,7 @@ vocl_device_id voclSearchTargetGPU(size_t size)
         totalDeviceNum += numDevices[i];
     }
 
-    for (i = 2; i < totalDeviceNum; i++) {
+    for (i = 1; i < totalDeviceNum; i++) {
         err =
             clGetDeviceInfo(deviceID[i], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(mem_size),
                             &mem_size, NULL);

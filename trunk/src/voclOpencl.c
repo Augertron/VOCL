@@ -300,12 +300,9 @@ void voclFinalize()
         /* only for remote node */
         if (voclIsOnLocalNode(i) == VOCL_FALSE)
         {	
-			printf("desconnect1, i = %d\n", i);
             MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
             MPI_Comm_disconnect(&voclProxyComm[i]);
-			printf("desconnect2, i = %d\n", i);
             MPI_Comm_disconnect(&voclProxyCommData[i]);
-			printf("desconnect3, i = %d\n", i);
         }
     }
 
@@ -1096,7 +1093,8 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
                                     &proxyCommData);
 	/* check migration */
 	if (voclMemGetMigrationStatus((vocl_mem)buffer) < 
-		voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue))
+		voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue) &&
+		voclGetTaskMigrationCondition() != 0)
 	{
 		voclUpdateSingleMemory((vocl_mem)buffer);
 	}
@@ -1376,7 +1374,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 	/* the help of the proxy process */
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	kernelMigStatus = voclKernelGetMigrationStatus((vocl_kernel)kernel);
-	if (kernelMigStatus < cmdQueueMigStatus)
+	if (kernelMigStatus < cmdQueueMigStatus && voclGetTaskMigrationCondition() != 0)
 	{
 		voclTaskMigration(kernel, command_queue);
 	}
