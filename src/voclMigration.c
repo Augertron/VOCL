@@ -123,6 +123,11 @@ vocl_device_id voclSearchTargetGPU(size_t size)
     char cBuffer[256];
     cl_ulong mem_size;
 
+	//debug----------------------------------
+	int rankNo;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
+	//---------------------------------------
+
     err = clGetPlatformIDs(0, NULL, &numPlatforms);
     VOCL_MIG_CHECK_ERR(err, "migration, clGetPlatformIDs");
     platformID = (cl_platform_id *) malloc(sizeof(cl_platform_id) * numPlatforms);
@@ -149,7 +154,7 @@ vocl_device_id voclSearchTargetGPU(size_t size)
         totalDeviceNum += numDevices[i];
     }
 
-    for (i = 1; i < totalDeviceNum; i++) {
+    for (i = rankNo+1; i < totalDeviceNum; i++) {
         err =
             clGetDeviceInfo(deviceID[i], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(mem_size),
                             &mem_size, NULL);
@@ -265,9 +270,7 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
     isToLocal = voclIsOnLocalNode(newIndex);
 	newDeviceID = voclGetCommandQueueDeviceID(command_queue);
 	printf("newDeviceID = %ld\n", newDeviceID);
-
     printf("kernelLaunch, isFromLocal = %d, isToLocal = %d\n", isFromLocal, isToLocal);
-
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus(command_queue);
     /* go throught all argument of the kernel */
     memWrittenFlag = 0;
@@ -387,4 +390,5 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
 
     return;
 }
+
 

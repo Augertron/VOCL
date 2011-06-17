@@ -29,8 +29,8 @@ extern "C" {
 #define VOCL_READ_TAG 4000
 
 /* macros for migration */
+#define VOCL_MIG_POOL_NUM 8
 #define VOCL_MIG_BUF_NUM 8
-#define VOCL_MIG_POOL_NUM 4
 //#define VOCL_MIG_BUF_SIZE 64108864
 #define VOCL_MIG_BUF_SIZE 33554432
 #define VOCL_MIG_TAG 6000
