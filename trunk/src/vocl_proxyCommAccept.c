@@ -160,12 +160,18 @@ void voclProxyAcceptOneApp()
 void voclProxyDisconnectOneApp(int commIndex)
 {
 	int requestOffset, requestNo, i;
-	char *temp;
 	requestOffset = commIndex * CMSG_NUM;
+
+	//debug-------------------------
+	int tmp;
+	MPI_Comm_rank(MPI_COMM_WORLD, &tmp);
+	//------------------------------
 
 	/*disconnect connections */
 	MPI_Comm_disconnect(&appComm[commIndex]);
 	MPI_Comm_disconnect(&appCommData[commIndex]);
+	//MPI_Comm_free(&appComm[commIndex]);
+	//MPI_Comm_free(&appCommData[commIndex]);
 
 	/* get the locker to update communicator info */
 	pthread_mutex_lock(&commLock);
