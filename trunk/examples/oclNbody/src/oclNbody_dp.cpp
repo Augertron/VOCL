@@ -11,7 +11,6 @@
 
 // Utility and system includes
 #include "oclUtils.h"
-//#include <paramgl.h>
 #include <algorithm>
 #include "nbody_timer.h"
 // Project includes
@@ -21,26 +20,26 @@
 
 
 // view, GLUT and display params
-int ox = 0, oy = 0;
-int buttonState          = 0;
-double camera_trans[]     = {0, -2, -100};
-double camera_rot[]       = {0, 0, 0};
-double camera_trans_lag[] = {0, -2, -100};
-double camera_rot_lag[]   = {0, 0, 0};
-const double inertia      = 0.1;
-bool displayEnabled = true;
-bool bPause = false;
-bool bUsePBO = false;
-int disableCPU = 1;
-bool bFullScreen = false;
-bool bShowSliders = true;
-int iGLUTWindowHandle;              // handle to the GLUT window
-int iGraphicsWinPosX = 0;           // GLUT Window X location
-int iGraphicsWinPosY = 0;           // GLUT Window Y location
-int iGraphicsWinWidth = 1024;       // GLUT Window width
-int iGraphicsWinHeight = 768;       // GL Window height
-GLint iVsyncState;                  // state var to cache startup Vsync setting
-int flopsPerInteraction = 20;
+static int ox = 0, oy = 0;
+static int buttonState          = 0;
+static double camera_trans[]     = {0, -2, -100};
+static double camera_rot[]       = {0, 0, 0};
+static double camera_trans_lag[] = {0, -2, -100};
+static double camera_rot_lag[]   = {0, 0, 0};
+static const double inertia      = 0.1;
+static bool displayEnabled = true;
+static bool bPause = false;
+static bool bUsePBO = false;
+static int disableCPU = 1;
+static bool bFullScreen = false;
+static bool bShowSliders = true;
+static int iGLUTWindowHandle;              // handle to the GLUT window
+static int iGraphicsWinPosX = 0;           // GLUT Window X location
+static int iGraphicsWinPosY = 0;           // GLUT Window Y location
+static int iGraphicsWinWidth = 1024;       // GLUT Window width
+static int iGraphicsWinHeight = 768;       // GL Window height
+static GLint iVsyncState;                  // state var to cache startup Vsync setting
+static int flopsPerInteraction = 20;
 
 // Struct defintion for Nbody demo physical parameters
 struct NBodyParams
@@ -94,27 +93,27 @@ shrBOOL compareDoublee(double *ref, double *data, unsigned int size, double erro
 }
 
 // Basic simulation parameters
-int numBodies = 7680;               // default # of bodies in sim (can be overridden by command line switch --n=<N>)
-int numIterations = 20, iterNo;
-bool bDouble = true;               //false: sp double, true: dp 
-int numDemos = sizeof(demoParams) / sizeof(NBodyParams);
-int activeDemo = 0;
-NBodyParams activeParams = demoParams[activeDemo];
-BodySystem **nbody         = 0;
-BodySystemOpenCL **nbodyGPU = 0;
-double* hPos = 0;
-double* hVel = 0;
-double* hColor = 0;
+static int numBodies = 7680;               // default # of bodies in sim (can be overridden by command line switch --n=<N>)
+static int numIterations = 20, iterNo;
+static bool bDouble = true;               //false: sp double, true: dp 
+static int numDemos = sizeof(demoParams) / sizeof(NBodyParams);
+static int activeDemo = 0;
+static NBodyParams activeParams = demoParams[activeDemo];
+static BodySystem **nbody         = 0;
+static BodySystemOpenCL **nbodyGPU = 0;
+static double** hPos = 0;
+static double** hVel = 0;
+static double** hColor = 0;
 
 // OpenCL vars
-cl_platform_id *cpPlatforms;          // OpenCL Platform
-cl_uint platformNum;
-cl_context *cxContexts;               // OpenCL Context
-cl_command_queue *cqCommandQueues;    // OpenCL Command Queue
-cl_device_id *cdDevices = NULL;     // OpenCL device list
-cl_uint uiNumDevices = 0, *deviceNums;   // Number of OpenCL devices available
-cl_uint uiNumDevsUsed = 1;          // Number of OpenCL devices used in this sample 
-const char* cExecutablePath;
+static cl_platform_id *cpPlatforms;          // OpenCL Platform
+static cl_uint platformNum;
+static cl_context *cxContexts;               // OpenCL Context
+static cl_command_queue *cqCommandQueues;    // OpenCL Command Queue
+static cl_device_id *cdDevices = NULL;     // OpenCL device list
+static cl_uint uiNumDevices = 0, *deviceNums;   // Number of OpenCL devices available
+static cl_uint uiNumDevsUsed = 1;          // Number of OpenCL devices used in this sample 
+static const char* cExecutablePath;
 
 // Timers
 #define DEMOTIME 0
@@ -122,19 +121,19 @@ const char* cExecutablePath;
 #define FPSTIME 2
 
 // fps, quick test and qatest vars
-int iFrameCount = 0;                // FPS count for averaging
-int iFrameTrigger = 90;             // FPS trigger for sampling
-int iFramesPerSec = 60;             // frames per second
-double dElapsedTime = 0.0;          // timing var to hold elapsed time in each phase of tour mode
-double demoTime = 5.0;              // length of each demo phase in sec
-shrBOOL bTour = shrTRUE;            // true = cycles between modes, false = stays on selected 1 mode (manually switchable)
-shrBOOL bNoPrompt = shrFALSE;       // false = normal GL loop, true = Finite period of GL loop (a few seconds)
-shrBOOL bQATest = shrFALSE;         // false = normal GL loop, true = run No-GL test sequence (checks against host and also does a perf test)
-int iTestSets = 3;
+static int iFrameCount = 0;                // FPS count for averaging
+static int iFrameTrigger = 90;             // FPS trigger for sampling
+static int iFramesPerSec = 60;             // frames per second
+static double dElapsedTime = 0.0;          // timing var to hold elapsed time in each phase of tour mode
+static double demoTime = 5.0;              // length of each demo phase in sec
+static shrBOOL bTour = shrTRUE;            // true = cycles between modes, false = stays on selected 1 mode (manually switchable)
+static shrBOOL bNoPrompt = shrFALSE;       // false = normal GL loop, true = Finite period of GL loop (a few seconds)
+static shrBOOL bQATest = shrFALSE;         // false = normal GL loop, true = run No-GL test sequence (checks against host and also does a perf test)
+static int iTestSets = 3;
 
 // Simulation
-void ResetSim(BodySystem *system, int numBodies, NBodyConfig config, bool useGL);
-void copyDataH2D(BodySystem *system);
+void ResetSim(BodySystem *system, int numBodies, NBodyConfig config, bool useGL, int index);
+void copyDataH2D(BodySystem *system, int index);
 void copyDataD2H(BodySystem *system);
 void InitNbody(cl_device_id dev, cl_context ctx, cl_command_queue cmdq,
                int numBodies, int p, int q, bool bUsePBO, bool bDouble, int index);
@@ -221,6 +220,9 @@ int main(int argc, char** argv)
 	cqCommandQueues = (cl_command_queue *)malloc(uiNumDevices * sizeof(cl_command_queue));
 	nbody = (BodySystem **)malloc(uiNumDevices * sizeof(BodySystem *));
 	nbodyGPU = (BodySystemOpenCL **)malloc(uiNumDevices * sizeof(BodySystemOpenCL*));
+	hPos = (double **)malloc(uiNumDevices * sizeof(double *));
+	hVel = (double **)malloc(uiNumDevices * sizeof(double *));
+	hColor = (double **)malloc(uiNumDevices * sizeof(double *));
 
 	uiNumDevices = 0;
 	for (i = 0; i < platformNum; i++)
@@ -306,8 +308,8 @@ int main(int argc, char** argv)
 	for (i = 0; i < uiNumDevices; i++)
 	{
     	InitNbody(cdDevices[i], cxContexts[i], cqCommandQueues[i], numBodies, p, q, bUsePBO, bDouble, i);
-    	ResetSim(nbody[i], numBodies, NBODY_CONFIG_SHELL, bUsePBO);
-		copyDataH2D(nbody[i]);
+    	ResetSim(nbody[i], numBodies, NBODY_CONFIG_SHELL, bUsePBO, i);
+		copyDataH2D(nbody[i], i);
 		nbody[i]->synchronizeThreads();
 		// Compare to host, profile and write out file for regression analysis
 		if (disableCPU == 0)
@@ -323,7 +325,7 @@ int main(int argc, char** argv)
 	{
 		for (i = 0; i < uiNumDevices; i++)
 		{
-			copyDataH2D(nbody[i]);
+			copyDataH2D(nbody[i], i);
 			RunProfiling(100, (unsigned int)(p * q), i);  // 100 iterations
 			copyDataD2H(nbody[i]);
 		}
@@ -384,22 +386,19 @@ void TriggerFPSUpdate()
 }
 
 //*****************************************************************************
-void ResetSim(BodySystem *system, int numBodies, NBodyConfig config, bool useGL)
+void ResetSim(BodySystem *system, int numBodies, NBodyConfig config, bool useGL, int index)
 {
     shrLog("\nReset Nbody System...\n\n");
 
     // initalize the memory
-    randomizeBodies(config, hPos, hVel, hColor, activeParams.m_clusterScale, 
+    randomizeBodies(config, hPos[index], hVel[index], hColor[index], activeParams.m_clusterScale, 
 		            activeParams.m_velocityScale, numBodies);
-
-//    system->setArray(BodySystem::BODYSYSTEM_POSITION, hPos);
-//    system->setArray(BodySystem::BODYSYSTEM_VELOCITY, hVel);
 }
 
-void copyDataH2D(BodySystem *system)
+void copyDataH2D(BodySystem *system, int index)
 {
-    system->setArray(BodySystem::BODYSYSTEM_POSITION, hPos);
-    system->setArray(BodySystem::BODYSYSTEM_VELOCITY, hVel);
+    system->setArray(BodySystem::BODYSYSTEM_POSITION, hPos[index]);
+    system->setArray(BodySystem::BODYSYSTEM_VELOCITY, hVel[index]);
 }
 
 void copyDataD2H(BodySystem *system)
@@ -416,9 +415,9 @@ void InitNbody(cl_device_id dev, cl_context ctx, cl_command_queue cmdq,
     nbody[index] = nbodyGPU[index];
 
     // allocate host memory
-    hPos = new double[numBodies*4];
-    hVel = new double[numBodies*4];
-    hColor = new double[numBodies*4];
+    hPos[index] = new double[numBodies*4];
+    hVel[index] = new double[numBodies*4];
+    hColor[index] = new double[numBodies*4];
 
     // Set sim parameters
     nbody[index]->setSoftening(activeParams.m_softening);
@@ -441,8 +440,8 @@ void CompareResults(int numBodies, int index)
     // Run computation on the host CPU
     shrLog("  Computing on the Host / CPU...\n\n");
     BodySystemCPU* nbodyCPU = new BodySystemCPU(numBodies);
-    nbodyCPU->setArray(BodySystem::BODYSYSTEM_POSITION, hPos);
-    nbodyCPU->setArray(BodySystem::BODYSYSTEM_VELOCITY, hVel);
+    nbodyCPU->setArray(BodySystem::BODYSYSTEM_POSITION, hPos[index]);
+    nbodyCPU->setArray(BodySystem::BODYSYSTEM_VELOCITY, hVel[index]);
     nbodyCPU->update(0.001f);
 
     // Check if result matches 
@@ -496,10 +495,11 @@ void Cleanup(int iExitCode)
 		if(cxContexts[i])clReleaseContext(cxContexts[i]);
 		timerEnd();
 		strTime.releaseContext += elapsedTime();
+
+		if(hPos[i])delete [] hPos[i];
+		if(hVel[i])delete [] hVel[i];
+		if(hColor[i])delete [] hColor[i];
 	}
-    if(hPos)delete [] hPos;
-    if(hVel)delete [] hVel;
-    if(hColor)delete [] hColor;
 
     // finalize logs and leave
     if (bNoPrompt || bQATest)

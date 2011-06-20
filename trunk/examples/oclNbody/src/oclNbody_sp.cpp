@@ -19,26 +19,26 @@
 
 
 // view, GLUT and display params
-int ox = 0, oy = 0;
-int buttonState          = 0;
-float camera_trans[]     = {0, -2, -100};
-float camera_rot[]       = {0, 0, 0};
-float camera_trans_lag[] = {0, -2, -100};
-float camera_rot_lag[]   = {0, 0, 0};
-const float inertia      = 0.1;
-bool displayEnabled = true;
-bool bPause = false;
-bool bUsePBO = false;
-int disableCPU = 1;
-bool bFullScreen = false;
-bool bShowSliders = true;
-int iGLUTWindowHandle;              // handle to the GLUT window
-int iGraphicsWinPosX = 0;           // GLUT Window X location
-int iGraphicsWinPosY = 0;           // GLUT Window Y location
-int iGraphicsWinWidth = 1024;       // GLUT Window width
-int iGraphicsWinHeight = 768;       // GL Window height
-GLint iVsyncState;                  // state var to cache startup Vsync setting
-int flopsPerInteraction = 20;
+static int ox = 0, oy = 0;
+static int buttonState          = 0;
+static float camera_trans[]     = {0, -2, -100};
+static float camera_rot[]       = {0, 0, 0};
+static float camera_trans_lag[] = {0, -2, -100};
+static float camera_rot_lag[]   = {0, 0, 0};
+static const float inertia      = 0.1;
+static bool displayEnabled = true;
+static bool bPause = false;
+static bool bUsePBO = false;
+static int disableCPU = 1;
+static bool bFullScreen = false;
+static bool bShowSliders = true;
+static int iGLUTWindowHandle;              // handle to the GLUT window
+static int iGraphicsWinPosX = 0;           // GLUT Window X location
+static int iGraphicsWinPosY = 0;           // GLUT Window Y location
+static int iGraphicsWinWidth = 1024;       // GLUT Window width
+static int iGraphicsWinHeight = 768;       // GL Window height
+static GLint iVsyncState;                  // state var to cache startup Vsync setting
+static int flopsPerInteraction = 20;
 
 // Struct defintion for Nbody demo physical parameters
 struct NBodyParams
@@ -72,27 +72,27 @@ NBodyParams demoParams[] =
 };
 
 // Basic simulation parameters
-int numBodies = 7680;               // default # of bodies in sim (can be overridden by command line switch --n=<N>)
-int numIterations = 10, iterNo;
-bool bDouble = false;               //false: sp float, true: dp 
-int numDemos = sizeof(demoParams) / sizeof(NBodyParams);
-int activeDemo = 0;
-NBodyParams activeParams = demoParams[activeDemo];
-BodySystem **nbody         = 0;
-BodySystemOpenCL **nbodyGPU = 0;
-float** hPos = 0;
-float** hVel = 0;
-float** hColor = 0;
+static int numBodies = 7680;               // default # of bodies in sim (can be overridden by command line switch --n=<N>)
+static int numIterations = 100, iterNo;
+static bool bDouble = false;               //false: sp float, true: dp 
+static int numDemos = sizeof(demoParams) / sizeof(NBodyParams);
+static int activeDemo = 0;
+static NBodyParams activeParams = demoParams[activeDemo];
+static BodySystem **nbody         = 0;
+static BodySystemOpenCL **nbodyGPU = 0;
+static float** hPos = 0;
+static float** hVel = 0;
+static float** hColor = 0;
 
 // OpenCL vars
-cl_platform_id *cpPlatforms;          // OpenCL Platform
-cl_uint platformNum;
-cl_context *cxContexts;               // OpenCL Context
-cl_command_queue *cqCommandQueues;    // OpenCL Command Queue
-cl_device_id *cdDevices = NULL;     // OpenCL device list
-cl_uint uiNumDevices = 0, *deviceNums;           // Number of OpenCL devices available
-cl_uint uiNumDevsUsed = 1;          // Number of OpenCL devices used in this sample 
-const char* cExecutablePath;
+static cl_platform_id *cpPlatforms;          // OpenCL Platform
+static cl_uint platformNum;
+static cl_context *cxContexts;               // OpenCL Context
+static cl_command_queue *cqCommandQueues;    // OpenCL Command Queue
+static cl_device_id *cdDevices = NULL;     // OpenCL device list
+static cl_uint uiNumDevices = 0, *deviceNums;           // Number of OpenCL devices available
+static cl_uint uiNumDevsUsed = 1;          // Number of OpenCL devices used in this sample 
+static const char* cExecutablePath;
 
 // Timers
 #define DEMOTIME 0
@@ -100,15 +100,15 @@ const char* cExecutablePath;
 #define FPSTIME 2
 
 // fps, quick test and qatest vars
-int iFrameCount = 0;                // FPS count for averaging
-int iFrameTrigger = 90;             // FPS trigger for sampling
-int iFramesPerSec = 60;             // frames per second
-double dElapsedTime = 0.0;          // timing var to hold elapsed time in each phase of tour mode
-double demoTime = 5.0;              // length of each demo phase in sec
-shrBOOL bTour = shrTRUE;            // true = cycles between modes, false = stays on selected 1 mode (manually switchable)
-shrBOOL bNoPrompt = shrFALSE;       // false = normal GL loop, true = Finite period of GL loop (a few seconds)
-shrBOOL bQATest = shrFALSE;         // false = normal GL loop, true = run No-GL test sequence (checks against host and also does a perf test)
-int iTestSets = 3;
+static int iFrameCount = 0;                // FPS count for averaging
+static int iFrameTrigger = 90;             // FPS trigger for sampling
+static int iFramesPerSec = 60;             // frames per second
+static double dElapsedTime = 0.0;          // timing var to hold elapsed time in each phase of tour mode
+static double demoTime = 5.0;              // length of each demo phase in sec
+static shrBOOL bTour = shrTRUE;            // true = cycles between modes, false = stays on selected 1 mode (manually switchable)
+static shrBOOL bNoPrompt = shrFALSE;       // false = normal GL loop, true = Finite period of GL loop (a few seconds)
+static shrBOOL bQATest = shrFALSE;         // false = normal GL loop, true = run No-GL test sequence (checks against host and also does a perf test)
+static int iTestSets = 3;
 
 // Simulation
 void ResetSim(BodySystem *system, int numBodies, NBodyConfig config, bool useGL, int index);
@@ -213,6 +213,8 @@ int main(int argc, char** argv)
 
 	printf("Device num = %d\n", uiNumDevices);
 
+	uiNumDevices = 1;
+
     //Create the context
     shrLog("clCreateContext...\n"); 
 	timerStart();
@@ -297,35 +299,25 @@ int main(int argc, char** argv)
 		}
 	}
 
-	//data transmission
-	timerStart();
-	for (iterNo = 0; iterNo < numIterations; iterNo++)
-	{
-		for (i = 0; i < uiNumDevices; i++)
-		{
-			printf("deviceNo = %d\n", i);
-			copyDataH2D(nbody[i], i);
-			RunProfiling(10, (unsigned int)(p * q), i);  // 100 iterations
-			copyDataD2H(nbody[i]);
-		}
-	printf("Here10\n");
-	}
+//	//data transmission
+//	timerStart();
+//	for (iterNo = 0; iterNo < numIterations; iterNo++)
+//	{
+//		for (i = 0; i < uiNumDevices; i++)
+//		{
+//			copyDataH2D(nbody[i], i);
+//			RunProfiling(10, (unsigned int)(p * q), i);  // 100 iterations
+//			copyDataD2H(nbody[i]);
+//		}
+//	}
+//
+//	for (i = 0; i < uiNumDevices; i++)
+//	{
+//		nbody[i]->synchronizeThreads();
+//	}
+//	timerEnd();
+//	strTime.kernelExecution += elapsedTime();
 
-	for (i = 0; i < uiNumDevices; i++)
-	{
-	printf("Here11\n");
-		nbody[i]->synchronizeThreads();
-	printf("Here12\n");
-	}
-	timerEnd();
-	strTime.kernelExecution += elapsedTime();
-
-    // init timers
-    shrDeltaT(DEMOTIME); // timer 0 is for timing demo periods
-    shrDeltaT(FUNCTIME); // timer 1 is for logging function delta t's
-    shrDeltaT(FPSTIME);  // timer 2 is for fps measurement   
-
-	printf("Here13\n");
     // Cleanup/exit 
     Cleanup(EXIT_SUCCESS);
 
@@ -344,7 +336,6 @@ int main(int argc, char** argv)
 	printTime_toFile();
 
 	exit(EXIT_SUCCESS);
-
 }
 
 //*****************************************************************************
@@ -365,7 +356,6 @@ void RunProfiling(int iterations, unsigned int uiWorkgroup, int index)
 void TriggerFPSUpdate()
 {
     iFrameCount = 0; 
-    shrDeltaT(FPSTIME);
     iFramesPerSec = 1;
     iFrameTrigger = 2;
 }
@@ -455,30 +445,18 @@ void Cleanup(int iExitCode)
 	int i;
     shrLog("\nStarting Cleanup...\n\n");
 
-    // Restore startup Vsync state, if supported
-    #ifdef _WIN32
-        if (wglewIsSupported("WGL_EXT_swap_control")) 
-        {
-            wglSwapIntervalEXT(iVsyncState);
-        }
-    #else
-        #if defined (__APPLE__) || defined(MACOSX)
-            CGLSetParameter(CGLGetCurrentContext(), kCGLCPSwapInterval, &iVsyncState); 
-        #endif
-    #endif
-
     // Cleanup allocated objects
 	for (i = 0; i < uiNumDevices; i++)
 	{
 		printf("cleanup, i = %d\n", i);
-		if(nbodyGPU[i])delete nbodyGPU[i];
+		if(nbodyGPU[i]) delete nbodyGPU[i];
 		timerStart();
 		if(cqCommandQueues[i])clReleaseCommandQueue(cqCommandQueues[i]);
 		timerEnd();
 		strTime.releaseCmdQueue += elapsedTime();
 
 		timerStart();
-		if(cxContexts[i])clReleaseContext(cxContexts[i]);
+		if(cxContexts[i]) clReleaseContext(cxContexts[i]);
 		timerEnd();
 		strTime.releaseContext += elapsedTime();
 
