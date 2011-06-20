@@ -100,20 +100,20 @@ bool bDouble = true;               //false: sp double, true: dp
 int numDemos = sizeof(demoParams) / sizeof(NBodyParams);
 int activeDemo = 0;
 NBodyParams activeParams = demoParams[activeDemo];
-BodySystem *nbody         = 0;
-BodySystemOpenCL *nbodyGPU = 0;
+BodySystem **nbody         = 0;
+BodySystemOpenCL **nbodyGPU = 0;
 double* hPos = 0;
 double* hVel = 0;
 double* hColor = 0;
 
 // OpenCL vars
-cl_platform_id cpPlatform;          // OpenCL Platform
-cl_context cxContext;               // OpenCL Context
-cl_command_queue cqCommandQueue;    // OpenCL Command Queue
+cl_platform_id *cpPlatforms;          // OpenCL Platform
+cl_uint platformNum;
+cl_context *cxContexts;               // OpenCL Context
+cl_command_queue *cqCommandQueues;    // OpenCL Command Queue
 cl_device_id *cdDevices = NULL;     // OpenCL device list
-cl_uint uiNumDevices = 0;           // Number of OpenCL devices available
+cl_uint uiNumDevices = 0, *deviceNums;   // Number of OpenCL devices available
 cl_uint uiNumDevsUsed = 1;          // Number of OpenCL devices used in this sample 
-cl_uint uiTargetDevice = 0;	        // OpenCL Device to compute on
 const char* cExecutablePath;
 
 // Timers
@@ -132,27 +132,14 @@ shrBOOL bNoPrompt = shrFALSE;       // false = normal GL loop, true = Finite per
 shrBOOL bQATest = shrFALSE;         // false = normal GL loop, true = run No-GL test sequence (checks against host and also does a perf test)
 int iTestSets = 3;
 
-// Forward Function declarations
-//*****************************************************************************
-// OpenGL (GLUT) functionality
-//void InitGL(int* argc, char **argv);
-//void DisplayGL();
-//void ReshapeGL(int w, int h);
-//void IdleGL(void);
-//void KeyboardGL(unsigned char key, int x, int y);
-//void MouseGL(int button, int state, int x, int y);
-//void MotionGL(int x, int y);
-//void SpecialGL (int key, int x, int y);
-
 // Simulation
 void ResetSim(BodySystem *system, int numBodies, NBodyConfig config, bool useGL);
 void copyDataH2D(BodySystem *system);
 void copyDataD2H(BodySystem *system);
 void InitNbody(cl_device_id dev, cl_context ctx, cl_command_queue cmdq,
-               int numBodies, int p, int q, bool bUsePBO, bool bDouble);
-void SelectDemo(int index);
-void CompareResults(int numBodies);
-void RunProfiling(int iterations, unsigned int uiWorkgroup);
+               int numBodies, int p, int q, bool bUsePBO, bool bDouble, int index);
+void CompareResults(int numBodies, int index);
+void RunProfiling(int iterations, unsigned int uiWorkgroup, int index);
 void ComputePerfStats(double &dGigaInteractionsPerSecond, double &dGigaFlops, 
                       double dSeconds, int iterations);
 
@@ -165,6 +152,7 @@ void TriggerFPSUpdate();
 //*****************************************************************************
 int main(int argc, char** argv) 
 {
+	int i;
     // Locals used with command line args
     int p = 256;            // workgroup X dimension
     int q = 1;              // workgroup Y dimension
@@ -205,69 +193,67 @@ int main(int argc, char** argv)
 
     //Get the NVIDIA platform
 	timerStart();
-    //cl_int ciErrNum = oclGetPlatformID(&cpPlatform);
-	cl_int ciErrNum = clGetPlatformIDs(1, &cpPlatform, NULL);
+	cl_int ciErrNum = clGetPlatformIDs(0, NULL, &platformNum);
+	cpPlatforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * platformNum);
+	deviceNums = (cl_uint *)malloc(sizeof(cl_uint) * platformNum);
+	ciErrNum != clGetPlatformIDs(platformNum, cpPlatforms, NULL);
+    oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
 	timerEnd();
 	strTime.getPlatform += elapsedTime();
-	strTime.numGetPlatform++;
-    oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
     shrLog("clGetPlatformID...\n\n"); 
 	
-	sched_getaffinity(0, sizeof(set), &set);
-	printf("cpuid = %d\n", set.__bits[0]);
-
-	if (bDouble)
-	{
-		shrLog("Double precision execution...\n\n");
-	}
-	else
-	{
-		shrLog("Single precision execution...\n\n");
-	}
+	shrLog("Single precision execution...\n\n");
 
 	flopsPerInteraction = bDouble ? 30 : 20; 
     
 	//Get all the devices
     shrLog("Get the Device info and select Device...\n");
 	timerStart();
-    ciErrNum = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, 0, NULL, &uiNumDevices);
-    oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
-    cdDevices = (cl_device_id *)malloc(uiNumDevices * sizeof(cl_device_id) );
-    ciErrNum = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, uiNumDevices, cdDevices, NULL);
+	uiNumDevices = 0;
+	for (i = 0; i < platformNum; i++)
+	{
+    	ciErrNum = clGetDeviceIDs(cpPlatforms[i], CL_DEVICE_TYPE_GPU, 0, NULL, &deviceNums[i]);
+    	oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+		uiNumDevices += deviceNums[i];
+	}
+    cdDevices = (cl_device_id *)malloc(uiNumDevices * sizeof(cl_device_id));
+	cxContexts = (cl_context *)malloc(uiNumDevices * sizeof(cl_context));
+	cqCommandQueues = (cl_command_queue *)malloc(uiNumDevices * sizeof(cl_command_queue));
+	nbody = (BodySystem **)malloc(uiNumDevices * sizeof(BodySystem *));
+	nbodyGPU = (BodySystemOpenCL **)malloc(uiNumDevices * sizeof(BodySystemOpenCL*));
+
+	uiNumDevices = 0;
+	for (i = 0; i < platformNum; i++)
+	{
+    	ciErrNum = clGetDeviceIDs(cpPlatforms[i], CL_DEVICE_TYPE_GPU, deviceNums[i],
+						&cdDevices[uiNumDevices], NULL);
+    	oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+		uiNumDevices += deviceNums[i];
+	}
 	timerEnd();
 	strTime.getDeviceID += elapsedTime();
-	strTime.numGetDeviceID += 2;
-    oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
-
-    // Set target device and Query number of compute units on uiTargetDevice
-    shrLog("  # of Devices Available = %u\n", uiNumDevices); 
-    if(shrGetCmdLineArgumentu(argc, (const char**)argv, "device", &uiTargetDevice)== shrTRUE) 
-    {
-        uiTargetDevice = CLAMP(uiTargetDevice, 0, (uiNumDevices - 1));
-    }
-    shrLog("  Using Device %u, ", uiTargetDevice); 
-    oclPrintDevName(LOGBOTH, cdDevices[uiTargetDevice]);  
-    cl_uint uiNumComputeUnits;        
-    clGetDeviceInfo(cdDevices[uiTargetDevice], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(uiNumComputeUnits), &uiNumComputeUnits, NULL);
-    shrLog("  # of Compute Units = %u\n", uiNumComputeUnits); 
 
     //Create the context
     shrLog("clCreateContext...\n"); 
 	timerStart();
-    cxContext = clCreateContext(0, uiNumDevsUsed, &cdDevices[uiTargetDevice], NULL, NULL, &ciErrNum);
+	for (i = 0; i < uiNumDevices; i++)
+	{
+    	cxContexts[i] = clCreateContext(0, 1, &cdDevices[i], NULL, NULL, &ciErrNum);
+    	oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+	}
 	timerEnd();
 	strTime.createContext += elapsedTime();
-	strTime.numCreateContext++;
-    oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
 
     // Create a command-queue 
-    shrLog("clCreateCommandQueue...device = %d, \n\n", uiTargetDevice); 
+    shrLog("clCreateCommandQueue...\n\n"); 
 	timerStart();
-    cqCommandQueue = clCreateCommandQueue(cxContext, cdDevices[uiTargetDevice], CL_QUEUE_PROFILING_ENABLE, &ciErrNum);
+	for (i = 0; i < uiNumDevices; i++)
+	{
+    	cqCommandQueues[i] = clCreateCommandQueue(cxContexts[i], cdDevices[i], CL_QUEUE_PROFILING_ENABLE, &ciErrNum);
+    	oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
+	}
 	timerEnd();
 	strTime.createCommandQueue += elapsedTime();
-	strTime.numCreateCommandQueue++;
-    oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
 
     // Log and config for number of bodies
     shrLog("Number of Bodies = %d\n", numBodies); 
@@ -317,29 +303,38 @@ int main(int argc, char** argv)
     shrLog("Workgroup Dims = (%d x %d)\n\n", p, q); 
 
     // CL/GL interop disabled
-    InitNbody(cdDevices[uiTargetDevice], cxContext, cqCommandQueue, numBodies, p, q, bUsePBO, bDouble);
-    ResetSim(nbody, numBodies, NBODY_CONFIG_SHELL, bUsePBO);
-	copyDataH2D(nbody);
-	nbody->synchronizeThreads();
-
-	// Compare to host, profile and write out file for regression analysis
-	if (disableCPU == 0)
+	for (i = 0; i < uiNumDevices; i++)
 	{
-		shrLog("Running oclNbody Results Comparison...\n\n"); 
-		CompareResults(numBodies);
+    	InitNbody(cdDevices[i], cxContexts[i], cqCommandQueues[i], numBodies, p, q, bUsePBO, bDouble, i);
+    	ResetSim(nbody[i], numBodies, NBODY_CONFIG_SHELL, bUsePBO);
+		copyDataH2D(nbody[i]);
+		nbody[i]->synchronizeThreads();
+		// Compare to host, profile and write out file for regression analysis
+		if (disableCPU == 0)
+		{
+			shrLog("Running oclNbody Results Comparison...\n\n"); 
+			CompareResults(numBodies, i);
+		}
 	}
+
 	//data transmission
 	timerStart();
 	for (iterNo = 0; iterNo < numIterations; iterNo++)
 	{
-		copyDataH2D(nbody);
-		RunProfiling(100, (unsigned int)(p * q));  // 100 iterations
-		copyDataD2H(nbody);
+		for (i = 0; i < uiNumDevices; i++)
+		{
+			copyDataH2D(nbody[i]);
+			RunProfiling(100, (unsigned int)(p * q), i);  // 100 iterations
+			copyDataD2H(nbody[i]);
+		}
 	}
-	nbody->synchronizeThreads();
+
+	for (i = 0; i < uiNumDevices; i++)
+	{
+		nbody[i]->synchronizeThreads();
+	}
 	timerEnd();
 	strTime.kernelExecution += elapsedTime();
-	strTime.numEnqueueReadBuffer += numIterations;
 
     // init timers
     shrDeltaT(DEMOTIME); // timer 0 is for timing demo periods
@@ -350,6 +345,14 @@ int main(int argc, char** argv)
     // Cleanup/exit 
     Cleanup(EXIT_SUCCESS);
 
+	free(cpPlatforms);
+	free(deviceNums);
+   	free(cdDevices);
+	free(cxContexts);
+	free(cqCommandQueues);
+	free(nbody);
+	free(nbodyGPU);
+
 	printTime_toStandardOutput();
 	printTime_toFile();
 
@@ -358,27 +361,16 @@ int main(int argc, char** argv)
 }
 
 //*****************************************************************************
-void RunProfiling(int iterations, unsigned int uiWorkgroup)
+void RunProfiling(int iterations, unsigned int uiWorkgroup, int index)
 {
     // once without timing to prime the GPU
-	nbody->update(activeParams.m_timestep);
-	//nbody->synchronizeThreads();
+	nbody[index]->update(activeParams.m_timestep);
 
 	//Start timer 0 and process n loops on the GPU
-	shrDeltaT(FUNCTIME);
     for (int i = 0; i < iterations; ++i)
     {
-        nbody->update(activeParams.m_timestep);
+        nbody[index]->update(activeParams.m_timestep);
     }
-    //nbody->synchronizeThreads();
-
-    //Get elapsed time and throughput, then log to sample and master logs
-//	double dSeconds = shrDeltaT(FUNCTIME);
-//	double dGigaInteractionsPerSecond = 0.0;
-//	double dGigaFlops = 0.0;
-//	ComputePerfStats(dGigaInteractionsPerSecond, dGigaFlops, dSeconds, iterations);
-//	shrLogEx(LOGBOTH | MASTER, 0, "oclNBody-%s, Throughput = %.4f GFLOP/s, Time = %.5f s, Size = %u bodies, NumDevsUsed = %u, Workgroup = %u\n", 
-//		(bDouble ? "DP" : "SP"), dGigaFlops, dSeconds/(double)iterations, numBodies, uiNumDevsUsed, uiWorkgroup); 
 }
 
 // Helper to trigger reset of fps vars at transition 
@@ -417,11 +409,11 @@ void copyDataD2H(BodySystem *system)
 
 //*****************************************************************************
 void InitNbody(cl_device_id dev, cl_context ctx, cl_command_queue cmdq,
-               int numBodies, int p, int q, bool bUsePBO, bool bDouble)
+               int numBodies, int p, int q, bool bUsePBO, bool bDouble, int index)
 {
     // New nbody system for Device/GPU computations
-    nbodyGPU = new BodySystemOpenCL(numBodies, dev, ctx, cmdq, p, q, bUsePBO, bDouble);
-    nbody = nbodyGPU;
+    nbodyGPU[index] = new BodySystemOpenCL(numBodies, dev, ctx, cmdq, p, q, bUsePBO, bDouble);
+    nbody[index] = nbodyGPU[index];
 
     // allocate host memory
     hPos = new double[numBodies*4];
@@ -429,36 +421,21 @@ void InitNbody(cl_device_id dev, cl_context ctx, cl_command_queue cmdq,
     hColor = new double[numBodies*4];
 
     // Set sim parameters
-    nbody->setSoftening(activeParams.m_softening);
-    nbody->setDamping(activeParams.m_damping);
+    nbody[index]->setSoftening(activeParams.m_softening);
+    nbody[index]->setDamping(activeParams.m_damping);
 }
 
 //*****************************************************************************
-void SelectDemo(int index)
-{
-    oclCheckErrorEX((index < numDemos), shrTRUE, pCleanup);
-
-    activeParams = demoParams[index];
-    camera_trans[0] = camera_trans_lag[0] = activeParams.m_x;
-    camera_trans[1] = camera_trans_lag[1] = activeParams.m_y;
-    camera_trans[2] = camera_trans_lag[2] = activeParams.m_z;
-    ResetSim(nbody, numBodies, NBODY_CONFIG_SHELL, true);
-
-    //Rest the demo timer
-    shrDeltaT(DEMOTIME);
-}
-
-//*****************************************************************************
-void CompareResults(int numBodies)
+void CompareResults(int numBodies, int index)
 {
     // Run computation on the device/GPU
     shrLog("  Computing on the Device / GPU...\n");
-    nbodyGPU->update(0.001f);
-    nbodyGPU->synchronizeThreads();
+    nbodyGPU[index]->update(0.001f);
+    nbodyGPU[index]->synchronizeThreads();
 
     // Write out device/GPU data file for regression analysis
     shrLog("  Writing out Device/GPU data file for analysis...\n");
-    double* fGPUData = nbodyGPU->getArray(BodySystem::BODYSYSTEM_POSITION);
+    double* fGPUData = nbodyGPU[index]->getArray(BodySystem::BODYSYSTEM_POSITION);
     //shrWriteFilef( "oclNbody_Regression.dat", fGPUData, numBodies, 0.0, false);
 
     // Run computation on the host CPU
@@ -470,7 +447,7 @@ void CompareResults(int numBodies)
 
     // Check if result matches 
     shrBOOL bMatch = compareDoublee(fGPUData, 
-                        nbodyGPU->getArray(BodySystem::BODYSYSTEM_POSITION), 
+                        nbodyGPU[index]->getArray(BodySystem::BODYSYSTEM_POSITION), 
 						numBodies, .001f);
     shrLog("%s\n\n", (shrTRUE == bMatch) ? "PASSED" : "FAILED");
 
@@ -491,6 +468,7 @@ void ComputePerfStats(double &dGigaInteractionsPerSecond, double &dGigaFlops, do
 //*****************************************************************************
 void Cleanup(int iExitCode)
 {
+	int i;
     shrLog("\nStarting Cleanup...\n\n");
 
     // Restore startup Vsync state, if supported
@@ -506,18 +484,19 @@ void Cleanup(int iExitCode)
     #endif
 
     // Cleanup allocated objects
-    if(nbodyGPU)delete nbodyGPU;
-	timerStart();
-    if(cqCommandQueue)clReleaseCommandQueue(cqCommandQueue);
-	timerEnd();
-	strTime.releaseCmdQueue += elapsedTime();
-	strTime.numReleaseCmdQueue++;
+	for (i = 0; i < uiNumDevices; i++)
+	{
+		if(nbodyGPU[i])delete nbodyGPU[i];
+		timerStart();
+		if(cqCommandQueues[i])clReleaseCommandQueue(cqCommandQueues[i]);
+		timerEnd();
+		strTime.releaseCmdQueue += elapsedTime();
 
-	timerStart();
-    if(cxContext)clReleaseContext(cxContext);
-	timerEnd();
-	strTime.releaseContext += elapsedTime();
-	strTime.numReleaseContext++;
+		timerStart();
+		if(cxContexts[i])clReleaseContext(cxContexts[i]);
+		timerEnd();
+		strTime.releaseContext += elapsedTime();
+	}
     if(hPos)delete [] hPos;
     if(hVel)delete [] hVel;
     if(hColor)delete [] hColor;
@@ -536,3 +515,5 @@ void Cleanup(int iExitCode)
     }
     //exit (iExitCode);
 }
+
+

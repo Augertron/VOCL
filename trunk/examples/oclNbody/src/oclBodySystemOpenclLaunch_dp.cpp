@@ -134,12 +134,7 @@ extern "C"
         global_work_size[1]= q;
 
         // execute the kernel:
-		timerStart();
         ciErrNum = clEnqueueNDRangeKernel(cqCommandQueue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL);
-		clFinish(cqCommandQueue);
-		timerEnd();
-		strTime.kernelExecution += elapsedTime();
-		strTime.numKernelExecution++;
         oclCheckError(ciErrNum, CL_SUCCESS);
 
     }
