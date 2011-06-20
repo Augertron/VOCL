@@ -116,7 +116,6 @@ void printTime_toFile()
             strTime.releaseKernel,
             strTime.releaseMemObj,
             strTime.releaseProgram, strTime.releaseCmdQueue, strTime.releaseContext,
-            //strTime.printMatrix,
             strTime.totalTime);
     fclose(pTimeFile);
 
