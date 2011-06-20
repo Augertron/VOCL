@@ -73,16 +73,16 @@ NBodyParams demoParams[] =
 
 // Basic simulation parameters
 int numBodies = 7680;               // default # of bodies in sim (can be overridden by command line switch --n=<N>)
-int numIterations = 20, iterNo;
+int numIterations = 10, iterNo;
 bool bDouble = false;               //false: sp float, true: dp 
 int numDemos = sizeof(demoParams) / sizeof(NBodyParams);
 int activeDemo = 0;
 NBodyParams activeParams = demoParams[activeDemo];
 BodySystem **nbody         = 0;
 BodySystemOpenCL **nbodyGPU = 0;
-float* hPos = 0;
-float* hVel = 0;
-float* hColor = 0;
+float** hPos = 0;
+float** hVel = 0;
+float** hColor = 0;
 
 // OpenCL vars
 cl_platform_id *cpPlatforms;          // OpenCL Platform
@@ -111,9 +111,9 @@ shrBOOL bQATest = shrFALSE;         // false = normal GL loop, true = run No-GL 
 int iTestSets = 3;
 
 // Simulation
-void ResetSim(BodySystem *system, int numBodies, NBodyConfig config, bool useGL);
-void copyDataH2D(BodySystem *system);
-void copyDataD2H(BodySystem *system);
+void ResetSim(BodySystem *system, int numBodies, NBodyConfig config, bool useGL, int index);
+void copyDataH2D(BodySystem *system, int index);
+float* copyDataD2H(BodySystem *system);
 void InitNbody(cl_device_id dev, cl_context ctx, cl_command_queue cmdq,
                int numBodies, int p, int q, bool bUsePBO, bool bDouble, int index);
 void CompareResults(int numBodies, int index);
@@ -197,6 +197,9 @@ int main(int argc, char** argv)
 	cqCommandQueues = (cl_command_queue *)malloc(uiNumDevices * sizeof(cl_command_queue));
 	nbody = (BodySystem **)malloc(uiNumDevices * sizeof(BodySystem *));
 	nbodyGPU = (BodySystemOpenCL **)malloc(uiNumDevices * sizeof(BodySystemOpenCL*));
+	hPos = (float **)malloc(uiNumDevices * sizeof(float *));
+	hVel = (float **)malloc(uiNumDevices * sizeof(float *));
+	hColor = (float **)malloc(uiNumDevices * sizeof(float *));
 
 	uiNumDevices = 0;
 	for (i = 0; i < platformNum; i++)
@@ -207,6 +210,8 @@ int main(int argc, char** argv)
 	}
 	timerEnd();
 	strTime.getDeviceID += elapsedTime();
+
+	printf("Device num = %d\n", uiNumDevices);
 
     //Create the context
     shrLog("clCreateContext...\n"); 
@@ -281,8 +286,8 @@ int main(int argc, char** argv)
 	for (i = 0; i < uiNumDevices; i++)
 	{
 		InitNbody(cdDevices[i], cxContexts[i], cqCommandQueues[i], numBodies, p, q, bUsePBO, bDouble, i);
-		ResetSim(nbody[i], numBodies, NBODY_CONFIG_SHELL, bUsePBO);
-		copyDataH2D(nbody[i]);
+		ResetSim(nbody[i], numBodies, NBODY_CONFIG_SHELL, bUsePBO, i);
+		copyDataH2D(nbody[i], i);
 		nbody[i]->synchronizeThreads();
 		// Compare to host, profile and write out file for regression analysis
 		if (disableCPU == 0) 
@@ -298,15 +303,19 @@ int main(int argc, char** argv)
 	{
 		for (i = 0; i < uiNumDevices; i++)
 		{
-			copyDataH2D(nbody[i]);
-			RunProfiling(100, (unsigned int)(p * q), i);  // 100 iterations
+			printf("deviceNo = %d\n", i);
+			copyDataH2D(nbody[i], i);
+			RunProfiling(10, (unsigned int)(p * q), i);  // 100 iterations
 			copyDataD2H(nbody[i]);
 		}
+	printf("Here10\n");
 	}
 
 	for (i = 0; i < uiNumDevices; i++)
 	{
+	printf("Here11\n");
 		nbody[i]->synchronizeThreads();
+	printf("Here12\n");
 	}
 	timerEnd();
 	strTime.kernelExecution += elapsedTime();
@@ -316,7 +325,7 @@ int main(int argc, char** argv)
     shrDeltaT(FUNCTIME); // timer 1 is for logging function delta t's
     shrDeltaT(FPSTIME);  // timer 2 is for fps measurement   
 
-
+	printf("Here13\n");
     // Cleanup/exit 
     Cleanup(EXIT_SUCCESS);
 
@@ -327,6 +336,9 @@ int main(int argc, char** argv)
 	free(cqCommandQueues);
 	free(nbody);
 	free(nbodyGPU);
+	free(hPos);
+	free(hVel);
+	free(hColor);
 
 	printTime_toStandardOutput();
 	printTime_toFile();
@@ -359,27 +371,24 @@ void TriggerFPSUpdate()
 }
 
 //*****************************************************************************
-void ResetSim(BodySystem *system, int numBodies, NBodyConfig config, bool useGL)
+void ResetSim(BodySystem *system, int numBodies, NBodyConfig config, bool useGL, int index)
 {
     shrLog("\nReset Nbody System...\n\n");
 
     // initalize the memory
-    randomizeBodies(config, hPos, hVel, hColor, activeParams.m_clusterScale, 
+    randomizeBodies(config, hPos[index], hVel[index], hColor[index], activeParams.m_clusterScale, 
 		            activeParams.m_velocityScale, numBodies);
-
-//    system->setArray(BodySystem::BODYSYSTEM_POSITION, hPos);
-//    system->setArray(BodySystem::BODYSYSTEM_VELOCITY, hVel);
 }
 
-void copyDataH2D(BodySystem *system)
+void copyDataH2D(BodySystem *system, int index)
 {
-    system->setArray(BodySystem::BODYSYSTEM_POSITION, hPos);
-    system->setArray(BodySystem::BODYSYSTEM_VELOCITY, hVel);
+    system->setArray(BodySystem::BODYSYSTEM_POSITION, hPos[index]);
+    system->setArray(BodySystem::BODYSYSTEM_VELOCITY, hVel[index]);
 }
 
-void copyDataD2H(BodySystem *system)
+float * copyDataD2H(BodySystem *system)
 {
-	system->getArray(BodySystem::BODYSYSTEM_POSITION);
+	return system->getArray(BodySystem::BODYSYSTEM_POSITION);
 }
 
 //*****************************************************************************
@@ -391,9 +400,9 @@ void InitNbody(cl_device_id dev, cl_context ctx, cl_command_queue cmdq,
     nbody[index] = nbodyGPU[index];
 
     // allocate host memory
-    hPos = new float[numBodies*4];
-    hVel = new float[numBodies*4];
-    hColor = new float[numBodies*4];
+    hPos[index] = new float[numBodies*4];
+    hVel[index] = new float[numBodies*4];
+    hColor[index] = new float[numBodies*4];
 
     // Set sim parameters
     nbody[index]->setSoftening(activeParams.m_softening);
@@ -416,8 +425,8 @@ void CompareResults(int numBodies, int index)
     // Run computation on the host CPU
     shrLog("  Computing on the Host / CPU...\n\n");
     BodySystemCPU* nbodyCPU = new BodySystemCPU(numBodies);
-    nbodyCPU->setArray(BodySystem::BODYSYSTEM_POSITION, hPos);
-    nbodyCPU->setArray(BodySystem::BODYSYSTEM_VELOCITY, hVel);
+    nbodyCPU->setArray(BodySystem::BODYSYSTEM_POSITION, hPos[index]);
+    nbodyCPU->setArray(BodySystem::BODYSYSTEM_VELOCITY, hVel[index]);
     nbodyCPU->update(0.001f);
 
     // Check if result matches 
@@ -461,6 +470,7 @@ void Cleanup(int iExitCode)
     // Cleanup allocated objects
 	for (i = 0; i < uiNumDevices; i++)
 	{
+		printf("cleanup, i = %d\n", i);
 		if(nbodyGPU[i])delete nbodyGPU[i];
 		timerStart();
 		if(cqCommandQueues[i])clReleaseCommandQueue(cqCommandQueues[i]);
@@ -471,10 +481,11 @@ void Cleanup(int iExitCode)
 		if(cxContexts[i])clReleaseContext(cxContexts[i]);
 		timerEnd();
 		strTime.releaseContext += elapsedTime();
+
+		if(hPos[i])delete [] hPos[i];
+		if(hVel[i])delete [] hVel[i];
+		if(hColor[i])delete [] hColor[i];
 	}
-    if(hPos)delete [] hPos;
-    if(hVel)delete [] hVel;
-    if(hColor)delete [] hColor;
 
     // finalize logs and leave
     if (bNoPrompt || bQATest)
