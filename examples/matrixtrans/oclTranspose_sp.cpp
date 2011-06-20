@@ -1,31 +1,19 @@
 // standard utility and system includes
-/*****************************************************
- * 1.  Each time with a different kernel called
- * 2.  Different times with the same kernel called
- *****************************************************/
-#define _GNU_SOURCE
 #include <oclUtils.h>
 #include <sched.h>
 #include "mt_timer.h"
 
 #define BLOCK_DIM 16
-//#define GPU_PROFILING
 
-// max GPU's to manage for multi-GPU parallel compute
 const unsigned int MAX_GPU_COUNT = 8;
-//#define oclCheckError(a, b) 				\
-//	if (a != b) {							\
-//		printf("Opencl error, %d!\n", a);	\
-//	}										
 
 // global variables
-cl_platform_id cpPlatform;
-cl_uint uiNumDevices;
-cl_device_id cdDevices[2];
-cl_context cxGPUContext;
-cl_kernel ckKernel[MAX_GPU_COUNT];
-cl_command_queue commandQueue[MAX_GPU_COUNT];
-cl_program cpProgram;
+cl_platform_id *cpPlatforms;
+cl_uint uiNumDevices, platformNum, *deviceNums;
+cl_device_id *cdDevices;
+cl_context *cxGPUContexts;
+cl_command_queue *commandQueues;
+cl_program *cpPrograms;
 unsigned int numIterations = 20, iterNo;
 
 // forward declarations
@@ -52,55 +40,51 @@ int main( int argc, const char** argv)
 	printTime_toStandardOutput();
     printTime_toFile();
 
-    // finish
-    //shrEXIT(argc, argv);
 	return 0;
 }
 
 double transposeGPU(const char* kernelName, bool useLocalMem,  cl_uint ciDeviceCount, float* h_idata, float* h_odata, unsigned int size_x, unsigned int size_y)
 {
-    cl_mem d_odata[MAX_GPU_COUNT];
-    cl_mem d_idata[MAX_GPU_COUNT];
-    cl_kernel ckKernel[MAX_GPU_COUNT];
-	double time;
+    cl_mem *d_odata;
+    cl_mem *d_idata;
+    cl_kernel *ckKernels;
+	double time = 0.0;
 
     size_t szGlobalWorkSize[2];
     size_t szLocalWorkSize[2];
-    cl_int ciErrNum;
+    cl_int ciErrNum, i;
 
 	struct timeval t1, t2;
 	float tmpTime;
  
     // Create buffers for each GPU
     // Each GPU will compute sizePerGPU rows of the result
-    size_t sizePerGPU = shrRoundUp(BLOCK_DIM, (size_x+ciDeviceCount-1) / ciDeviceCount);
-    
+    size_t sizePerGPU = shrRoundUp(BLOCK_DIM, size_x);
+
+	d_odata = (cl_mem *) malloc(sizeof(cl_mem) * ciDeviceCount);
+	d_idata = (cl_mem *) malloc(sizeof(cl_mem) * ciDeviceCount);
+	ckKernels = (cl_kernel *)malloc(sizeof(cl_kernel) * ciDeviceCount);
     // size of memory required to store the matrix
     const size_t mem_size = sizeof(float) * size_x * size_y;
 
-	for(unsigned int i = 0; i < ciDeviceCount; ++i)
+	for(i = 0; i < ciDeviceCount; ++i)
 	{
 		// create the naive transpose kernel
 		timerStart();
-		ckKernel[i] = clCreateKernel(cpProgram, kernelName, &ciErrNum);
+		ckKernels[i] = clCreateKernel(cpPrograms[i], kernelName, &ciErrNum);
+		oclCheckError(ciErrNum, CL_SUCCESS);
 		timerEnd();
 		strTime.createKernel += elapsedTime();
-		strTime.numCreateKernel++;
-		oclCheckError(ciErrNum, CL_SUCCESS);
 
 		// allocate device memory and copy host to device memory
 		timerStart();
-		//d_idata[i] = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-		//                            mem_size, h_idata, &ciErrNum);
-		d_idata[i] = clCreateBuffer(cxGPUContext, CL_MEM_READ_ONLY, mem_size, NULL, &ciErrNum);
+		d_idata[i] = clCreateBuffer(cxGPUContexts[i], CL_MEM_READ_ONLY, mem_size, NULL, &ciErrNum);
 		oclCheckError(ciErrNum, CL_SUCCESS);
 
-		d_odata[i] = clCreateBuffer(cxGPUContext, CL_MEM_WRITE_ONLY ,
-									sizePerGPU*size_y*sizeof(float), NULL, &ciErrNum);
+		d_odata[i] = clCreateBuffer(cxGPUContexts[i], CL_MEM_WRITE_ONLY, mem_size, NULL, &ciErrNum);
 		oclCheckError(ciErrNum, CL_SUCCESS);
 		timerEnd();
 		strTime.createBuffer += elapsedTime();
-		strTime.numCreateBuffer += 2;
 	}
 
     // execute the kernel numIterations times
@@ -108,25 +92,25 @@ double transposeGPU(const char* kernelName, bool useLocalMem,  cl_uint ciDeviceC
 	timerStart();
 	for (iterNo = 0; iterNo < numIterations; iterNo++)
 	{
-		for(unsigned int i = 0; i < ciDeviceCount; ++i)
+		for(i = 0; i < ciDeviceCount; ++i)
 		{
-			ciErrNum = clEnqueueWriteBuffer(commandQueue[i], d_idata[i], CL_FALSE, 0,
+			ciErrNum = clEnqueueWriteBuffer(commandQueues[i], d_idata[i], CL_FALSE, 0,
 									mem_size, h_idata, 0, NULL, NULL);
 		}
 
-		for(unsigned int i = 0; i < ciDeviceCount; ++i)
+		for(i = 0; i < ciDeviceCount; ++i)
 		{
 			// set the args values for the naive kernel
-			size_t offset = i * sizePerGPU;
-			ciErrNum  = clSetKernelArg(ckKernel[i], 0, sizeof(cl_mem), (void *) &d_odata[i]);
-			ciErrNum |= clSetKernelArg(ckKernel[i], 1, sizeof(cl_mem), (void *) &d_idata[0]);
-			ciErrNum |= clSetKernelArg(ckKernel[i], 2, sizeof(int), &offset);
-			ciErrNum |= clSetKernelArg(ckKernel[i], 3, sizeof(int), &size_x);
-			ciErrNum |= clSetKernelArg(ckKernel[i], 4, sizeof(int), &size_y);
+			//size_t offset = i * sizePerGPU;
+			size_t offset = 0;
+			ciErrNum  = clSetKernelArg(ckKernels[i], 0, sizeof(cl_mem), (void *) &d_odata[i]);
+			ciErrNum |= clSetKernelArg(ckKernels[i], 1, sizeof(cl_mem), (void *) &d_idata[i]);
+			ciErrNum |= clSetKernelArg(ckKernels[i], 2, sizeof(int), &offset);
+			ciErrNum |= clSetKernelArg(ckKernels[i], 3, sizeof(int), &size_x);
+			ciErrNum |= clSetKernelArg(ckKernels[i], 4, sizeof(int), &size_y);
 			if(useLocalMem)
 			{
-				ciErrNum |= clSetKernelArg(ckKernel[i], 5, (BLOCK_DIM + 1) * BLOCK_DIM * sizeof(float), 0 );
-				strTime.numSetKernelArg++;
+				ciErrNum |= clSetKernelArg(ckKernels[i], 5, (BLOCK_DIM + 1) * BLOCK_DIM * sizeof(float), 0 );
 			}
     		oclCheckError(ciErrNum, CL_SUCCESS);
 		}
@@ -137,25 +121,21 @@ double transposeGPU(const char* kernelName, bool useLocalMem,  cl_uint ciDeviceC
 		szGlobalWorkSize[0] = sizePerGPU;
 		szGlobalWorkSize[1] = shrRoundUp(BLOCK_DIM, size_y);
     
-        for(unsigned int i=0; i < ciDeviceCount; ++i){
-            ciErrNum |= clEnqueueNDRangeKernel(commandQueue[i], ckKernel[i], 2, NULL,                                           
+        for(i=0; i < ciDeviceCount; ++i){
+            ciErrNum |= clEnqueueNDRangeKernel(commandQueues[i], ckKernels[i], 2, NULL,                                           
                                 szGlobalWorkSize, szLocalWorkSize, 0, NULL, NULL);
         }
         oclCheckError(ciErrNum, CL_SUCCESS);
 
-		for(unsigned int i = 0; i < ciDeviceCount; ++i){
-			size_t offset = i * sizePerGPU;
-			size_t size = MIN(size_x - i * sizePerGPU, sizePerGPU);
-
-			ciErrNum |= clEnqueueReadBuffer(commandQueue[i], d_odata[i], CL_FALSE, 0,
-									size * size_y * sizeof(float), &h_odata[offset * size_y], 
-									0, NULL, NULL);
+		for(i = 0; i < ciDeviceCount; ++i){
+			ciErrNum |= clEnqueueReadBuffer(commandQueues[i], d_odata[i], CL_FALSE, 0,
+									mem_size, h_odata, 0, NULL, NULL);
 		}
 	}
 
-	for(unsigned int i = 0; i < ciDeviceCount; ++i)
+	for(i = 0; i < ciDeviceCount; ++i)
 	{
-		clFinish(commandQueue[i]);
+		clFinish(commandQueues[i]);
 	}
 
 	timerEnd();
@@ -163,22 +143,24 @@ double transposeGPU(const char* kernelName, bool useLocalMem,  cl_uint ciDeviceC
 	oclCheckError(ciErrNum, CL_SUCCESS);
 
 	timerStart();
-	for(unsigned int i = 0; i < ciDeviceCount; ++i){
+	for(i = 0; i < ciDeviceCount; ++i){
 		ciErrNum |= clReleaseMemObject(d_idata[i]);
 		ciErrNum |= clReleaseMemObject(d_odata[i]);
 	}
 	timerEnd();
 	strTime.releaseMemObj += elapsedTime();
-	strTime.numReleaseMemObj += 2 * ciDeviceCount;
 	
 	//release kernel
 	timerStart();
-	for(unsigned int i = 0; i < ciDeviceCount; ++i){
-		ciErrNum |= clReleaseKernel(ckKernel[i]);
+	for(i = 0; i < ciDeviceCount; ++i){
+		ciErrNum |= clReleaseKernel(ckKernels[i]);
 	}
 	timerEnd();
 	strTime.releaseKernel += elapsedTime();
-	strTime.numReleaseKernel += ciDeviceCount;
+
+	free(ckKernels);
+	free(d_idata);
+	free(d_odata);
 
     return time;
 }
@@ -189,11 +171,12 @@ int runTest( const int argc, const char** argv)
 {
     cl_int ciErrNum;
     cl_uint ciDeviceCount;
-	//int matrixSize = atoi(argv[1]);
+
     unsigned int size_x = 2048;
     unsigned int size_y = 2048;
 	int disableCPU = 1;
-	cl_uint deviceNo = 0;
+	cl_uint i, index, deviceNo = 0;
+	bool bUseAllDevices = false;
 	cpu_set_t set;
 	CPU_ZERO(&set);
 
@@ -218,54 +201,82 @@ int runTest( const int argc, const char** argv)
         disableCPU = temp;
     }
 
-
+	bUseAllDevices = (shrTRUE == shrCheckCmdLineFlag(argc, (const char**)argv, "deviceall"));
 
     // size of memory required to store the matrix
     const size_t mem_size = sizeof(float) * size_x * size_y;
 
     //Get the NVIDIA platform
-    //ciErrNum = oclGetPlatformID(&cpPlatform);
 	timerStart();
-    ciErrNum = clGetPlatformIDs(1, &cpPlatform, NULL);
+    ciErrNum = clGetPlatformIDs(0, NULL, &platformNum);
+	cpPlatforms = (cl_platform_id *)malloc(sizeof(cl_platform_id) * platformNum);
+	deviceNums = (cl_uint *)malloc(sizeof(cl_uint) * platformNum);
+    ciErrNum |= clGetPlatformIDs(platformNum, cpPlatforms, NULL);
+    oclCheckError(ciErrNum, CL_SUCCESS);
 	timerEnd();
 	strTime.getPlatform += elapsedTime();
-	strTime.numGetPlatform++;
-    oclCheckError(ciErrNum, CL_SUCCESS);
 
 	sched_getaffinity(0, sizeof(cpu_set_t), &set);
-	printf("cpuid = %d\n", set.__bits[0]);
+	shrLog("cpuid = %d\n", set.__bits[0]);
 
     //Get the devices
 	timerStart();
-    ciErrNum  = clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, 0, NULL, &uiNumDevices);
-    ciErrNum |= clGetDeviceIDs(cpPlatform, CL_DEVICE_TYPE_GPU, uiNumDevices, cdDevices, NULL);
+	uiNumDevices = 0;
+	for (i = 0; i < platformNum; i++)
+	{
+    	ciErrNum  = clGetDeviceIDs(cpPlatforms[i], CL_DEVICE_TYPE_GPU, 0, NULL, &deviceNums[i]);
+    	oclCheckError(ciErrNum, CL_SUCCESS);
+		uiNumDevices += deviceNums[i];
+	}
+	
+	cxGPUContexts = (cl_context *) malloc(sizeof(cl_context) * uiNumDevices);
+	commandQueues = (cl_command_queue *) malloc(sizeof(cl_command_queue) * uiNumDevices);
+	cpPrograms = (cl_program *) malloc(sizeof(cl_program) * uiNumDevices);
+	cdDevices = (cl_device_id *) malloc(sizeof(cl_device_id) * uiNumDevices);
+
+	uiNumDevices = 0;
+	for (i = 0; i < platformNum; i++)
+	{
+    	ciErrNum = clGetDeviceIDs(cpPlatforms[i], CL_DEVICE_TYPE_GPU, deviceNums[i], &cdDevices[uiNumDevices], NULL);
+    	oclCheckError(ciErrNum, CL_SUCCESS);
+		uiNumDevices += deviceNums[i];
+	}
 	timerEnd();
 	strTime.getDeviceID += elapsedTime();
-	strTime.numGetDeviceID++;
 
-    oclCheckError(ciErrNum, CL_SUCCESS);
+	//set the devices that will be used
+	if (bUseAllDevices == true)
+	{
+		ciDeviceCount = uiNumDevices;
+		shrLog("All GPUs are used..., deviceCount = %d\n\n", ciDeviceCount);
+		deviceNo = 0;
+	}
+	else
+	{
+		shrLog("Device %d is used ...\n\n", deviceNo);
+		ciDeviceCount = 1;
+	}
 
     //Create the context
 	timerStart();
-    cxGPUContext = clCreateContext(0, uiNumDevices, cdDevices, NULL, NULL, &ciErrNum);
+	for (i = 0; i < ciDeviceCount; i++)
+	{
+		index = i + deviceNo;
+    	cxGPUContexts[i] = clCreateContext(0, 1, &cdDevices[index], NULL, NULL, &ciErrNum);
+    	oclCheckError(ciErrNum, CL_SUCCESS);
+	}
 	timerEnd();
 	strTime.createContext += elapsedTime();
-	strTime.numCreateContext++;
-    oclCheckError(ciErrNum, CL_SUCCESS);
-
-	ciDeviceCount = 1;
-	printf("deviceNo = %d\n", deviceNo);
 
 	timerStart();
-	commandQueue[ciDeviceCount-1] = clCreateCommandQueue(cxGPUContext, cdDevices[deviceNo], CL_QUEUE_PROFILING_ENABLE, &ciErrNum);
+	for (i = 0; i < ciDeviceCount; i++)
+	{
+		index = i + deviceNo;
+		commandQueues[i] = clCreateCommandQueue(cxGPUContexts[i], cdDevices[index], CL_QUEUE_PROFILING_ENABLE, &ciErrNum);
+    	oclCheckError(ciErrNum, CL_SUCCESS);
+	}
 	timerEnd();
 	strTime.createCommandQueue += elapsedTime();
-	strTime.numCreateCommandQueue++;
-	if (ciErrNum != CL_SUCCESS)
-	{
-		shrLog(" Error %i in clCreateCommandQueue call !!!\n\n", ciErrNum);
-		return ciErrNum;
-	}
 
     // allocate and initalize host memory
     float* h_idata = (float*)malloc(mem_size);
@@ -284,59 +295,35 @@ int runTest( const int argc, const char** argv)
 
     // create the program
 	timerStart();
-    cpProgram = clCreateProgramWithSource(cxGPUContext, 1,
+	for (i = 0; i < ciDeviceCount; i++)
+	{
+    	cpPrograms[i] = clCreateProgramWithSource(cxGPUContexts[i], 1,
                       (const char **)&source, &program_length, &ciErrNum);
+    	oclCheckError(ciErrNum, CL_SUCCESS);
+	}
 	timerEnd();
 	strTime.createProgramWithSource += elapsedTime();
-	strTime.numCreateProgramWithSource++;
-    oclCheckError(ciErrNum, CL_SUCCESS);
     
     // build the program
 	timerStart();
-    ciErrNum = clBuildProgram(cpProgram, 0, NULL, "-cl-fast-relaxed-math", NULL, NULL);
+	for (i = 0; i < ciDeviceCount; i++)
+	{
+    	ciErrNum = clBuildProgram(cpPrograms[i], 0, NULL, "-cl-fast-relaxed-math", NULL, NULL);
+		if (ciErrNum != CL_SUCCESS)
+		{
+			// write out standard error, Build Log and PTX, then return error
+			shrLogEx(LOGBOTH | ERRORMSG, ciErrNum, STDERROR);
+			oclLogBuildInfo(cpPrograms[i], oclGetFirstDev(cxGPUContexts[i]));
+			oclLogPtx(cpPrograms[i], oclGetFirstDev(cxGPUContexts[i]), "oclTranspose.ptx");
+			return(EXIT_FAILURE); 
+		}
+	}
 	timerEnd();
 	strTime.buildProgram += elapsedTime();
-	strTime.numBuildProgram++;
-    if (ciErrNum != CL_SUCCESS)
-    {
-        // write out standard error, Build Log and PTX, then return error
-        shrLogEx(LOGBOTH | ERRORMSG, ciErrNum, STDERROR);
-        oclLogBuildInfo(cpProgram, oclGetFirstDev(cxGPUContext));
-        oclLogPtx(cpProgram, oclGetFirstDev(cxGPUContext), "oclTranspose.ptx");
-        return(EXIT_FAILURE); 
-    }
-
-    // Run Naive Kernel
-#ifdef GPU_PROFILING
-    // Matrix Copy kernel runs to measure reference performance.
-    double uncoalescedCopyTime = transposeGPU("uncoalesced_copy", false, ciDeviceCount, h_idata, h_odata, size_x, size_y);
-    double simpleCopyTime = transposeGPU("simple_copy", false, ciDeviceCount, h_idata, h_odata, size_x, size_y);
-    double sharedCopyTime = transposeGPU("shared_copy", true, ciDeviceCount, h_idata, h_odata, size_x, size_y);
-#endif
 
     double naiveTime = transposeGPU("transpose_naive", false, ciDeviceCount, h_idata, h_odata, size_x, size_y);
     double optimizedTime = transposeGPU("transpose", true, ciDeviceCount, h_idata, h_odata, size_x, size_y);
-
-#ifdef GPU_PROFILING
-    // log times
-
-    shrLogEx(LOGBOTH | MASTER, 0, "oclTranspose-Outer-simple copy, Throughput = %.4f GB/s, Time = %.5f s, Size = %u fp32 elements, NumDevsUsed = %u, Workgroup = %u\n", 
-           (1.0e-9 * double(size_x * size_y * sizeof(float))/simpleCopyTime), simpleCopyTime, (size_x * size_y), ciDeviceCount, BLOCK_DIM * BLOCK_DIM); 
-
-    shrLogEx(LOGBOTH | MASTER, 0, "oclTranspose-Outer-shared memory copy, Throughput = %.4f GB/s, Time = %.5f s, Size = %u fp32 elements, NumDevsUsed = %u, Workgroup = %u\n", 
-           (1.0e-9 * double(size_x * size_y * sizeof(float))/sharedCopyTime), sharedCopyTime, (size_x * size_y), ciDeviceCount, BLOCK_DIM * BLOCK_DIM); 
-
-    shrLogEx(LOGBOTH | MASTER, 0, "oclTranspose-Outer-uncoalesced copy, Throughput = %.4f GB/s, Time = %.5f s, Size = %u fp32 elements, NumDevsUsed = %u, Workgroup = %u\n", 
-           (1.0e-9 * double(size_x * size_y * sizeof(float))/uncoalescedCopyTime), uncoalescedCopyTime, (size_x * size_y), ciDeviceCount, BLOCK_DIM * BLOCK_DIM); 
-
-    shrLogEx(LOGBOTH | MASTER, 0, "oclTranspose-Outer-naive, Throughput = %.4f GB/s, Time = %.5f s, Size = %u fp32 elements, NumDevsUsed = %u, Workgroup = %u\n", 
-           (1.0e-9 * double(size_x * size_y * sizeof(float))/naiveTime), naiveTime, (size_x * size_y), ciDeviceCount, BLOCK_DIM * BLOCK_DIM); 
-    
-    shrLogEx(LOGBOTH | MASTER, 0, "oclTranspose-Outer-optimized, Throughput = %.4f GB/s, Time = %.5f s, Size = %u fp32 elements, NumDevsUsed = %u, Workgroup = %u\n", 
-          (1.0e-9 * double(size_x * size_y * sizeof(float))/optimizedTime), optimizedTime, (size_x * size_y), ciDeviceCount, BLOCK_DIM * BLOCK_DIM); 
-
-#endif
-  
+ 
     // compute reference solution and cross check results
 	if (disableCPU == 0)
 	{
@@ -355,25 +342,39 @@ int runTest( const int argc, const char** argv)
 
     // cleanup OpenCL
 	timerStart();
-    ciErrNum = clReleaseProgram(cpProgram);    
+	for (i = 0; i < ciDeviceCount; i++)
+	{
+    	ciErrNum = clReleaseProgram(cpPrograms[i]);
+    	oclCheckError(ciErrNum, CL_SUCCESS);
+	}
 	timerEnd();
 	strTime.releaseProgram += elapsedTime();
-	strTime.numReleaseProgram++;
+	
 	timerStart();
-    for(unsigned int i = 0; i < ciDeviceCount; ++i) 
+    for(i = 0; i < ciDeviceCount; ++i) 
     {
-        ciErrNum |= clReleaseCommandQueue(commandQueue[i]);
+        ciErrNum = clReleaseCommandQueue(commandQueues[i]);
+    	oclCheckError(ciErrNum, CL_SUCCESS);
     }
 	timerEnd();
 	strTime.releaseCmdQueue += elapsedTime();
-	strTime.numReleaseCmdQueue += ciDeviceCount;
 
 	timerStart();
-    ciErrNum |= clReleaseContext(cxGPUContext);
+	for (i = 0; i < ciDeviceCount; i++)
+	{
+    	ciErrNum = clReleaseContext(cxGPUContexts[i]);
+    	oclCheckError(ciErrNum, CL_SUCCESS);
+	}
 	timerEnd();
-	//strTime.releaseContext += elapsedTime();
-	//strTime.numReleaseContext++;
-    oclCheckError(ciErrNum, CL_SUCCESS);
+	strTime.releaseContext += elapsedTime();
+	
+	free(cpPlatforms);
+	free(deviceNums);
+	free(cdDevices);
+	free(cxGPUContexts);
+	free(commandQueues);
+	free(cpPrograms);
 	
     return 0;
 }
+
