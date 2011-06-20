@@ -64,11 +64,7 @@ extern "C"
 		{
 			size = numBodies * 4 * sizeof(double);
 			double *dHost = (double *)malloc(size);
-//			timerStart();
 			ciErrNum = clEnqueueReadBuffer(cqCommandQueue, device, CL_FALSE, 0, size, dHost, 0, NULL, NULL);
-//			timerEnd();
-//			strTime.enqueueReadBuffer += elapsedTime();
-//			strTime.numEnqueueReadBuffer ++;
 			for (int i = 0; i < numBodies * 4; i++)
 			{
 				host[i] = (float)(dHost[i]);
@@ -78,11 +74,7 @@ extern "C"
 		else
 		{
         	size = numBodies * 4 * sizeof(float);
-//			timerStart();
         	ciErrNum = clEnqueueReadBuffer(cqCommandQueue, device, CL_FALSE, 0, size, host, 0, NULL, NULL);
-//			timerEnd();
-//			strTime.enqueueReadBuffer += elapsedTime();
-//			strTime.numEnqueueReadBuffer ++;
         }
 		oclCheckError(ciErrNum, CL_SUCCESS);
 		
@@ -100,21 +92,13 @@ extern "C"
 			{
 				cdHost[i] = (double)host[i];
 			}
-//			timerStart();
 			ciErrNum = clEnqueueWriteBuffer(cqCommandQueue, device, CL_FALSE, 0, size, cdHost, 0, NULL, NULL);
-//			timerEnd();
-//			strTime.enqueueWriteBuffer += elapsedTime();
-//			strTime.numEnqueueWriteBuffer ++;
 			free(cdHost);
 		}
 		else
 		{
         	size = numBodies*4*sizeof(float);
-//			timerStart();
         	ciErrNum = clEnqueueWriteBuffer(cqCommandQueue, device, CL_FALSE, 0, size, host, 0, NULL, NULL);
-//			timerEnd();
-//			strTime.enqueueWriteBuffer += elapsedTime();
-//			strTime.numEnqueueWriteBuffer ++;
         }
 		oclCheckError(ciErrNum, CL_SUCCESS);
     }
@@ -207,14 +191,7 @@ extern "C"
         global_work_size[1]= q;
 
         // execute the kernel:
-		timerStart();
         ciErrNum = clEnqueueNDRangeKernel(cqCommandQueue, kernel, 2, NULL, global_work_size, local_work_size, 0, NULL, NULL);
-		clFinish(cqCommandQueue);
-		timerEnd();
-		strTime.kernelExecution += elapsedTime();
-		strTime.numKernelExecution++;
-        oclCheckError(ciErrNum, CL_SUCCESS);
-
     }
 
     // Function to read in kernel from uncompiled source, create the OCL program and build the OCL program 
