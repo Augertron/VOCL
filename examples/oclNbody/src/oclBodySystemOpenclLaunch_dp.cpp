@@ -224,14 +224,6 @@ extern "C"
         oclCheckError(ciErrNum, CL_SUCCESS); 
         shrLog("clCreateKernel\n"); 
 
-//		size_t wgSize;
-//		ciErrNum = clGetKernelWorkGroupInfo(*kernel, cdDevices[0], CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &wgSize, NULL);
-//		if (wgSize == 64) {
-//		  shrLog(
-//			 "ERROR: Minimum work-group size 256 required by this application is not supported on this device.\n");
-//		  exit(0);
-//		}
-	
 		free(pcSourceForDouble);
 
         return 0;
