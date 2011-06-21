@@ -27,22 +27,12 @@ extern "C"
     {
         // 4 floats each for alignment reasons
         unsigned int memSize;
-		
-		if (dFlag == 0)
-		{
-			memSize = sizeof( float) * 4 * numBodies;
-		}
-		else
-		{
-			memSize = sizeof( double) * 4 * numBodies;
-		}
-
+		memSize = sizeof( float) * 4 * numBodies;
 		timerStart();
 		vel[0] = clCreateBuffer(cxGPUContext, CL_MEM_READ_WRITE, memSize, NULL, NULL);
 		vel[1] = clCreateBuffer(cxGPUContext, CL_MEM_READ_WRITE, memSize, NULL, NULL);
 		timerEnd();
 		strTime.createBuffer += elapsedTime();
-		strTime.numCreateBuffer += 2;
     }
 
     void DeleteNBodyArrays(cl_mem vel[2])
@@ -52,7 +42,6 @@ extern "C"
         clReleaseMemObject(vel[1]);
 		timerEnd();
 		strTime.releaseMemObj += elapsedTime();
-		strTime.numReleaseMemObj += 2;
     }
 
     void CopyArrayFromDevice(cl_command_queue cqCommandQueue, float *host, cl_mem device, cl_mem pboCL, int numBodies, bool bDouble)
@@ -260,7 +249,6 @@ extern "C"
         cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char **)&pcSourceForDouble, &szSourceLen, &ciErrNum);
 		timerEnd();
 		strTime.createProgramWithSource += elapsedTime();
-		strTime.numCreateProgramWithSource++;
         oclCheckError(ciErrNum, CL_SUCCESS);
         shrLog("clCreateProgramWithSource\n"); 
 
@@ -274,7 +262,6 @@ extern "C"
         ciErrNum = clBuildProgram(cpProgram, 0, NULL, flags, NULL, NULL);
 		timerEnd();
 		strTime.buildProgram += elapsedTime();
-		strTime.numBuildProgram++;
         if (ciErrNum != CL_SUCCESS)
         {
             // write out standard error, Build Log and PTX, then cleanup and exit
@@ -290,11 +277,11 @@ extern "C"
         *kernel = clCreateKernel(cpProgram, kernel_name, &ciErrNum);
 		timerEnd();
 		strTime.createKernel += elapsedTime();
-		strTime.numCreateKernel++;
         oclCheckError(ciErrNum, CL_SUCCESS); 
         shrLog("clCreateKernel\n"); 
 
 		free(pcSourceForDouble);
+		clReleaseProgram(cpProgram);
 
         return 0;
     }

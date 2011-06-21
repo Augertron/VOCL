@@ -190,7 +190,6 @@ extern "C"
         cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char **)&pcSourceForDouble, &szSourceLen, &ciErrNum);
 		timerEnd();
 		strTime.createProgramWithSource += elapsedTime();
-		strTime.numCreateProgramWithSource++;
         oclCheckError(ciErrNum, CL_SUCCESS);
         shrLog("clCreateProgramWithSource\n"); 
 
@@ -204,7 +203,6 @@ extern "C"
         ciErrNum = clBuildProgram(cpProgram, 0, NULL, flags, NULL, NULL);
 		timerEnd();
 		strTime.buildProgram += elapsedTime();
-		strTime.numBuildProgram++;
         if (ciErrNum != CL_SUCCESS)
         {
             // write out standard error, Build Log and PTX, then cleanup and exit
@@ -220,11 +218,11 @@ extern "C"
         *kernel = clCreateKernel(cpProgram, kernel_name, &ciErrNum);
 		timerEnd();
 		strTime.createKernel += elapsedTime();
-		strTime.numCreateKernel++;
         oclCheckError(ciErrNum, CL_SUCCESS); 
         shrLog("clCreateKernel\n"); 
 
 		free(pcSourceForDouble);
+		clReleaseProgram(cpProgram);
 
         return 0;
     }
