@@ -4,20 +4,6 @@
 #include <CL/opencl.h>
 #include <sched.h>
 
-/*************************************************************
- **************** Version 1 **********************************
-32. This version is based on version 27.
-	1) Constant memory will be used for scoring matrix
-	2) Input string are stored in constant memory, it is only used for trace back, 
-	   not be used for matrix filling.
-db1.This version is based on version 32, modified for database search
-db2.Add time record in the program.
-V2. opencl implementation of smith-waterman corresponding to version 32
-V3. For set argument, unchanged arguments for kernel is set only once
-1. Create the scenario that each time a different kernel is called.
-2. the scenario that the same kernel is called all the times.
-**************************************************************/
-
 #define CHECK_ERR(err, str) \
 	if (err != CL_SUCCESS)  \
 	{ \
@@ -66,12 +52,13 @@ int main(int argc, char ** argv)
 		printf("Calculate similarities between two strings.\n");
 		printf("Maximum length of each string is: %d\n", MAX_LEN);
 		printf("Usage: %s query database [openPenalty extensionPenalty #ofIterations deviceNo]\n", argv[0]);
+		printf("       deviceNo = -1 indicate using all virtual GPUs\n");
 		printf("openPenalty (5.0), extensionPenalty (0.5)\n");
 		return 1;
 	}
 
 	char queryFilePathName[255], dbDataFilePathName[255], dbLenFilePathName[255];
-	int querySize, subSequenceNum, subSequenceSize, i;
+	int querySize, subSequenceNum, subSequenceSize, iterNo, i, index;
 	float openPenalty, extensionPenalty;
 	int numIterations = 20;
 	int coalescedOffset = COALESCED_OFFSET;
@@ -97,52 +84,88 @@ int main(int argc, char ** argv)
 		deviceNo = atoi(argv[6]);
 	}
 
-	printf("deviceNo = %d\n", deviceNo);
-
 	//for opencl initialization
 	cl_int err;
-	cl_uint numPlatforms, numDevices;
-	cl_platform_id platformID;
-	cl_device_id deviceID[2];
-	cl_context hContext;
-	cl_command_queue hCmdQueue;
-	cl_program hProgram;
-	cl_kernel hMatchStringKernel, hTraceBackKernel;
+	cl_uint platformNum, totalDeviceNum, usedDeviceNum, *deviceNums;
+	cl_platform_id *platformIDs;
+	cl_device_id *deviceIDs;
+	cl_context *hContexts;
+	cl_command_queue *hCmdQueues;
+	cl_program *hPrograms;
+	cl_kernel *hMatchStringKernels, *hTraceBackKernels;
 	size_t sourceFileSize;
 	char *cSourceCL = NULL;
 
 	timerStart();
-	err  = clGetPlatformIDs(0, NULL, &numPlatforms);
-	err |= clGetPlatformIDs(numPlatforms, &platformID, NULL);
+	err  = clGetPlatformIDs(0, NULL, &platformNum);
+	platformIDs = (cl_platform_id *)malloc(sizeof(cl_platform_id) * platformNum);
+	deviceNums = (cl_uint *)malloc(sizeof(cl_uint) * platformNum);
+	err |= clGetPlatformIDs(platformNum, platformIDs, NULL);
 	CHECK_ERR(err, "Get platform ID error!");
 	timerEnd();
 	strTime.getPlatform = elapsedTime();
-	strTime.numGetPlatform++;
 
 	sched_getaffinity(0, sizeof(cpu_set_t), &set);
 	printf("cpuid = %d\n", set.__bits[0]);
 
 	timerStart();
-	err  = clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices);
-	err |= clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, numDevices, deviceID, NULL);
-	CHECK_ERR(err, "Get device ID error!");
+	totalDeviceNum = 0;
+	for (i = 0; i < platformNum; i++)
+	{
+		err  = clGetDeviceIDs(platformIDs[i], CL_DEVICE_TYPE_GPU, 0, NULL, &deviceNums[i]);
+		CHECK_ERR(err, "Get device ID error!");
+		totalDeviceNum += deviceNums[i];
+	}
+
+	deviceIDs = (cl_device_id *)malloc(sizeof(cl_device_id) * totalDeviceNum);
+	hContexts = (cl_context *)malloc(sizeof(cl_context) * totalDeviceNum);
+	hCmdQueues = (cl_command_queue *)malloc(sizeof(cl_command_queue) * totalDeviceNum);
+	hPrograms = (cl_program *)malloc(sizeof(cl_program) * totalDeviceNum);
+	hMatchStringKernels = (cl_kernel *)malloc(sizeof(cl_kernel) * totalDeviceNum);
+	hTraceBackKernels = (cl_kernel *)malloc(sizeof(cl_kernel) * totalDeviceNum);
+
+	totalDeviceNum = 0;
+	for (i = 0; i < platformNum; i++)
+	{
+		err = clGetDeviceIDs(platformIDs[i], CL_DEVICE_TYPE_GPU, deviceNums[i], &deviceIDs[totalDeviceNum], NULL);
+		CHECK_ERR(err, "Get device ID error!");
+		totalDeviceNum += deviceNums[i];
+	}
 	timerEnd();
 	strTime.getDeviceID = elapsedTime();
-	strTime.numGetDeviceID++;
 	
+	if (deviceNo == -1)
+	{
+		printf("All virtual GPUs are used..., deviceCount = %d\n\n", totalDeviceNum);
+		usedDeviceNum = totalDeviceNum;
+		deviceNo = 0;
+	}
+	else
+	{
+		printf("Virtual GPU %d is used...\n\n", deviceNo);
+		usedDeviceNum = 1;
+	}
+
+
 	timerStart();
-	hContext = clCreateContext(0, numDevices, deviceID, 0, 0, &err);
-	CHECK_ERR(err, "Create context from type error");
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		index = i + deviceNo;
+		hContexts[i] = clCreateContext(0, 1, &deviceIDs[index], 0, 0, &err);
+		CHECK_ERR(err, "Create context from type error");
+	}
 	timerEnd();
 	strTime.createContext = elapsedTime();
-	strTime.numCreateContext++;
 	
 	timerStart();
-	hCmdQueue = clCreateCommandQueue(hContext, deviceID[deviceNo], 0, &err);
-	CHECK_ERR(err, "Create command queue error");
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		index = i + deviceNo;
+		hCmdQueues[i] = clCreateCommandQueue(hContexts[i], deviceIDs[index], 0, &err);
+		CHECK_ERR(err, "Create command queue error");
+	}
 	timerEnd();
 	strTime.createCommandQueue = elapsedTime();
-	strTime.numCreateCommandQueue++;
 
 	//load the source file
 	snprintf(kernel_source, KERNEL_SOURCE_FILE_LEN, "%s/examples/swat/kernels.cl",
@@ -150,26 +173,30 @@ int main(int argc, char ** argv)
 	cSourceCL = loadSource(kernel_source, &sourceFileSize);
 
 	timerStart();
-	hProgram = clCreateProgramWithSource(hContext, 1, (const char **)&cSourceCL, 
-				&sourceFileSize, &err);
-	CHECK_ERR(err, "Create program with source error");
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		hPrograms[i] = clCreateProgramWithSource(hContexts[i], 1, (const char **)&cSourceCL, 
+							&sourceFileSize, &err);
+		CHECK_ERR(err, "Create program with source error");
+	}
 	timerEnd();
 	strTime.createProgramWithSource = elapsedTime();
-	strTime.numCreateProgramWithSource++;
 	
 	timerStart();
-	err = clBuildProgram(hProgram, 0, 0, 0, 0, 0);
-	CHECK_ERR(err, "Build program error");
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		err = clBuildProgram(hPrograms[i], 0, 0, 0, 0, 0);
+		CHECK_ERR(err, "Build program error");
+	}
 	timerEnd();
 	strTime.buildProgram = elapsedTime();
-	strTime.numBuildProgram++;
+
 	sprintf(queryFilePathName, "%s", argv[1]);
 	sprintf(dbDataFilePathName, "%s.data", argv[2]);
 	sprintf(dbLenFilePathName, "%s.loc", argv[2]);
 
 	char *allSequences, *querySequence, *subSequence;
 	char *seq1, *seq2;
-	cl_mem seq1D, seq2D;
 
 	allSequences = new char[2 * (MAX_LEN)];
 	if (allSequences == NULL)
@@ -193,7 +220,6 @@ int main(int argc, char ** argv)
 
 	//allocate output sequence buffer
 	char *outSeq1, *outSeq2;
-	cl_mem outSeq1D, outSeq2D;
 	outSeq1 = new char[2 * MAX_LEN];
 	outSeq2 = new char[2 * MAX_LEN];
 	if (outSeq1 == NULL ||
@@ -206,7 +232,6 @@ int main(int argc, char ** argv)
 	//allocate thread number per launch and 
 	//location difference information
 	int *threadNum, *diffPos;
-	cl_mem threadNumD, diffPosD;
 	threadNum = new int[2 * MAX_LEN];
 	diffPos = new int[2 * MAX_LEN];
 	if (threadNum == NULL ||
@@ -219,7 +244,6 @@ int main(int argc, char ** argv)
 	//allocate matrix buffer
 	char *pathFlag, *extFlag; 
 	float *nGapDist, *hGapDist, *vGapDist;
-	cl_mem pathFlagD, extFlagD,	nGapDistD, hGapDistD, vGapDistD;
 	int maxElemNum = (MAX_LEN + 1) * (MAX_LEN + 1);
 	pathFlag  = new char[maxElemNum];
 	extFlag   = new char[maxElemNum];
@@ -245,74 +269,73 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 	
-	cl_mem maxInfoD;
-	cl_mem blosum62D;
 	int nblosumHeight = 23;
 
 	//create kernels for filling matrix and trace back
 	timerStart();
-	hMatchStringKernel = clCreateKernel(hProgram, "MatchString", &err);
-	CHECK_ERR(err, "Create MatchString kernel error");
-	hTraceBackKernel = clCreateKernel(hProgram, "trace_back2", &err);
-	CHECK_ERR(err, "Create trace_back2 kernel error");
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		hMatchStringKernels[i] = clCreateKernel(hPrograms[i], "MatchString", &err);
+		CHECK_ERR(err, "Create MatchString kernel error");
+		hTraceBackKernels[i] = clCreateKernel(hPrograms[i], "trace_back2", &err);
+		CHECK_ERR(err, "Create trace_back2 kernel error");
+	}
 	timerEnd();
 	strTime.createKernel += elapsedTime();
-	strTime.numCreateKernel += 2;
 
-	timerStart();
-	seq1D = clCreateBuffer(hContext, CL_MEM_READ_ONLY, sizeof(cl_char) * MAX_LEN, 0, &err);
-	CHECK_ERR(err, "Create seq1D memory");
-	seq2D = clCreateBuffer(hContext, CL_MEM_READ_ONLY, sizeof(cl_char) * MAX_LEN, 0, &err);
-	CHECK_ERR(err, "Create seq2D memory");
-	//timerEnd();
-	//strTime.createBuffer += elapsedTime();
-	//strTime.numCreateBuffer += 2;
+	cl_mem *diffPosDs, *maxInfoDs, *blosum62Ds, *seq1Ds, *seq2Ds, *outSeq1Ds, *outSeq2Ds;
+	cl_mem *pathFlagDs, *extFlagDs, *nGapDistDs, *hGapDistDs, *vGapDistDs;
 
-	//timerStart();
-	outSeq1D = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_char) * MAX_LEN * 2, 0, &err);
-	CHECK_ERR(err, "Create outSeq1D memory");
-	outSeq2D = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_char) * MAX_LEN * 2, 0, &err);
-	CHECK_ERR(err, "Create outSeq2D memory");
-	//timerEnd();
-	//strTime.createBuffer += elapsedTime();
-	//strTime.numCreateBuffer += 2;
+	diffPosDs = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
+	maxInfoDs = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
+	blosum62Ds = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
+	seq1Ds = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
+	seq2Ds = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
+	outSeq1Ds = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
+	outSeq2Ds = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
+	pathFlagDs = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
+	extFlagDs = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
+	nGapDistDs = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
+	hGapDistDs = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
+	vGapDistDs = (cl_mem *)malloc(sizeof(cl_mem) * usedDeviceNum);
 
-	//timerStart();
-	//threadNumD = clCreateBuffer(hContext, CL_MEM_READ_ONLY, sizeof(cl_int) * MAX_LEN * 2, 0, &err);
-	//CHECK_ERR(err, "Create threadNumD memory");
-	diffPosD = clCreateBuffer(hContext, CL_MEM_READ_ONLY, sizeof(cl_int) * MAX_LEN * 2, 0, &err);
-	CHECK_ERR(err, "Create diffPosD memory");
-	//timerEnd();
-	//strTime.createBuffer += elapsedTime();
-	//strTime.numCreateBuffer += 2;
-
-	//timerStart();
 	int DPMatrixSize;
-	DPMatrixSize = MAX_LEN * MAX_LEN;
-	pathFlagD = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_char) * DPMatrixSize, 0, &err);
-	CHECK_ERR(err, "Create pathFlagD memory");
-	extFlagD = clCreateBuffer(hContext,  CL_MEM_READ_WRITE, sizeof(cl_char) * DPMatrixSize, 0, &err);
-	CHECK_ERR(err, "Create extFlagD memory");
-	nGapDistD = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_float) * DPMatrixSize, 0, &err);
-	CHECK_ERR(err, "Create nGapDistD memory");
-	hGapDistD = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_float) * DPMatrixSize, 0, &err);
-	CHECK_ERR(err, "Create hGapDistD memory");
-	vGapDistD = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_float) * DPMatrixSize, 0, &err);
-	CHECK_ERR(err, "Create vGapDistD memory");
+	timerStart();
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		seq1Ds[i] = clCreateBuffer(hContexts[i], CL_MEM_READ_ONLY, sizeof(cl_char) * MAX_LEN, 0, &err);
+		CHECK_ERR(err, "Create seq1D memory");
+		seq2Ds[i] = clCreateBuffer(hContexts[i], CL_MEM_READ_ONLY, sizeof(cl_char) * MAX_LEN, 0, &err);
+		CHECK_ERR(err, "Create seq2D memory");
 
-	maxInfoD = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(MAX_INFO), 0, &err);
-	CHECK_ERR(err, "Create maxInfoD memory");
+		outSeq1Ds[i] = clCreateBuffer(hContexts[i], CL_MEM_READ_WRITE, sizeof(cl_char) * MAX_LEN * 2, 0, &err);
+		CHECK_ERR(err, "Create outSeq1D memory");
+		outSeq2Ds[i] = clCreateBuffer(hContexts[i], CL_MEM_READ_WRITE, sizeof(cl_char) * MAX_LEN * 2, 0, &err);
+		CHECK_ERR(err, "Create outSeq2D memory");
 
-	blosum62D = clCreateBuffer(hContext, CL_MEM_READ_ONLY, sizeof(cl_float) * nblosumWidth * nblosumHeight, 0, &err);
-	CHECK_ERR(err, "Create scoring matrix memory");
+		diffPosDs[i] = clCreateBuffer(hContexts[i], CL_MEM_READ_ONLY, sizeof(cl_int) * MAX_LEN * 2, 0, &err);
+		CHECK_ERR(err, "Create diffPosD memory");
 
+		DPMatrixSize = MAX_LEN * MAX_LEN;
+		pathFlagDs[i] = clCreateBuffer(hContexts[i], CL_MEM_READ_WRITE, sizeof(cl_char) * DPMatrixSize, 0, &err);
+		CHECK_ERR(err, "Create pathFlagD memory");
+		extFlagDs[i] = clCreateBuffer(hContexts[i],  CL_MEM_READ_WRITE, sizeof(cl_char) * DPMatrixSize, 0, &err);
+		CHECK_ERR(err, "Create extFlagD memory");
+		nGapDistDs[i] = clCreateBuffer(hContexts[i], CL_MEM_READ_WRITE, sizeof(cl_float) * DPMatrixSize, 0, &err);
+		CHECK_ERR(err, "Create nGapDistD memory");
+		hGapDistDs[i] = clCreateBuffer(hContexts[i], CL_MEM_READ_WRITE, sizeof(cl_float) * DPMatrixSize, 0, &err);
+		CHECK_ERR(err, "Create hGapDistD memory");
+		vGapDistDs[i] = clCreateBuffer(hContexts[i], CL_MEM_READ_WRITE, sizeof(cl_float) * DPMatrixSize, 0, &err);
+		CHECK_ERR(err, "Create vGapDistD memory");
+
+		maxInfoDs[i] = clCreateBuffer(hContexts[i], CL_MEM_READ_WRITE, sizeof(MAX_INFO), 0, &err);
+		CHECK_ERR(err, "Create maxInfoD memory");
+
+		blosum62Ds[i] = clCreateBuffer(hContexts[i], CL_MEM_READ_ONLY, sizeof(cl_float) * nblosumWidth * nblosumHeight, 0, &err);
+		CHECK_ERR(err, "Create scoring matrix memory");
+	}
 	timerEnd();
 	strTime.createBuffer += elapsedTime();
-	strTime.numCreateBuffer += 12;
-
-
-	//copy the scoring matrix to the constant memory
-	//copyScoringMatrixToConstant();
 
 	//open the database
 	pDBDataFile = fopen(dbDataFilePathName, "rb");
@@ -329,10 +352,6 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	//record time
-	//timerEnd();
-	//strTime.iniTime = elapsedTime();
-
 	//read the total number of sequences
 	fread(&subSequenceNum, sizeof(int), 1, pDBLenFile);
 
@@ -343,9 +362,6 @@ int main(int argc, char ** argv)
 
 	for (subSequenceNo = 0; subSequenceNo < subSequenceNum; subSequenceNo++)
 	{
-		//record time
-		//timerStart();
-
 		//read subject sequence
 		fread(&subSequenceSize, sizeof(int), 1, pDBLenFile);
 		if (subSequenceSize <= 0 || subSequenceSize > MAX_LEN)
@@ -382,7 +398,7 @@ int main(int argc, char ** argv)
 					  matrixIniNum);
 					  
 		timerStart();
-		for (i = 0; i < numIterations; i++)
+		for (iterNo = 0; iterNo < numIterations; iterNo++)
 		{
 			//Initialize DP matrices
 			memset(pathFlag, 0, DPMatrixSize * sizeof(char));
@@ -391,114 +407,118 @@ int main(int argc, char ** argv)
 			memset(hGapDist, 0, matrixIniNum * sizeof(float));
 			memset(vGapDist, 0, matrixIniNum * sizeof(float));
 			memset(maxInfo,  0, sizeof(MAX_INFO));
-			err  = clEnqueueWriteBuffer(hCmdQueue, pathFlagD, CL_FALSE, 0, DPMatrixSize * sizeof(cl_char), pathFlag, 0, NULL, NULL);
-			err |= clEnqueueWriteBuffer(hCmdQueue, extFlagD,  CL_FALSE, 0, DPMatrixSize * sizeof(cl_char), extFlag,  0, NULL, NULL);
-			err |= clEnqueueWriteBuffer(hCmdQueue, nGapDistD, CL_FALSE, 0, matrixIniNum * sizeof(cl_float), nGapDist, 0, NULL, NULL);
-			err |= clEnqueueWriteBuffer(hCmdQueue, hGapDistD, CL_FALSE, 0, matrixIniNum * sizeof(cl_float), hGapDist, 0, NULL, NULL);
-			err |= clEnqueueWriteBuffer(hCmdQueue, vGapDistD, CL_FALSE, 0, matrixIniNum * sizeof(cl_float), vGapDist, 0, NULL, NULL);
-			err != clEnqueueWriteBuffer(hCmdQueue, maxInfoD, CL_FALSE, 0, sizeof(MAX_INFO), maxInfo, 0, NULL, NULL);
 
-			CHECK_ERR(err, "copy DP matrix");
-
-			//copy input sequences to device
-			err  = clEnqueueWriteBuffer(hCmdQueue, seq1D, CL_FALSE, 0, (rowNum - 1) * sizeof(cl_char), seq1, 0, NULL, NULL);
-			err |= clEnqueueWriteBuffer(hCmdQueue, seq2D, CL_FALSE, 0, (columnNum - 1) * sizeof(cl_char), seq2, 0, NULL, NULL);
-			CHECK_ERR(err, "copy input sequence");
-
-			err  = clEnqueueWriteBuffer(hCmdQueue, diffPosD, CL_FALSE, 0, launchNum * sizeof(cl_int), diffPos, 0, NULL, NULL);
-			CHECK_ERR(err, "copy diffpos info");
-			err = clEnqueueWriteBuffer(hCmdQueue, blosum62D, CL_FALSE, 0,
-									   nblosumWidth * nblosumHeight * sizeof(cl_float), blosum62[0], 0, NULL, NULL);
-			CHECK_ERR(err, "copy blosum62 to device");
-
-			err  = clSetKernelArg(hMatchStringKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
-			err |= clSetKernelArg(hMatchStringKernel, 1, sizeof(cl_mem), (void *)&extFlagD);
-			err |= clSetKernelArg(hMatchStringKernel, 2, sizeof(cl_mem), (void *)&nGapDistD);
-			err |= clSetKernelArg(hMatchStringKernel, 3, sizeof(cl_mem), (void *)&hGapDistD);
-			err |= clSetKernelArg(hMatchStringKernel, 4, sizeof(cl_mem), (void *)&vGapDistD);
-			err |= clSetKernelArg(hMatchStringKernel, 11, sizeof(cl_mem), (void *)&seq1D);
-			err |= clSetKernelArg(hMatchStringKernel, 12, sizeof(cl_mem), (void *)&seq2D);	
-			err != clSetKernelArg(hMatchStringKernel, 14, sizeof(cl_float), (void *)&openPenalty);
-			err != clSetKernelArg(hMatchStringKernel, 15, sizeof(cl_float), (void *)&extensionPenalty);
-			err != clSetKernelArg(hMatchStringKernel, 16, sizeof(cl_mem), (void *)&maxInfoD);
-			err != clSetKernelArg(hMatchStringKernel, 17, sizeof(cl_mem), (void *)&blosum62D);
-			CHECK_ERR(err, "Set match string argument error!");
-			
-			seq1Pos = -1;
-			seq2Pos = 0;
-			nOffset = 0;
-			startPos = 2 * coalescedOffset; 
-			for (launchNo = 2; launchNo < launchNum; launchNo++)
+			for (i = 0; i < usedDeviceNum; i++)
 			{
-				if (launchNo < rowNum)
-				{
-					seq1Pos++;
-				}
-				else if (launchNo == rowNum)
-				{
-					seq1Pos++;
-					nOffset = 1;
-				}
-				else
-				{
-					seq2Pos++;
-				}
+				err  = clEnqueueWriteBuffer(hCmdQueues[i], pathFlagDs[i], CL_FALSE, 0, DPMatrixSize * sizeof(cl_char), pathFlag, 0, NULL, NULL);
+				err |= clEnqueueWriteBuffer(hCmdQueues[i], extFlagDs[i],  CL_FALSE, 0, DPMatrixSize * sizeof(cl_char), extFlag,  0, NULL, NULL);
+				err |= clEnqueueWriteBuffer(hCmdQueues[i], nGapDistDs[i], CL_FALSE, 0, matrixIniNum * sizeof(cl_float), nGapDist, 0, NULL, NULL);
+				err |= clEnqueueWriteBuffer(hCmdQueues[i], hGapDistDs[i], CL_FALSE, 0, matrixIniNum * sizeof(cl_float), hGapDist, 0, NULL, NULL);
+				err |= clEnqueueWriteBuffer(hCmdQueues[i], vGapDistDs[i], CL_FALSE, 0, matrixIniNum * sizeof(cl_float), vGapDist, 0, NULL, NULL);
+				err != clEnqueueWriteBuffer(hCmdQueues[i], maxInfoDs[i], CL_FALSE, 0, sizeof(MAX_INFO), maxInfo, 0, NULL, NULL);
+				CHECK_ERR(err, "copy DP matrix");
 
-				size_t dimBlock[1], dimGrid[1];
-				dimBlock[0] = blockSize;
+				//copy input sequences to device
+				err  = clEnqueueWriteBuffer(hCmdQueues[i], seq1Ds[i], CL_FALSE, 0, (rowNum - 1) * sizeof(cl_char), seq1, 0, NULL, NULL);
+				err |= clEnqueueWriteBuffer(hCmdQueues[i], seq2Ds[i], CL_FALSE, 0, (columnNum - 1) * sizeof(cl_char), seq2, 0, NULL, NULL);
+				CHECK_ERR(err, "copy input sequence");
 
-				blockNum = (threadNum[launchNo] - 1)/blockSize + 1;
-				dimGrid[0] = blockNum * dimBlock[0];
+				err  = clEnqueueWriteBuffer(hCmdQueues[i], diffPosDs[i], CL_FALSE, 0, launchNum * sizeof(cl_int), diffPos, 0, NULL, NULL);
+				CHECK_ERR(err, "copy diffpos info");
+				err = clEnqueueWriteBuffer(hCmdQueues[i], blosum62Ds[i], CL_FALSE, 0,
+										   nblosumWidth * nblosumHeight * sizeof(cl_float), blosum62[0], 0, NULL, NULL);
+				CHECK_ERR(err, "copy blosum62 to device");
 
-				//set arguments
-				err  = clSetKernelArg(hMatchStringKernel, 5, sizeof(cl_int), (void *)&startPos);
-				err != clSetKernelArg(hMatchStringKernel, 6, sizeof(cl_int), (void *)&seq1Pos);
-				err != clSetKernelArg(hMatchStringKernel, 7, sizeof(cl_int), (void *)&seq2Pos);
-				err != clSetKernelArg(hMatchStringKernel, 8, sizeof(cl_int), (void *)&diffPos[launchNo - 1]);
-				err != clSetKernelArg(hMatchStringKernel, 9, sizeof(cl_int), (void *)&diffPos[launchNo]);
-				err != clSetKernelArg(hMatchStringKernel, 10, sizeof(cl_int), (void *)&threadNum[launchNo]);
-				err != clSetKernelArg(hMatchStringKernel, 13, sizeof(cl_int), (void *)&nblosumWidth);
+				err  = clSetKernelArg(hMatchStringKernels[i], 0, sizeof(cl_mem), (void *)&pathFlagDs[i]);
+				err |= clSetKernelArg(hMatchStringKernels[i], 1, sizeof(cl_mem), (void *)&extFlagDs[i]);
+				err |= clSetKernelArg(hMatchStringKernels[i], 2, sizeof(cl_mem), (void *)&nGapDistDs[i]);
+				err |= clSetKernelArg(hMatchStringKernels[i], 3, sizeof(cl_mem), (void *)&hGapDistDs[i]);
+				err |= clSetKernelArg(hMatchStringKernels[i], 4, sizeof(cl_mem), (void *)&vGapDistDs[i]);
+				err |= clSetKernelArg(hMatchStringKernels[i], 11, sizeof(cl_mem), (void *)&seq1Ds[i]);
+				err |= clSetKernelArg(hMatchStringKernels[i], 12, sizeof(cl_mem), (void *)&seq2Ds[i]);	
+				err != clSetKernelArg(hMatchStringKernels[i], 14, sizeof(cl_float), (void *)&openPenalty);
+				err != clSetKernelArg(hMatchStringKernels[i], 15, sizeof(cl_float), (void *)&extensionPenalty);
+				err != clSetKernelArg(hMatchStringKernels[i], 16, sizeof(cl_mem), (void *)&maxInfoDs[i]);
+				err != clSetKernelArg(hMatchStringKernels[i], 17, sizeof(cl_mem), (void *)&blosum62Ds[i]);
 				CHECK_ERR(err, "Set match string argument error!");
+				
+				seq1Pos = -1;
+				seq2Pos = 0;
+				nOffset = 0;
+				startPos = 2 * coalescedOffset; 
+				for (launchNo = 2; launchNo < launchNum; launchNo++)
+				{
+					if (launchNo < rowNum)
+					{
+						seq1Pos++;
+					}
+					else if (launchNo == rowNum)
+					{
+						seq1Pos++;
+						nOffset = 1;
+					}
+					else
+					{
+						seq2Pos++;
+					}
 
-				err = clEnqueueNDRangeKernel(hCmdQueue, hMatchStringKernel, 1, NULL, dimGrid,
-											 dimBlock, 0, NULL, NULL);
-				CHECK_ERR(err, "Launch kernel match string error");
+					size_t dimBlock[1], dimGrid[1];
+					dimBlock[0] = blockSize;
 
-				//start position for next kernel launch
-				startPos += diffPos[launchNo + 1] + nOffset;
+					blockNum = (threadNum[launchNo] - 1)/blockSize + 1;
+					dimGrid[0] = blockNum * dimBlock[0];
+
+					//set arguments
+					err  = clSetKernelArg(hMatchStringKernels[i], 5, sizeof(cl_int), (void *)&startPos);
+					err != clSetKernelArg(hMatchStringKernels[i], 6, sizeof(cl_int), (void *)&seq1Pos);
+					err != clSetKernelArg(hMatchStringKernels[i], 7, sizeof(cl_int), (void *)&seq2Pos);
+					err != clSetKernelArg(hMatchStringKernels[i], 8, sizeof(cl_int), (void *)&diffPos[launchNo - 1]);
+					err != clSetKernelArg(hMatchStringKernels[i], 9, sizeof(cl_int), (void *)&diffPos[launchNo]);
+					err != clSetKernelArg(hMatchStringKernels[i], 10, sizeof(cl_int), (void *)&threadNum[launchNo]);
+					err != clSetKernelArg(hMatchStringKernels[i], 13, sizeof(cl_int), (void *)&nblosumWidth);
+					CHECK_ERR(err, "Set match string argument error!");
+
+					err = clEnqueueNDRangeKernel(hCmdQueues[i], hMatchStringKernels[i], 1, NULL, dimGrid,
+												 dimBlock, 0, NULL, NULL);
+					CHECK_ERR(err, "Launch kernel match string error");
+
+					//start position for next kernel launch
+					startPos += diffPos[launchNo + 1] + nOffset;
+				}
+
+				//record time
+				err  = clSetKernelArg(hTraceBackKernels[i], 0, sizeof(cl_mem), (void *)&pathFlagDs[i]);
+				err |= clSetKernelArg(hTraceBackKernels[i], 1, sizeof(cl_mem), (void *)&extFlagDs[i]);
+				err != clSetKernelArg(hTraceBackKernels[i], 2, sizeof(cl_mem), (void *)&diffPosDs[i]);
+				err |= clSetKernelArg(hTraceBackKernels[i], 3, sizeof(cl_mem), (void *)&seq1Ds[i]);
+				err |= clSetKernelArg(hTraceBackKernels[i], 4, sizeof(cl_mem), (void *)&seq2Ds[i]);	
+				err |= clSetKernelArg(hTraceBackKernels[i], 5, sizeof(cl_mem), (void *)&outSeq1Ds[i]);
+				err |= clSetKernelArg(hTraceBackKernels[i], 6, sizeof(cl_mem), (void *)&outSeq2Ds[i]);	
+				err != clSetKernelArg(hTraceBackKernels[i], 7, sizeof(cl_mem), (void *)&maxInfoDs[i]);
+				
+				size_t tbGlobalSize[1] = {1};
+				size_t tbLocalSize[1]  = {1};
+				err = clEnqueueNDRangeKernel(hCmdQueues[i], hTraceBackKernels[i], 1, NULL, tbGlobalSize,
+											 tbLocalSize, 0, NULL, NULL);
+				CHECK_ERR(err, "Launch kernel trace back error");
+
+				//copy matrix score structure back
+				err = clEnqueueReadBuffer(hCmdQueues[i], maxInfoDs[i], CL_FALSE, 0, sizeof(MAX_INFO),
+										  maxInfo, 0, 0, 0);
+				CHECK_ERR(err, "Read maxInfo buffer error!");
+
+				err  = clEnqueueReadBuffer(hCmdQueues[i], outSeq1Ds[i], CL_FALSE, 0, (rowNum + columnNum) * sizeof(cl_char),
+										   outSeq1, 0, 0, 0);
+				err != clEnqueueReadBuffer(hCmdQueues[i], outSeq2Ds[i], CL_FALSE, 0, (rowNum + columnNum) * sizeof(cl_char),
+										   outSeq2, 0, 0, 0);
+				CHECK_ERR(err, "Read output sequence error!");
 			}
-			
-
-			//record time
-			err  = clSetKernelArg(hTraceBackKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
-			err |= clSetKernelArg(hTraceBackKernel, 1, sizeof(cl_mem), (void *)&extFlagD);
-			err != clSetKernelArg(hTraceBackKernel, 2, sizeof(cl_mem), (void *)&diffPosD);
-			err |= clSetKernelArg(hTraceBackKernel, 3, sizeof(cl_mem), (void *)&seq1D);
-			err |= clSetKernelArg(hTraceBackKernel, 4, sizeof(cl_mem), (void *)&seq2D);	
-			err |= clSetKernelArg(hTraceBackKernel, 5, sizeof(cl_mem), (void *)&outSeq1D);
-			err |= clSetKernelArg(hTraceBackKernel, 6, sizeof(cl_mem), (void *)&outSeq2D);	
-			err != clSetKernelArg(hTraceBackKernel, 7, sizeof(cl_mem), (void *)&maxInfoD);
-			
-			size_t tbGlobalSize[1] = {1};
-			size_t tbLocalSize[1]  = {1};
-			err = clEnqueueNDRangeKernel(hCmdQueue, hTraceBackKernel, 1, NULL, tbGlobalSize,
-										 tbLocalSize, 0, NULL, NULL);
-			CHECK_ERR(err, "Launch kernel trace back error");
-
-			//copy matrix score structure back
-			err = clEnqueueReadBuffer(hCmdQueue, maxInfoD, CL_FALSE, 0, sizeof(MAX_INFO),
-									  maxInfo, 0, 0, 0);
-			CHECK_ERR(err, "Read maxInfo buffer error!");
-
-			err  = clEnqueueReadBuffer(hCmdQueue, outSeq1D, CL_FALSE, 0, (rowNum + columnNum) * sizeof(cl_char),
-									   outSeq1, 0, 0, 0);
-			err != clEnqueueReadBuffer(hCmdQueue, outSeq2D, CL_FALSE, 0, (rowNum + columnNum) * sizeof(cl_char),
-									   outSeq2, 0, 0, 0);
-			CHECK_ERR(err, "Read output sequence error!");
 		}
 
-		clFinish(hCmdQueue);
-
+		for (i = 0; i < usedDeviceNum; i++)
+		{
+			clFinish(hCmdQueues[i]);
+		}
 		//record time
 		timerEnd();
 		strTime.kernelExecution += elapsedTime();
@@ -509,11 +529,6 @@ int main(int argc, char ** argv)
 		printf("Sequence pair %d:\n", subSequenceNo);
 		PrintAlignment(outSeq1, outSeq2, nlength, CHAR_PER_LINE, openPenalty, extensionPenalty);
 		printf("Max alignment score (on device) is %.1f\n", maxInfo->fmaxscore);
-		//obtain max alignment score on host
-		err = clEnqueueReadBuffer(hCmdQueue, nGapDistD, CL_TRUE, 0, sizeof(cl_float) * DPMatrixSize,
-								  nGapDist, 0, 0, 0);
-		//cudaMemcpy(nGapDist, nGapDistD, sizeof(float) * DPMatrixSize, cudaMemcpyDeviceToHost);
-		//printf("Max alignment score (on host) is %.1f\n", maxScore(nGapDist, DPMatrixSize));
 
 		printf("openPenalty = %.1f, extensionPenalty = %.1f\n", openPenalty, extensionPenalty);
 		printf("Input sequence size, querySize: %d, subSequenceSize: %d\n", 
@@ -526,48 +541,56 @@ int main(int argc, char ** argv)
 	fclose(pDBDataFile);
 
 	timerStart();
-	clReleaseMemObject(seq1D);
-	clReleaseMemObject(seq2D);
-	clReleaseMemObject(outSeq1D);
-	clReleaseMemObject(outSeq2D);
-	//clReleaseMemObject(threadNumD);
-	clReleaseMemObject(diffPosD);
-	clReleaseMemObject(pathFlagD);
-	clReleaseMemObject(extFlagD);
-	clReleaseMemObject(nGapDistD);
-	clReleaseMemObject(hGapDistD);
-	clReleaseMemObject(vGapDistD);
-	clReleaseMemObject(maxInfoD);
-	clReleaseMemObject(blosum62D);
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		clReleaseMemObject(seq1Ds[i]);
+		clReleaseMemObject(seq2Ds[i]);
+		clReleaseMemObject(outSeq1Ds[i]);
+		clReleaseMemObject(outSeq2Ds[i]);
+		clReleaseMemObject(diffPosDs[i]);
+		clReleaseMemObject(pathFlagDs[i]);
+		clReleaseMemObject(extFlagDs[i]);
+		clReleaseMemObject(nGapDistDs[i]);
+		clReleaseMemObject(hGapDistDs[i]);
+		clReleaseMemObject(vGapDistDs[i]);
+		clReleaseMemObject(maxInfoDs[i]);
+		clReleaseMemObject(blosum62Ds[i]);
+	}
 	timerEnd();
 	strTime.releaseMemObj += elapsedTime();
-	strTime.numReleaseMemObj += 12;  
 	
 	timerStart();
-	clReleaseKernel(hMatchStringKernel);
-	clReleaseKernel(hTraceBackKernel);
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		clReleaseKernel(hMatchStringKernels[i]);
+		clReleaseKernel(hTraceBackKernels[i]);
+	}
 	timerEnd();
 	strTime.releaseKernel += elapsedTime();
-	strTime.numReleaseKernel += 2;
-	
 
 	timerStart();
-	clReleaseProgram(hProgram);
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		clReleaseProgram(hPrograms[i]);
+	}
 	timerEnd();
 	strTime.releaseProgram += elapsedTime();
-	strTime.numReleaseProgram++;
 
 	timerStart();
-	clReleaseCommandQueue(hCmdQueue);
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		clReleaseCommandQueue(hCmdQueues[i]);
+	}
 	timerEnd();
 	strTime.releaseCmdQueue += elapsedTime();
-	strTime.numReleaseCmdQueue++;
 
 	timerStart();
-	clReleaseContext(hContext);
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		clReleaseContext(hContexts[i]);
+	}
 	timerEnd();
-	//strTime.releaseContext += elapsedTime();
-	//strTime.numReleaseContext++;
+	strTime.releaseContext += elapsedTime();
 
 	delete allSequences;
 
@@ -585,9 +608,29 @@ int main(int argc, char ** argv)
 	delete maxInfo;
 	free(cSourceCL);
 
+	free(deviceIDs);
+	free(hContexts);
+	free(hCmdQueues);
+	free(hPrograms);
+	free(hMatchStringKernels);
+	free(hTraceBackKernels);
+	free(platformIDs);
+	free(deviceNums);
+	free(diffPosDs);
+	free(maxInfoDs);
+	free(blosum62Ds);
+	free(seq1Ds);
+	free(seq2Ds);
+	free(outSeq1Ds);
+	free(outSeq2Ds);
+	free(pathFlagDs);
+	free(extFlagDs);
+	free(nGapDistDs);
+	free(hGapDistDs);
+	free(vGapDistDs);
+
 	printTime_toStandardOutput();
 	printTime_toFile();
-
 
 	return 0;
 }
