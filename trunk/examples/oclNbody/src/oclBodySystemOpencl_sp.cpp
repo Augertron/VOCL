@@ -73,32 +73,8 @@ void BodySystemOpenCL::_initialize(int numBodies)
     memset(m_hPos, 0, m_numBodies*4*sizeof(float));
     memset(m_hVel, 0, m_numBodies*4*sizeof(float));
 
-//    if (m_bUsePBO)
-//    {
-//        // create the position pixel buffer objects for rendering
-//        // we will actually compute directly from this memory in OpenCL too
-//        glGenBuffers(2, (GLuint*)m_pboGL);  
-//        shrLog("Allocating Pixel Buffers\n"); 
-//        for (int i = 0; i < 2; ++i)
-//        {
-//            glBindBuffer(GL_ARRAY_BUFFER, m_pboGL[i]);
-//            glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(float) * m_numBodies, m_hPos, GL_DYNAMIC_DRAW);
-//
-//            int size = 0;
-//            glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, (GLint*)&size); 
-//            if ((unsigned)size != 4 * (sizeof(float) * m_numBodies))
-//            {
-//                shrLogEx(LOGBOTH, -1.0, "WARNING: Pixel Buffer Object allocation failed!\n"); 
-//            }
-//            glBindBuffer(GL_ARRAY_BUFFER, 0);
-//            m_pboCL[i] = RegisterGLBufferObject(cxContext, m_pboGL[i]);
-//        }
-//    }
-//    else
-//    {
-        AllocateNBodyArrays(cxContext, m_dPos, m_numBodies, m_bDouble);
-        shrLog("\nAllocateNBodyArrays m_dPos\n"); 
-//    }
+    AllocateNBodyArrays(cxContext, m_dPos, m_numBodies, m_bDouble);
+    shrLog("\nAllocateNBodyArrays m_dPos\n"); 
     
     AllocateNBodyArrays(cxContext, m_dVel, m_numBodies, m_bDouble);
     shrLog("\nAllocateNBodyArrays m_dVel\n"); 
@@ -109,7 +85,6 @@ void BodySystemOpenCL::_initialize(int numBodies)
 void BodySystemOpenCL::_finalize()
 {
     oclCheckError(m_bInitialized, shrTRUE);
-
     delete [] m_hPos;
     delete [] m_hVel;
 
@@ -118,25 +93,9 @@ void BodySystemOpenCL::_finalize()
 	clReleaseKernel(noMT_kernel);
 	timerEnd();
 	strTime.releaseKernel += elapsedTime();
-	strTime.numReleaseKernel += 2;
-
-//	timerStart();
-//	clReleaseProgram(cpProgram);
-//	timerEnd();
-//	strTime.releaseProgram += elapsedTime();
-//	strTime.numReleaseProgram++;
 
     DeleteNBodyArrays(m_dVel);
-//    if (m_bUsePBO)
-//    {
-//        UnregisterGLBufferObject(m_pboCL[0]);
-//        UnregisterGLBufferObject(m_pboCL[1]);
-//        glDeleteBuffers(2, (const GLuint*)m_pboGL);
-//    }
-//    else
-//    {
-        DeleteNBodyArrays(m_dPos);
-//    }
+	DeleteNBodyArrays(m_dPos);
 }
 
 void BodySystemOpenCL::setSoftening(float softening)

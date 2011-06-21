@@ -112,7 +112,7 @@ static cl_context *cxContexts;               // OpenCL Context
 static cl_command_queue *cqCommandQueues;    // OpenCL Command Queue
 static cl_device_id *cdDevices = NULL;     // OpenCL device list
 static cl_uint uiNumDevices = 0, *deviceNums;   // Number of OpenCL devices available
-static cl_uint uiNumDevsUsed = 1;          // Number of OpenCL devices used in this sample 
+static cl_uint deviceNumUsed = 1;          // Number of OpenCL devices used in this sample 
 static const char* cExecutablePath;
 
 // Timers
@@ -151,7 +151,8 @@ void TriggerFPSUpdate();
 //*****************************************************************************
 int main(int argc, char** argv) 
 {
-	int i;
+	int i, index, deviceNo = 0;
+	bool bUseAllDevices = false;
     // Locals used with command line args
     int p = 256;            // workgroup X dimension
     int q = 1;              // workgroup Y dimension
@@ -165,12 +166,13 @@ int main(int argc, char** argv)
 	shrSetLogFileName ("oclNbody.txt");
     shrLog("%s Starting...\n\n", cExecutablePath);
     shrLog("Command line switches:\n");
-	//shrLog("  --qatest\t\tCheck correctness of GPU execution and measure performance)\n");
 	shrLog("  --noprompt\t\tQuit simulation automatically after a brief period\n");
     shrLog("  --n=<numbodies>\tSpecify # of bodies to simulate (default = %d)\n", numBodies);
 	shrLog("  --p=<workgroup X dim>\tSpecify X dimension of workgroup (default = %d)\n", p);
 	shrLog("  --q=<workgroup Y dim>\tSpecify Y dimension of workgroup (default = %d)\n\n", q);
 	shrLog("  --iter=<numIterations>\tSpecify the number of iterations (default = %d)\n\n", numIterations);
+    shrLog("  --device=<deviceNo>\t Specify the device no to be used (default = %d)\n\n", deviceNo);
+	shrLog("  --deviceall \t\t Use all virtual GPUs.\n\n");
 
 	// Get command line arguments if there are any and set vars accordingly
     if (argc > 0)
@@ -180,8 +182,9 @@ int main(int argc, char** argv)
         shrGetCmdLineArgumenti(argc, (const char**)argv, "n", &numBodies);
         shrGetCmdLineArgumenti(argc, (const char**)argv, "iter", &numIterations);
         shrGetCmdLineArgumenti(argc, (const char**)argv, "disablecpu", &disableCPU);
+		shrGetCmdLineArgumenti(argc, (const char**)argv, "device", &deviceNo);
         bNoPrompt = shrCheckCmdLineFlag(argc, (const char**)argv, "noprompt");
-        bQATest = shrCheckCmdLineFlag(argc, (const char**)argv, "qatest");
+        bUseAllDevices = (shrTRUE == shrCheckCmdLineFlag(argc, (const char**)argv, "deviceall"));
     }
 	bQATest = shrTRUE;
 
@@ -235,12 +238,25 @@ int main(int argc, char** argv)
 	timerEnd();
 	strTime.getDeviceID += elapsedTime();
 
+    if (bUseAllDevices == true)
+    {
+        shrLog("All virtual GPUs are used..., deviceCount = %d\n\n", uiNumDevices);
+        deviceNo = 0;
+        deviceNumUsed = uiNumDevices;
+    }
+    else
+    {
+        shrLog("Device %d is used...\n\n", deviceNo);
+        deviceNumUsed = 1;
+    }
+
     //Create the context
     shrLog("clCreateContext...\n"); 
 	timerStart();
-	for (i = 0; i < uiNumDevices; i++)
+	for (i = 0; i < deviceNumUsed; i++)
 	{
-    	cxContexts[i] = clCreateContext(0, 1, &cdDevices[i], NULL, NULL, &ciErrNum);
+		index = i + deviceNo;
+    	cxContexts[i] = clCreateContext(0, 1, &cdDevices[index], NULL, NULL, &ciErrNum);
     	oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
 	}
 	timerEnd();
@@ -249,9 +265,10 @@ int main(int argc, char** argv)
     // Create a command-queue 
     shrLog("clCreateCommandQueue...\n\n"); 
 	timerStart();
-	for (i = 0; i < uiNumDevices; i++)
+	for (i = 0; i < deviceNumUsed; i++)
 	{
-    	cqCommandQueues[i] = clCreateCommandQueue(cxContexts[i], cdDevices[i], CL_QUEUE_PROFILING_ENABLE, &ciErrNum);
+		index = i + deviceNo;
+    	cqCommandQueues[i] = clCreateCommandQueue(cxContexts[i], cdDevices[index], CL_QUEUE_PROFILING_ENABLE, &ciErrNum);
     	oclCheckErrorEX(ciErrNum, CL_SUCCESS, pCleanup);
 	}
 	timerEnd();
@@ -305,9 +322,10 @@ int main(int argc, char** argv)
     shrLog("Workgroup Dims = (%d x %d)\n\n", p, q); 
 
     // CL/GL interop disabled
-	for (i = 0; i < uiNumDevices; i++)
+	for (i = 0; i < deviceNumUsed; i++)
 	{
-    	InitNbody(cdDevices[i], cxContexts[i], cqCommandQueues[i], numBodies, p, q, bUsePBO, bDouble, i);
+		index = i + deviceNo;
+    	InitNbody(cdDevices[index], cxContexts[i], cqCommandQueues[i], numBodies, p, q, bUsePBO, bDouble, i);
     	ResetSim(nbody[i], numBodies, NBODY_CONFIG_SHELL, bUsePBO, i);
 		copyDataH2D(nbody[i], i);
 		nbody[i]->synchronizeThreads();
@@ -323,7 +341,7 @@ int main(int argc, char** argv)
 	timerStart();
 	for (iterNo = 0; iterNo < numIterations; iterNo++)
 	{
-		for (i = 0; i < uiNumDevices; i++)
+		for (i = 0; i < deviceNumUsed; i++)
 		{
 			copyDataH2D(nbody[i], i);
 			RunProfiling(100, (unsigned int)(p * q), i);  // 100 iterations
@@ -331,7 +349,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	for (i = 0; i < uiNumDevices; i++)
+	for (i = 0; i < deviceNumUsed; i++)
 	{
 		nbody[i]->synchronizeThreads();
 	}
@@ -483,16 +501,16 @@ void Cleanup(int iExitCode)
     #endif
 
     // Cleanup allocated objects
-	for (i = 0; i < uiNumDevices; i++)
+	for (i = 0; i < deviceNumUsed; i++)
 	{
 		if(nbodyGPU[i])delete nbodyGPU[i];
 		timerStart();
-		if(cqCommandQueues[i])clReleaseCommandQueue(cqCommandQueues[i]);
+		clReleaseCommandQueue(cqCommandQueues[i]);
 		timerEnd();
 		strTime.releaseCmdQueue += elapsedTime();
 
 		timerStart();
-		if(cxContexts[i])clReleaseContext(cxContexts[i]);
+		clReleaseContext(cxContexts[i]);
 		timerEnd();
 		strTime.releaseContext += elapsedTime();
 
