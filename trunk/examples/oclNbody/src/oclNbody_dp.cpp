@@ -344,7 +344,7 @@ int main(int argc, char** argv)
 		for (i = 0; i < deviceNumUsed; i++)
 		{
 			copyDataH2D(nbody[i], i);
-			RunProfiling(100, (unsigned int)(p * q), i);  // 100 iterations
+			RunProfiling(10, (unsigned int)(p * q), i);  // 100 iterations
 			copyDataD2H(nbody[i]);
 		}
 	}
@@ -356,12 +356,6 @@ int main(int argc, char** argv)
 	timerEnd();
 	strTime.kernelExecution += elapsedTime();
 
-    // init timers
-    shrDeltaT(DEMOTIME); // timer 0 is for timing demo periods
-    shrDeltaT(FUNCTIME); // timer 1 is for logging function delta t's
-    shrDeltaT(FPSTIME);  // timer 2 is for fps measurement   
-
-
     // Cleanup/exit 
     Cleanup(EXIT_SUCCESS);
 
@@ -372,6 +366,9 @@ int main(int argc, char** argv)
 	free(cqCommandQueues);
 	free(nbody);
 	free(nbodyGPU);
+	free(hPos);
+	free(hVel);
+	free(hColor);
 
 	printTime_toStandardOutput();
 	printTime_toFile();
@@ -398,7 +395,6 @@ void RunProfiling(int iterations, unsigned int uiWorkgroup, int index)
 void TriggerFPSUpdate()
 {
     iFrameCount = 0; 
-    shrDeltaT(FPSTIME);
     iFramesPerSec = 1;
     iFrameTrigger = 2;
 }
@@ -519,19 +515,7 @@ void Cleanup(int iExitCode)
 		if(hColor[i])delete [] hColor[i];
 	}
 
-    // finalize logs and leave
-    if (bNoPrompt || bQATest)
-    {
-        shrLogEx(LOGBOTH | CLOSELOG, 0, "oclNbody.exe Exiting...\n");
-    }
-    else 
-    {
-        shrLogEx(LOGBOTH | CLOSELOG, 0, "oclNbody.exe Exiting...\nPress <Enter> to Quit\n");
-        #ifdef WIN32
-            getchar();
-        #endif
-    }
-    //exit (iExitCode);
+	return;
 }
 
 
