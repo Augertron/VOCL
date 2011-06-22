@@ -199,16 +199,16 @@ int main(int argc, char **argv)
 	}
 
 	timerStart();
-	clReleaseContext(hContext);
-	timerEnd();
-	strTime.releaseContext = elapsedTime();
-	strTime.numReleaseContext++;
-
-	timerStart();
 	clReleaseCommandQueue(hCmdQueue);
 	timerEnd();
 	strTime.releaseCmdQueue = elapsedTime();
 	strTime.numReleaseCmdQueue++;
+
+	timerStart();
+	clReleaseContext(hContext);
+	timerEnd();
+	strTime.releaseContext = elapsedTime();
+	strTime.numReleaseContext++;
 
 	pfile = fopen("bandWidth.txt", "at");
 	if (pfile == NULL)
