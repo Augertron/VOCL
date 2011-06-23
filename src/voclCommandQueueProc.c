@@ -486,16 +486,6 @@ void voclCommandQueueMigration(vocl_command_queue command_queue)
 		memPtr = memPtr->next;
 	}
 
-	/* tell proxy process migration is completed and it can process other messages */
-	if (isFromLocal == 0)
-	{
-		tmpMigrationCheck.releaseMigLock = 1;
-		MPI_Send(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE, 
-			oldRank, MIGRATION_CHECK, oldComm);
-		MPI_Recv(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE,
-			oldRank, MIGRATION_CHECK, oldComm, &status);
-	}
-
 	return;
 }
 

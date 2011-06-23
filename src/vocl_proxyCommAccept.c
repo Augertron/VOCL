@@ -15,7 +15,6 @@ static int  voclTmpRequestNumForMigration;
 extern MPI_Request *conMsgRequest;
 extern MPI_Comm *appComm, *appCommData;
 extern int voclTotalRequestNum;
-extern int voclAppIndexOffset;
 extern char voclPortName[MPI_MAX_PORT_NAME];
 extern char **conMsgBuffer;
 
@@ -28,7 +27,6 @@ void voclProxyCommInitialize()
     voclAppNum = DEFAULT_APP_NUM;
     voclAppNo = 0;
     voclTotalRequestNum = 0;
-	voclAppIndexOffset = 0;
 	voclCommUsedSize = 0;
     conMsgRequest = (MPI_Request *) malloc(voclAppNum * CMSG_NUM * sizeof(MPI_Request));
     appComm = (MPI_Comm *) malloc(voclAppNum * sizeof(MPI_Comm));
@@ -69,21 +67,6 @@ void voclProxyCommFinalize()
 	pthread_mutex_destroy(&commLock);
 
     return;
-}
-
-void voclProxyRecvOnlyMigrationMsgs(int index)
-{
-	voclTmpRequestNumForMigration = voclTotalRequestNum;
-	voclTotalRequestNum = CMSG_NUM;
-	voclAppIndexOffset = index;
-	return;
-}
-
-void voclProxyRecvAllMsgs(int index)
-{
-	voclTotalRequestNum = voclTmpRequestNumForMigration;
-	voclAppIndexOffset = 0;
-	return;
 }
 
 static int voclGetAppIndex()
@@ -162,16 +145,9 @@ void voclProxyDisconnectOneApp(int commIndex)
 	int requestOffset, requestNo, i;
 	requestOffset = commIndex * CMSG_NUM;
 
-	//debug-------------------------
-	int tmp;
-	MPI_Comm_rank(MPI_COMM_WORLD, &tmp);
-	//------------------------------
-
 	/*disconnect connections */
 	MPI_Comm_disconnect(&appComm[commIndex]);
 	MPI_Comm_disconnect(&appCommData[commIndex]);
-	//MPI_Comm_free(&appComm[commIndex]);
-	//MPI_Comm_free(&appCommData[commIndex]);
 
 	/* get the locker to update communicator info */
 	pthread_mutex_lock(&commLock);
