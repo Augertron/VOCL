@@ -414,10 +414,13 @@ static void checkSlaveProc()
         /* initialized resources needed by vocl */
         voclInitialize();
         /* use connect to establish communicator, the proxy is computed from the  */
+		//debug-----------------------------------------
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		//----------------------------------------------
         /* rank of the app process */
         for (i = 0; i < np; i++) {
-            //voclSetIndex2NodeMapping(i, (rank + i) % proxyNum);
-            voclSetIndex2NodeMapping(i, i % proxyNum);
+            voclSetIndex2NodeMapping(i, (rank+i) % proxyNum);
+            //voclSetIndex2NodeMapping(i, i % proxyNum);
             if (voclIsOnLocalNode(i) == VOCL_FALSE) {
                 sprintf(serviceName, "voclCloud%s", voclGetProxyHostName(i));
 
@@ -1113,7 +1116,6 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 //			MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
 //			tmpMigrationCheck.command_queue = tmpEnqueueWriteBuffer.command_queue;
 //			tmpMigrationCheck.rankNo = rankNo;
-//			tmpMigrationCheck.releaseMigLock = 0;
 //			tmpMigrationCheck.checkLocation = 1;
 //			tmpMigrationCheck.memSize = cb;
 //            MPI_Isend(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE,
@@ -1403,7 +1405,6 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 		{
 			/* migration check is requested in kernel launch */
 			MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
-			tmpMigrationCheck.releaseMigLock = 0;
 			tmpMigrationCheck.checkLocation = 0;
 			tmpMigrationCheck.rankNo = rankNo;
 			tmpMigrationCheck.argsNum = kernelPtr->args_num;

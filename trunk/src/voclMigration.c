@@ -123,10 +123,10 @@ vocl_device_id voclSearchTargetGPU(size_t size)
     char cBuffer[256];
     cl_ulong mem_size;
 
-	//debug----------------------------------
-	int rankNo;
-	MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
-	//---------------------------------------
+//	//debug----------------------------------
+//	int rankNo;
+//	MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
+//	//---------------------------------------
 
     err = clGetPlatformIDs(0, NULL, &numPlatforms);
     VOCL_MIG_CHECK_ERR(err, "migration, clGetPlatformIDs");
@@ -154,7 +154,7 @@ vocl_device_id voclSearchTargetGPU(size_t size)
         totalDeviceNum += numDevices[i];
     }
 
-    for (i = rankNo+1; i < totalDeviceNum; i++) {
+    for (i = 1; i < totalDeviceNum; i++) {
         err =
             clGetDeviceInfo(deviceID[i], CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(mem_size),
                             &mem_size, NULL);
@@ -377,16 +377,6 @@ void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue)
             }
         }
     }
-
-	/* tell proxy process migration is completed and it can process other messages */
-	if (isFromLocal == 0)
-	{
-		tmpMigrationCheck.releaseMigLock = 1;
-		MPI_Send(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE, 
-			oldRank, MIGRATION_CHECK, oldComm);
-		MPI_Recv(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE,
-			oldRank, MIGRATION_CHECK, oldComm, &status);
-	}
 
     return;
 }

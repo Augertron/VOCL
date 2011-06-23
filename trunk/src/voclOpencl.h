@@ -100,7 +100,6 @@ extern "C" {
 	struct strMigrationCheck {
 		cl_command_queue command_queue;
 		int              rankNo;
-		int              releaseMigLock;
 		int              checkLocation;
 		int              argsNum;
 		size_t           memSize;

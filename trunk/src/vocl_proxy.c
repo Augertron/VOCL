@@ -68,7 +68,6 @@ MPI_Request *conMsgRequest;
 MPI_Comm *appComm, *appCommData;
 char voclPortName[MPI_MAX_PORT_NAME];
 int voclTotalRequestNum;
-int voclAppIndexOffset = 0;
 
 /* control message buffer */
 //CON_MSG_BUFFER *conMsgBuffer;
@@ -361,12 +360,12 @@ int main(int argc, char *argv[])
 
     while (1) {
         /* wait for any msg from the master process */
-        MPI_Waitany(voclTotalRequestNum, conMsgRequest+(voclAppIndexOffset*CMSG_NUM), &index, &status);
+		//printf("voclTotalRequestNum = %d\n", voclTotalRequestNum);
+        MPI_Waitany(voclTotalRequestNum, conMsgRequest, &index, &status);
 
         appRank = status.MPI_SOURCE;
-        commIndex = index / CMSG_NUM + voclAppIndexOffset;
+        commIndex = index / CMSG_NUM;
         appIndex = commIndex;
-		index += voclAppIndexOffset*CMSG_NUM;
 
 		//debug-----------------------------
         //printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n", 
@@ -681,43 +680,30 @@ int main(int argc, char *argv[])
 			memcpy(&tmpMigrationCheck, conMsgBuffer[index], sizeof(struct strMigrationCheck));
 			/* requested from kernel launch */
 			tmpMigrationCheck.isMigrationNeeded = 0;
-			if (tmpMigrationCheck.releaseMigLock == 1)
+			if (tmpMigrationCheck.checkLocation == 0)
 			{
-				voclProxyRecvAllMsgs(appIndex);
+				args_ptr =
+					(kernel_args *) malloc(tmpMigrationCheck.argsNum * sizeof(kernel_args));
+				MPI_Irecv(args_ptr, tmpMigrationCheck.argsNum * sizeof(kernel_args),
+						  MPI_BYTE, appRank, MIGRATION_CHECK, appCommData[commIndex],
+						  curRequest);
+				MPI_Wait(curRequest, curStatus);
+
+				tmpMigrationCheck.isMigrationNeeded = 
+					voclProxyMigrationCheckKernelLaunch(tmpMigrationCheck.command_queue,
+											   args_ptr, tmpMigrationCheck.argsNum);
+				free(args_ptr);
 			}
-			else 
+			/* requested from enqueue write buffer */
+			else if (tmpMigrationCheck.checkLocation == 1)
 			{
-				if (tmpMigrationCheck.checkLocation == 0)
-				{
-					args_ptr =
-						(kernel_args *) malloc(tmpMigrationCheck.argsNum * sizeof(kernel_args));
-					MPI_Irecv(args_ptr, tmpMigrationCheck.argsNum * sizeof(kernel_args),
-							  MPI_BYTE, appRank, MIGRATION_CHECK, appCommData[commIndex],
-							  curRequest);
-					MPI_Wait(curRequest, curStatus);
+				tmpMigrationCheck.isMigrationNeeded =
+					voclProxyMigrationCheckWriteBuffer(tmpMigrationCheck.command_queue, tmpMigrationCheck.memSize);
+			}
 
-					tmpMigrationCheck.isMigrationNeeded = 
-						voclProxyMigrationCheckKernelLaunch(tmpMigrationCheck.command_queue,
-												   args_ptr, tmpMigrationCheck.argsNum);
-					free(args_ptr);
-				}
-  				/* requested from enqueue write buffer */
-				else if (tmpMigrationCheck.checkLocation == 1)
-				{
-					tmpMigrationCheck.isMigrationNeeded =
-						voclProxyMigrationCheckWriteBuffer(tmpMigrationCheck.command_queue, tmpMigrationCheck.memSize);
-				}
-
-				if (forcedMigrationStatus == 1 && tmpMigrationCheck.rankNo >= voclRankThreshold)
-				{
-					tmpMigrationCheck.isMigrationNeeded = 1;
-				}
-
-				/* if migration is needed, only accept messages from the migration process */
-				if (tmpMigrationCheck.isMigrationNeeded == 1)
-				{
-					voclProxyRecvOnlyMigrationMsgs(appIndex);
-				}
+			if (forcedMigrationStatus == 1 && tmpMigrationCheck.rankNo >= voclRankThreshold)
+			{
+				tmpMigrationCheck.isMigrationNeeded = 1;
 			}
 			
 			MPI_Isend(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE, appRank,
