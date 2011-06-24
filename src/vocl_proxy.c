@@ -59,6 +59,7 @@ static struct strMigGPUMemoryWriteCmpd tmpMigWriteMemCmpdRst;
 static struct strMigGPUMemoryReadCmpd tmpMigReadMemCmpdRst;
 static struct strMigRemoteGPURWCmpd tmpMigGPUMemRWCmpd;
 static struct strForcedMigration tmpForcedMigration;
+static struct strDeviceCmdQueueNums tmpDeviceCmdQueueNums;
 /* forced migration status */
 static int forcedMigrationStatus = 0;
 static int voclRankThreshold = 1000;
@@ -226,6 +227,7 @@ extern void voclProxyUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_qu
 extern void voclProxyReleaseMem(cl_mem mem);
 extern void voclProxyUpdateGlobalMemUsage(cl_command_queue comman_queue, kernel_args *argsPtr, 
 				int argsNum);
+extern void voclProxyGetDeviceCmdQueueNums(struct strDeviceCmdQueueNums *cmdQueueNums);
 
 /* functions to manage objects allocated in the proxy process */
 extern void voclProxyObjCountInitialize();
@@ -360,7 +362,6 @@ int main(int argc, char *argv[])
 
     while (1) {
         /* wait for any msg from the master process */
-		//printf("voclTotalRequestNum = %d\n", voclTotalRequestNum);
         MPI_Waitany(voclTotalRequestNum, conMsgRequest, &index, &status);
 
         appRank = status.MPI_SOURCE;
@@ -1485,8 +1486,17 @@ int main(int argc, char *argv[])
 					appRank, FORCED_MIGRATION, appComm[commIndex]);
 		}
 
+		else if (status.MPI_TAG == LB_GET_CMDQUEUE_NUM)
+		{
+			voclProxyGetDeviceCmdQueueNums(&tmpDeviceCmdQueueNums);
+			MPI_Send(&tmpDeviceCmdQueueNums, sizeof(struct strDeviceCmdQueueNums), MPI_BYTE,
+					appRank, LB_GET_CMDQUEUE_NUM, appComm[commIndex]);
+		}
+
         else if (status.MPI_TAG == PROGRAM_END) {
 			/* cancel the corresponding requests */
+        	printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n", 
+			tmp, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
 			requestOffset = commIndex * CMSG_NUM;
 			for (requestNo = 0; requestNo < CMSG_NUM; requestNo++)
 			{

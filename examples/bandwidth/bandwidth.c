@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <string.h>
 #include <CL/opencl.h>
 #include "bw_timer.h"
 #include <sched.h>

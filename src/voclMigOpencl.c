@@ -106,6 +106,23 @@ dlCLEnqueueReadBuffer(cl_command_queue command_queue,
                       const cl_event * event_wait_list, cl_event * event);
 extern cl_int dlCLReleaseCommandQueue(cl_command_queue command_queue);
 extern cl_int dlCLReleaseMemObject(cl_mem memobj);
+extern void setReadBufferInUse(int proxyIndex, int index);
+extern cl_int dlCLEnqueueWriteBuffer(cl_command_queue command_queue,
+                       cl_mem buffer,
+                       cl_bool blocking_write,
+                       size_t offset,
+                       size_t cb,
+                       const void *ptr,
+                       cl_uint num_events_in_wait_list,
+                       const cl_event * event_wait_list, cl_event * event);
+extern int getNextWriteBufferIndex(int proxyIndex);
+extern MPI_Request *getWriteRequestPtr(int proxyIndex, int index);
+extern void setWriteBufferInUse(int proxyIndex, int index);
+extern void setWriteBufferNum(int proxyIndex, int index, int bufferNum);
+extern void voclSetMemWrittenFlag(vocl_mem memory, int flag);
+extern void processAllWrites(int proxyIndex);
+extern void processWriteBuffer(int proxyIndex, int curIndex, int bufferNum);
+extern void setWriteBufferEvent(int proxyIndex, int index, vocl_event event);
 
 
 extern int getNextReadBufferIndex(int proxyIndex);
