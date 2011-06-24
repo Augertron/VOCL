@@ -8,6 +8,7 @@
 #include <string.h>
 #include <CL/opencl.h>
 #include <sched.h>
+#include "vocl_proxy_macro.h"
 
 struct strGetPlatformIDs {
     cl_uint num_entries;
@@ -390,6 +391,12 @@ struct strForcedMigration {
 	int res;
 };
 
+struct strDeviceCmdQueueNums {
+	int deviceNum;
+	cl_device_id deviceIDs[MAX_DEVICE_NUM_PER_NODE];
+	int cmdQueueNums[MAX_DEVICE_NUM_PER_NODE];
+};
+
 union CMSG_UNION {
     struct strGetPlatformIDs tmpGetPlatformID;
     struct strGetDeviceIDs tmpGetDeviceIDs;
@@ -438,6 +445,7 @@ union CMSG_UNION {
 	struct strMigRemoteGPUMemoryRW tmpMigGPUMemRW;
 	struct strMigRemoteGPURWCmpd tmpMigGPUMemRWCmpd;
 	struct strForcedMigration tmpForcedMigration;
+	struct strDeviceCmdQueueNums tmpDeviceCmdQueueNums;
 } CONTROL_MSG_UNION;
 
 #endif

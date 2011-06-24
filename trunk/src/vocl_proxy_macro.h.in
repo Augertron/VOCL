@@ -53,7 +53,8 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define MIG_SAME_REMOTE_NODE_CMPLD  56
 #define MIGRATION_CHECK             57
 #define FORCED_MIGRATION            58
-#define PROGRAM_END                 59
+#define LB_GET_CMDQUEUE_NUM         59
+#define PROGRAM_END                 60
 
 #define CMSG_NUM                    50  /* number of buffers for control messages */
 #define DMSG_NUM      				100     /* number of buffers for data messages */
@@ -91,8 +92,10 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define ENQ_COPY_BUFF_FUNC1         10028
 #define ENQ_UNMAP_MEMOBJ_FUNC1      10029
 
+
 /* number of applications supported by each proxy */
 #define VOCL_PROXY_APP_NUM 4
+#define MAX_DEVICE_NUM_PER_NODE 10
 
 /* flags for helper thread */
 #define GPU_MEM_READ        0

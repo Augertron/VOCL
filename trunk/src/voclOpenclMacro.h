@@ -8,6 +8,8 @@ extern "C" {
 /* number of slave process */
 #define MAX_NPS 100
 
+#define MAX_DEVICE_NUM_PER_NODE 10
+
 /* for kernel arguments */
 #define MAX_TAG 65535
 
@@ -98,7 +100,8 @@ extern "C" {
 #define MIG_SAME_REMOTE_NODE_CMPLD  56
 #define MIGRATION_CHECK             57
 #define FORCED_MIGRATION            58
-#define PROGRAM_END                 59
+#define LB_GET_CMDQUEUE_NUM         59
+#define PROGRAM_END                 60
 
 #define CMSG_NUM                    60
 #define DATAMSG_NUM                 100

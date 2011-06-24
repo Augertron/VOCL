@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "vocl_proxy.h"
 #include "vocl_proxyMigrationDeviceProc.h"
 
 VOCL_PROXY_DEVICE *voclProxyDevicePtr = NULL;
@@ -13,6 +14,8 @@ void voclProxyCreateDevice(cl_device_id device, size_t globalSize)
 //	devicePtr->globalSize = 300000000;
 
 	devicePtr->usedSize = 0;
+	/* for the number of command queues binded to the GPU */
+	devicePtr->cmdQueueNum = 0; 
 	devicePtr->cmdQueuePtr = NULL;
 	devicePtr->memPtr = NULL;
 	devicePtr->next = voclProxyDevicePtr;
@@ -149,7 +152,21 @@ VOCL_PROXY_DEVICE *voclProxyGetDevicePtr(cl_device_id device)
 	return devicePtr;
 }
 
-VOCL_PROXY_DEVICE *voclProxyIsDeviceExist(cl_device_id device)
+void voclProxyGetDeviceCmdQueueNums(struct strDeviceCmdQueueNums *cmdQueueNums)
+{
+	VOCL_PROXY_DEVICE *devicePtr;
+	cmdQueueNums->deviceNum = 0;
+	devicePtr = voclProxyDevicePtr;
+	while (devicePtr != NULL)
+	{
+		cmdQueueNums->deviceIDs[cmdQueueNums->deviceNum] = devicePtr->device;
+		cmdQueueNums->cmdQueueNums[cmdQueueNums->deviceNum] = devicePtr->cmdQueueNum;
+		cmdQueueNums->deviceNum++;
+		devicePtr = devicePtr->next;
+	}
+}
+
+int voclProxyIsDeviceExist(cl_device_id device)
 {
 	VOCL_PROXY_DEVICE *devicePtr = voclProxyDevicePtr;
 	while (devicePtr != NULL)
@@ -193,6 +210,7 @@ void voclProxyUpdateCmdQueueOnDevicePtr(VOCL_PROXY_DEVICE *devicePtr, cl_command
 		cmdQueuePtr->cmdQueue = cmdQueue;
 		cmdQueuePtr->next = devicePtr->cmdQueuePtr;
 		devicePtr->cmdQueuePtr = cmdQueuePtr;
+		devicePtr->cmdQueueNum++;
 	}
 
 	return;
@@ -284,9 +302,17 @@ void voclProxyReleaseCommandQueue(cl_command_queue cmdQueue)
 
 	preCmdQueuePtr->next = curCmdQueuePtr->next;
 	free(curCmdQueuePtr);
+	devicePtr->cmdQueueNum--;
 
 	return;
 }
+
+int voclProxyGetCommandQueueNum(cl_command_queue cmdQueue)
+{
+	VOCL_PROXY_DEVICE *devicePtr = voclProxyGetDeviceIDFromCmdQueue(cmdQueue);
+	return devicePtr->cmdQueueNum;
+}
+
 
 /* memory operations */
 void voclProxyUpdateMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem, size_t size)

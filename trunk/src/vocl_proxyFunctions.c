@@ -4,7 +4,7 @@
 extern void voclProxyUpdateMemoryOnCmdQueue(cl_command_queue cmdQueue, cl_mem mem, size_t size);
 
 /* record number of objects accocated in the current proxy process */
-static voclProxyObjCount = 0;
+static int voclProxyObjCount = 0;
 
 void voclProxyObjCountInitialize()
 {

@@ -17,6 +17,7 @@ typedef struct strVoclProxyDevice {
 	cl_device_id     device;
 	size_t           globalSize;
 	size_t           usedSize;
+	int              cmdQueueNum;
 	PROXY_CMD_QUEUE  *cmdQueuePtr;
 	PROXY_MEM        *memPtr;
 	struct strVoclProxyDevice *next;
