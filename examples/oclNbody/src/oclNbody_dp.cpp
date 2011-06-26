@@ -344,7 +344,7 @@ int main(int argc, char** argv)
 		for (i = 0; i < deviceNumUsed; i++)
 		{
 			copyDataH2D(nbody[i], i);
-			RunProfiling(10, (unsigned int)(p * q), i);  // 100 iterations
+			RunProfiling(100, (unsigned int)(p * q), i);  // 100 iterations
 			copyDataD2H(nbody[i]);
 		}
 	}

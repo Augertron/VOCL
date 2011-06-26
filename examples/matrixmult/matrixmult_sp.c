@@ -261,12 +261,16 @@ int main(int argc, char **argv)
     timerEnd();
     strTime.createKernel += elapsedTime();
 
+	//debug--------------------------------------------------------
+	int tempIterations[8] = {300,300,15,15,15,15,15,15};
+	//-------------------------------------------------------------
+
     timerStart();
-    for (iterationNo = 0; iterationNo < numIterations; iterationNo++) {
-        //printf("IterationNo = %d\n", iterationNo);
-        //copy the matrix to device memory
-		for (i = 0; i < usedDeviceNum; i++)
-		{
+    //copy the matrix to device memory
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		for (iterationNo = 0; iterationNo < numIterations; iterationNo++) {
+		//for (iterationNo = 0; iterationNo < tempIterations[i]; iterationNo++) {
 			err  = clEnqueueWriteBuffer(hCmdQueues[i], deviceMems[3*i], CL_FALSE, 0,
 									   sizeA * sizeof(cl_float), a, 0, NULL, NULL);
 			err |= clEnqueueWriteBuffer(hCmdQueues[i], deviceMems[3*i+1], CL_FALSE, 0,
