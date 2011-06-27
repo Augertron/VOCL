@@ -369,8 +369,8 @@ int main(int argc, char *argv[])
         appIndex = commIndex;
 
 		//debug-----------------------------
-        //printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n", 
-		//	tmp, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n", 
+			tmp, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
 		//-------------------------------------
 
         if (status.MPI_TAG == GET_PLATFORM_ID_FUNC) {
@@ -1495,8 +1495,6 @@ int main(int argc, char *argv[])
 
         else if (status.MPI_TAG == PROGRAM_END) {
 			/* cancel the corresponding requests */
-        	printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n", 
-			tmp, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
 			requestOffset = commIndex * CMSG_NUM;
 			for (requestNo = 0; requestNo < CMSG_NUM; requestNo++)
 			{

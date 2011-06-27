@@ -17,6 +17,7 @@ typedef struct strVoclLibDevice {
 	cl_device_id     device;
 	size_t           globalSize;
 	size_t           usedSize;
+	cl_uint          cmdQueueNum;
 	LIB_CMD_QUEUE    *cmdQueuePtr;
 	LIB_MEM          *memPtr;
 	struct strVoclLibDevice *next;

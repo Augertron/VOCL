@@ -24,6 +24,7 @@ void voclLibCreateDevice(cl_device_id device, size_t globalSize)
 	devicePtr->globalSize = globalSize;
 //	devicePtr->globalSize = 300000000;
 	devicePtr->usedSize = 0;
+	devicePtr->cmdQueueNum = 0;
 	devicePtr->cmdQueuePtr = NULL;
 	devicePtr->memPtr = NULL;
 	devicePtr->next = voclLibDevicePtr;
@@ -160,6 +161,22 @@ VOCL_LIB_DEVICE *voclLibGetDevicePtr(cl_device_id device)
 	return devicePtr;
 }
 
+void voclLibGetDeviceCmdQueueNums(struct strDeviceCmdQueueNums *cmdQueueNums)
+{
+    VOCL_LIB_DEVICE *devicePtr;
+    cmdQueueNums->deviceNum = 0;
+    devicePtr = voclLibDevicePtr;
+    while (devicePtr != NULL)
+    {
+        cmdQueueNums->deviceIDs[cmdQueueNums->deviceNum] = devicePtr->device;
+        cmdQueueNums->cmdQueueNums[cmdQueueNums->deviceNum] = devicePtr->cmdQueueNum;
+        cmdQueueNums->deviceNum++;
+        devicePtr = devicePtr->next;
+    }
+
+	return;
+}
+
 /* command queue operations */
 void voclLibUpdateCmdQueueOnDevicePtr(VOCL_LIB_DEVICE *devicePtr, cl_command_queue cmdQueue)
 {
@@ -182,6 +199,7 @@ void voclLibUpdateCmdQueueOnDevicePtr(VOCL_LIB_DEVICE *devicePtr, cl_command_que
 		cmdQueuePtr->cmdQueue = cmdQueue;
 		cmdQueuePtr->next = devicePtr->cmdQueuePtr;
 		devicePtr->cmdQueuePtr = cmdQueuePtr;
+		devicePtr->cmdQueueNum++;
 	}
 
 	return;
@@ -192,6 +210,7 @@ void voclLibUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queue cmdQu
 	VOCL_LIB_DEVICE *devicePtr = voclLibGetDevicePtr(device);
 	voclLibUpdateCmdQueueOnDevicePtr(devicePtr, cmdQueue);
 }
+
 
 VOCL_LIB_DEVICE *voclLibGetDeviceIDFromCmdQueue(cl_command_queue cmdQueue)
 {
@@ -241,6 +260,7 @@ void voclLibReleaseCommandQueue(cl_command_queue cmdQueue)
 			{
 				curCmdQueuePtr = devicePtr->cmdQueuePtr;
 				devicePtr->cmdQueuePtr = curCmdQueuePtr->next;
+				devicePtr->cmdQueueNum--;
 				free(curCmdQueuePtr);
 				return;
 			}
@@ -273,6 +293,7 @@ void voclLibReleaseCommandQueue(cl_command_queue cmdQueue)
 
 	preCmdQueuePtr->next = curCmdQueuePtr->next;
 	free(curCmdQueuePtr);
+	devicePtr->cmdQueueNum--;
 
 	return;
 }

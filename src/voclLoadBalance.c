@@ -5,13 +5,10 @@
 extern cl_platform_id voclVOCLPlatformID2CLPlatformIDComm(vocl_platform_id platform, int *proxyRank,
                               int *proxyIndex, MPI_Comm * proxyComm,
                               MPI_Comm * proxyCommData);
-
-
-struct strDeviceCmdQueueNums {
-	int deviceNum;
-	cl_device_id deviceIDs[MAX_DEVICE_NUM_PER_NODE];
-	int cmdQueueNums[MAX_DEVICE_NUM_PER_NODE];
-};
+extern cl_int
+clGetPlatformIDs(cl_uint num_entries, cl_platform_id * platforms, cl_uint * num_platforms);
+extern int voclIsOnLocalNode(int index);
+extern void voclLibGetDeviceCmdQueueNums(struct strDeviceCmdQueueNums *cmdQueueNums);
 
 struct strVOCLLBCmdQueueNums {
 	cl_device_id deviceID;
@@ -41,19 +38,24 @@ void voclLBGetDeviceCmdQueueNums()
 	request = (MPI_Request *)malloc(sizeof(MPI_Request) * 2 * platformNum);
 	status = (MPI_Status *)malloc(sizeof(MPI_Status) * 2 * platformNum);
 	
-	err = clGetPlatformIDs(platformNum, platformIDs, &platformNum);
+	err = clGetPlatformIDs(platformNum, platformIDs, NULL);
 
 	requestNo = 0;
 	for (i = 0; i < platformNum; i++)
 	{
 		tmpPlatformID = voclVOCLPlatformID2CLPlatformIDComm((vocl_platform_id)platformIDs[i], 
 							&proxyRank, &proxyIndex, &proxyComm, &proxyCommData);
-		//MPI_Isend(&cmdQueueNums[i], sizeof(struct strVOCLLBCmdQueueNums), MPI_BYTE,
-		MPI_Isend(NULL, 0, MPI_BYTE,
-			proxyRank, LB_GET_CMDQUEUE_NUM, proxyComm, request+(requestNo++));
-		MPI_Irecv(&cmdQueueNums[i], sizeof(struct strDeviceCmdQueueNums), MPI_BYTE,
-			proxyRank, LB_GET_CMDQUEUE_NUM, proxyComm, request+(requestNo++));
-
+		if (voclIsOnLocalNode(proxyIndex) == VOCL_FALSE) /* remote node */
+		{
+			MPI_Isend(NULL, 0, MPI_BYTE,
+					proxyRank, LB_GET_CMDQUEUE_NUM, proxyComm, request+(requestNo++));
+			MPI_Irecv(&cmdQueueNums[i], sizeof(struct strDeviceCmdQueueNums), MPI_BYTE,
+				proxyRank, LB_GET_CMDQUEUE_NUM, proxyComm, request+(requestNo++));
+		}
+		else /* local node */
+		{
+			voclLibGetDeviceCmdQueueNums(&cmdQueueNums[i]);
+		}
 	}
 	MPI_Waitall(requestNo, request, status);
 
@@ -73,6 +75,13 @@ void voclLBGetDeviceCmdQueueNums()
 			voclLBCmdQueueNums[totalDeviceNum].cmdQueueNum = cmdQueueNums[i].cmdQueueNums[j];
 			totalDeviceNum++;
 		}
+	}
+
+	//debug----------------------------------
+	for (i = 0; i < totalDeviceNum; i++)
+	{
+		printf("i = %d, deviceID = %p, cmdQueueNum = %d\n", i, 
+			voclLBCmdQueueNums[i].deviceID, voclLBCmdQueueNums[i].cmdQueueNum);
 	}
 
 	voclLBTotalDeviceNum = totalDeviceNum;
