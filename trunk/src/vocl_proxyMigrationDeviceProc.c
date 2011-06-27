@@ -270,6 +270,7 @@ void voclProxyReleaseCommandQueue(cl_command_queue cmdQueue)
 			{
 				curCmdQueuePtr = devicePtr->cmdQueuePtr;
 				devicePtr->cmdQueuePtr = curCmdQueuePtr->next;
+				devicePtr->cmdQueueNum--;
 				free(curCmdQueuePtr);
 				return;
 			}

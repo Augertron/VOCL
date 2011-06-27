@@ -1381,6 +1381,10 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 		taskMigrationCheck = 0;
 	}
 
+	//debug-------------------------
+	voclLBGetDeviceCmdQueueNums();
+	//--------------------------------
+
     /*check to see whether migration is needed based on GPU memory usage */
     /*GPU memory usage information can be obtained based on kernel arguments */
 	/* since the remote GPU can be shared by multiple proxy process, we need */
