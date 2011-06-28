@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#define CL_PLATFORM_IS_LOCAL 0x0905
+
 /* number of slave process */
 #define MAX_NPS 100
 
