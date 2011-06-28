@@ -2128,6 +2128,18 @@ clGetPlatformInfo(cl_platform_id platform,
     tmpGetPlatformInfo.platform =
         voclVOCLPlatformID2CLPlatformIDComm((vocl_platform_id) platform, &proxyRank,
                                             &proxyIndex, &proxyComm, &proxyCommData);
+	if (param_name == CL_PLATFORM_IS_LOCAL)
+	{
+		if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE)
+		{
+			return CL_TRUE;
+		}
+		else
+		{
+			return CL_FALSE;
+		}
+	}
+
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         tmpGetPlatformInfo.res = dlCLGetPlatformInfo(tmpGetPlatformInfo.platform, param_name,
                                                      param_value_size, param_value,
