@@ -1,7 +1,9 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <sched.h>
 #include <unistd.h>
 #include <mpi.h>
 #include "vocl_proxy_macro.h"
@@ -191,8 +193,14 @@ void voclProxyDisconnectOneApp(int commIndex)
 
 void *proxyCommAcceptThread(void *p)
 {
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    CPU_SET(0, &set);
+    sched_setaffinity(0, sizeof(set), &set);
+
     int index;
     MPI_Comm comm;
+
     while (1) {
         MPI_Comm_accept(voclPortName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &comm);
 		/* lock the mutex to do update */
@@ -208,3 +216,4 @@ void *proxyCommAcceptThread(void *p)
 
     return NULL;
 }
+

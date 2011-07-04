@@ -455,6 +455,17 @@ void voclLibUpdateGlobalMemUsage(cl_command_queue cmdQueue, kernel_args *argsPtr
 	return;
 }
 
+void voclLibUpdateGlobalMemOnCommandQueue(cl_command_queue cmdQueue, cl_mem memory, size_t size)
+{
+	int i;
+	VOCL_LIB_DEVICE *devicePtr;
+	devicePtr = voclLibGetDeviceIDFromCmdQueue(cmdQueue);
+
+	voclLibUpdateMemoryOnDevice(devicePtr, memory, size);
+
+	return;
+}
+
 int voclCheckMigrationInKernelLaunch(vocl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum)
 {
 	VOCL_LIB_DEVICE *devicePtr;

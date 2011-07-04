@@ -211,6 +211,7 @@ extern void voclSamplerSetMigrationStatus(vocl_sampler sampler, int status);
 extern void voclGetLocalDeviceInfo();
 extern void voclLibReleaseAllDevices();
 extern void voclLibUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queue cmdQueue);
+extern void voclLibUpdateGlobalMemOnCommandQueue(cl_command_queue cmdQueue, cl_mem memory, size_t size);
 extern void voclLibReleaseMem(cl_mem mem);
 void voclLibUpdateGlobalMemUsage(cl_command_queue cmdQueue, kernel_args *argsPtr, int argsNum);
 
@@ -1176,6 +1177,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
         errCode = dlCLEnqueueWriteBuffer(tmpEnqueueWriteBuffer.command_queue,
                                          tmpEnqueueWriteBuffer.buffer, blocking_write, offset,
                                          cb, ptr, num_events_in_wait_list, eventList, event);
+		voclLibUpdateGlobalMemOnCommandQueue(tmpEnqueueWriteBuffer.command_queue, tmpEnqueueWriteBuffer.buffer, cb);
         if (event != NULL) {
             /* convert to vocl event */
             *event = (cl_event) voclCLEvent2VOCLEvent((*event),
@@ -1382,7 +1384,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 	}
 
 	//debug-------------------------
-	voclLBGetDeviceCmdQueueNums();
+	//voclLBGetDeviceCmdQueueNums();
 	//--------------------------------
 
     /*check to see whether migration is needed based on GPU memory usage */
@@ -1601,6 +1603,7 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
             dlCLEnqueueReadBuffer(tmpEnqueueReadBuffer.command_queue,
                                   tmpEnqueueReadBuffer.buffer, blocking_read, offset, cb, ptr,
                                   num_events_in_wait_list, eventList, event);
+		voclLibUpdateGlobalMemOnCommandQueue(tmpEnqueueReadBuffer.command_queue, tmpEnqueueReadBuffer.buffer, cb);
         if (event != NULL) {
             *event =
                 (cl_event) voclCLEvent2VOCLEvent((cl_event) (*event), proxyRank, proxyIndex,
