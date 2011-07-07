@@ -66,9 +66,12 @@ static int voclRankThreshold = 1000;
 
 /* control message requests */
 MPI_Request *conMsgRequest;
+MPI_Request *conMsgRequestForWait;
+int *conMsgRequestIndex;
 MPI_Comm *appComm, *appCommData;
 char voclPortName[MPI_MAX_PORT_NAME];
 int voclTotalRequestNum;
+int voclCommUsedSize;
 
 /* control message buffer */
 //CON_MSG_BUFFER *conMsgBuffer;
@@ -362,11 +365,17 @@ int main(int argc, char *argv[])
 
     while (1) {
         /* wait for any msg from the master process */
-        MPI_Waitany(voclTotalRequestNum, conMsgRequest, &index, &status);
+        MPI_Waitany(voclCommUsedSize, conMsgRequestForWait, &commIndex, &status);
 
         appRank = status.MPI_SOURCE;
-        commIndex = index / CMSG_NUM;
         appIndex = commIndex;
+		index = conMsgRequestIndex[commIndex];
+		conMsgRequest[index] = MPI_REQUEST_NULL;
+		if (++conMsgRequestIndex[commIndex] >= (commIndex + 1) * CMSG_NUM)
+		{
+			conMsgRequestIndex[commIndex] = commIndex * CMSG_NUM;
+		}
+		conMsgRequestForWait[commIndex] = conMsgRequest[conMsgRequestIndex[commIndex]];
 
 		//debug-----------------------------
         printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n", 
@@ -637,11 +646,6 @@ int main(int argc, char *argv[])
 							  appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
 							  curRequest + (requestNo++));
 				}
-				else
-				{
-					MPI_Isend(NULL, 0, MPI_BYTE, appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
-							  curRequest + (requestNo++));
-				}
 			}
 
             if (requestNo > 0) {
@@ -858,10 +862,6 @@ int main(int argc, char *argv[])
                     MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE,
                               appRank, ENQUEUE_READ_BUFFER, appComm[commIndex], curRequest);
                 }
-				else
-				{
-                    MPI_Isend(NULL, 0, MPI_BYTE, appRank, ENQUEUE_READ_BUFFER, appComm[commIndex], curRequest);
-				}
             }
             else {      /* blocking, reading is complete, send data to local node */
                 tmpEnqueueReadBuffer.res = processAllReads(appIndex);
