@@ -1207,8 +1207,6 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     /* send parameters to remote node */
     MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(struct strEnqueueWriteBuffer), MPI_BYTE,
               proxyRank, ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
-//  MPI_Waitall(requestNo, request, status);
-//	requestNo = 0;
 
     if (num_events_in_wait_list > 0) {
         MPI_Isend((void *) eventList, sizeof(cl_event) * num_events_in_wait_list,
@@ -1262,10 +1260,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
         free(eventList);
     }
 
-	/* make sure different control msg are in order */
-    MPI_Irecv(NULL, 0, MPI_BYTE, proxyRank, ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
     MPI_Waitall(requestNo, request, status);
-	//----------------------------------
 
     return CL_SUCCESS;
 }
@@ -1662,11 +1657,6 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
         MPI_Irecv(&tmpEnqueueReadBuffer, sizeof(struct strEnqueueReadBuffer), MPI_BYTE,
                   proxyRank, ENQUEUE_READ_BUFFER, proxyComm, request + (requestNo++));
     }
-	else
-	{
-        MPI_Irecv(NULL, 0, MPI_BYTE, proxyRank, ENQUEUE_READ_BUFFER, proxyComm, 
-				  request + (requestNo++));
-	}
 
     if (blocking_read == CL_TRUE) {
         processAllReads(proxyIndex);

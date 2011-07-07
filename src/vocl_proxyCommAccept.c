@@ -10,14 +10,16 @@
 
 static int voclAppNo;
 static int voclAppNum;
-static int voclCommUsedSize;
 static char *voclCommUsedFlag;
 static char **conMsgBufferStartPtr;
 static int  voclTmpRequestNumForMigration;
 
 extern MPI_Request *conMsgRequest;
+extern MPI_Request *conMsgRequestForWait;
+extern int *conMsgRequestIndex;
 extern MPI_Comm *appComm, *appCommData;
 extern int voclTotalRequestNum;
+extern int voclCommUsedSize;
 extern char voclPortName[MPI_MAX_PORT_NAME];
 extern char **conMsgBuffer;
 
@@ -32,6 +34,8 @@ void voclProxyCommInitialize()
     voclTotalRequestNum = 0;
 	voclCommUsedSize = 0;
     conMsgRequest = (MPI_Request *) malloc(voclAppNum * CMSG_NUM * sizeof(MPI_Request));
+	conMsgRequestForWait = (MPI_Request *)malloc(voclAppNum * sizeof(MPI_Request));
+	conMsgRequestIndex = (int *)malloc(voclAppNum * sizeof(int));
     appComm = (MPI_Comm *) malloc(voclAppNum * sizeof(MPI_Comm));
     appCommData = (MPI_Comm *) malloc(voclAppNum * sizeof(MPI_Comm));
 	voclCommUsedFlag = (char *)malloc(voclAppNum * sizeof(char));
@@ -54,6 +58,8 @@ void voclProxyCommFinalize()
 	totalBufferNum = voclAppNum * CMSG_NUM;
 
     free(conMsgRequest);
+	free(conMsgRequestForWait);
+	free(conMsgRequestIndex);
 	free(voclCommUsedFlag);
     free(appComm);
     free(appCommData);
@@ -81,6 +87,9 @@ static int voclGetAppIndex()
         conMsgRequest =
             (MPI_Request *) realloc(conMsgRequest,
                                     (voclAppNum * CMSG_NUM) * sizeof(MPI_Request));
+		conMsgRequestForWait = (MPI_Request *)realloc(conMsgRequestForWait, 
+				voclAppNum * sizeof(MPI_Request));
+		conMsgRequestIndex = (int *)realloc(conMsgRequestIndex, voclAppNum * sizeof(int));
         appComm = (MPI_Comm *) realloc(appComm, voclAppNum * sizeof(MPI_Comm));
         appCommData = (MPI_Comm *) realloc(appCommData, voclAppNum * sizeof(MPI_Comm));
 		voclCommUsedFlag = (char *) realloc(voclCommUsedFlag, voclAppNum * sizeof(char));
@@ -117,6 +126,8 @@ void voclIssueConMsgIrecv(int index)
         MPI_Irecv(conMsgBuffer[index * CMSG_NUM + i], MAX_CMSG_SIZE, MPI_BYTE, MPI_ANY_SOURCE,
                   MPI_ANY_TAG, appComm[index], conMsgRequest+(index * CMSG_NUM + i));
     }
+	conMsgRequestIndex[index] = index * CMSG_NUM;
+	conMsgRequestForWait[index] = conMsgRequest[conMsgRequestIndex[index]];
 
 	if (index >= voclCommUsedSize)
 	{
@@ -162,6 +173,7 @@ void voclProxyDisconnectOneApp(int commIndex)
 	{
 		conMsgRequest[requestOffset + requestNo] = MPI_REQUEST_NULL;
 	}
+	conMsgRequestForWait[commIndex] = MPI_REQUEST_NULL;
 
 	if (commIndex == voclCommUsedSize - 1)
 	{
@@ -205,12 +217,10 @@ void *proxyCommAcceptThread(void *p)
         MPI_Comm_accept(voclPortName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &comm);
 		/* lock the mutex to do update */
 		pthread_mutex_lock(&commLock);
-
         index = voclGetAppIndex();
         appComm[index] = comm;
         MPI_Comm_dup(appComm[index], &appCommData[index]);
         voclIssueConMsgIrecv(index);
-
 		pthread_mutex_unlock(&commLock);
     }
 
