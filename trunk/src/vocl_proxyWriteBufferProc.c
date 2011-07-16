@@ -2,6 +2,7 @@
 #include <CL/opencl.h>
 #include <mpi.h>
 #include <sched.h>
+#include <pthread.h>
 #include "vocl_proxy.h"
 #include "vocl_proxy_macro.h"
 #include "vocl_proxyBufferProc.h"

@@ -1,3 +1,4 @@
+#include <sys/time.h>
 #include "vocl_proxy.h"
 #include "vocl_proxyKernelArgProc.h"
 
@@ -192,7 +193,32 @@ void mpiOpenCLSetKernelArg(struct strSetKernelArg *tmpSetKernelArg, void *arg_va
     tmpSetKernelArg->res = err_code;
 }
 
+static float qTime, wTime, eTime;
+
+void eventProfiling(cl_event event)
+{   
+    cl_ulong queuedTime, submitTime, startTime, endTime;
+    cl_int err;
+    err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_QUEUED,
+                                  sizeof(cl_ulong), &queuedTime, NULL);
+    err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_SUBMIT,
+                                  sizeof(cl_ulong), &submitTime, NULL);
+    err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START,
+                                  sizeof(cl_ulong), &startTime, NULL);
+    err = clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END,
+                                  sizeof(cl_ulong), &endTime, NULL);
+    qTime += (submitTime - queuedTime) / 1000000.0;
+    wTime += (startTime - submitTime) / 1000000.0;
+    eTime += (endTime - startTime) / 1000000.0;
+
+    printf("qTime = %.3f, wTime = %.3f, eTime = %.3f\n", qTime, wTime, eTime);
+
+    return;
+}
+
+
 void mpiOpenCLEnqueueNDRangeKernel(struct strEnqueueNDRangeKernel *tmpEnqueueNDRangeKernel,
+								   struct strEnqueueNDRangeKernelReply *kernelLaunchReply,
                                    cl_event * event_wait_list,
                                    size_t * global_work_offset,
                                    size_t * global_work_size,
@@ -205,7 +231,6 @@ void mpiOpenCLEnqueueNDRangeKernel(struct strEnqueueNDRangeKernel *tmpEnqueueNDR
     cl_uint num_events_in_wait_list = tmpEnqueueNDRangeKernel->num_events_in_wait_list;
     cl_uint args_num = tmpEnqueueNDRangeKernel->args_num;
     cl_uint args_index;
-
     /* call real opencl functions to set kernel arguments */
     for (args_index = 0; args_index < args_num; args_index++) {
         if (args_ptr[args_index].arg_null_flag == 1) {
@@ -223,7 +248,7 @@ void mpiOpenCLEnqueueNDRangeKernel(struct strEnqueueNDRangeKernel *tmpEnqueueNDR
 
     cl_event *event_ptr = NULL;
     if (tmpEnqueueNDRangeKernel->event_null_flag == 0) {
-        event_ptr = &tmpEnqueueNDRangeKernel->event;
+        event_ptr = &kernelLaunchReply->event;
     }
 
     err_code = clEnqueueNDRangeKernel(hInCommand,
@@ -233,8 +258,7 @@ void mpiOpenCLEnqueueNDRangeKernel(struct strEnqueueNDRangeKernel *tmpEnqueueNDR
                                       global_work_size,
                                       local_work_size,
                                       num_events_in_wait_list, event_wait_list, event_ptr);
-
-    tmpEnqueueNDRangeKernel->res = err_code;
+    kernelLaunchReply->res = err_code;
 }
 
 void mpiOpenCLEnqueueReadBuffer(struct strEnqueueReadBuffer *tmpEnqueueReadBuffer,
