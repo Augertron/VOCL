@@ -12,7 +12,7 @@
 typedef struct strKernelArgs {
     cl_uint   arg_index;
     size_t    arg_size;
-    char      arg_value[64];
+    char      arg_value[32];
     cl_char   arg_null_flag;
 	cl_int    isGlobalMemory;
     cl_mem    memory;              /* used for migration */

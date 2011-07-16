@@ -114,11 +114,15 @@ extern "C" {
         cl_int global_work_size_flag;
         cl_int local_work_size_flag;
         cl_uint args_num;
+		size_t dataSize;
         cl_uint num_events_in_wait_list;
         cl_int event_null_flag;
-        cl_event event;
-        cl_int res;
     };
+
+	struct strEnqueueNDRangeKernelReply {
+		cl_event event;
+		cl_int res;
+	};
 
     struct strEnqueueReadBuffer {
         cl_command_queue command_queue;

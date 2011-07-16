@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include "voclOpencl.h"
 #include "voclStructures.h"

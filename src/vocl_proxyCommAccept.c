@@ -207,19 +207,23 @@ void *proxyCommAcceptThread(void *p)
 {
     cpu_set_t set;
     CPU_ZERO(&set);
-    CPU_SET(0, &set);
+    CPU_SET(8, &set);
     sched_setaffinity(0, sizeof(set), &set);
 
-    int index;
+    int index, tmp;
     MPI_Comm comm;
+	MPI_Status status;
 
     while (1) {
-        MPI_Comm_accept(voclPortName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &comm);
+		sleep(70);
+        //MPI_Comm_accept(voclPortName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &comm);
+        MPI_Recv(&tmp, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
 		/* lock the mutex to do update */
 		pthread_mutex_lock(&commLock);
         index = voclGetAppIndex();
         appComm[index] = comm;
         MPI_Comm_dup(appComm[index], &appCommData[index]);
+        //MPI_Intercomm_merge(appComm[index], 0, &appCommData[index]);
         voclIssueConMsgIrecv(index);
 		pthread_mutex_unlock(&commLock);
     }

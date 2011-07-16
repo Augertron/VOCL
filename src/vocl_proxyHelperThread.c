@@ -21,7 +21,7 @@ void *proxyHelperThread(void *p)
 {
     cpu_set_t set;
     CPU_ZERO(&set);
-    CPU_SET(10, &set);
+    CPU_SET(12, &set);
     sched_setaffinity(0, sizeof(set), &set);
 
     helperThreadOperFlag = GPU_MEM_NULL;
