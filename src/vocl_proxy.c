@@ -382,8 +382,8 @@ int main(int argc, char *argv[])
         conMsgRequestForWait[commIndex] = conMsgRequest[conMsgRequestIndex[commIndex]];
 
         //debug-----------------------------
-        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
-              tmp, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+        //printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
+        //      tmp, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
         //-------------------------------------
 
         if (status.MPI_TAG == GET_PLATFORM_ID_FUNC) {

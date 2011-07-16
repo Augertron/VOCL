@@ -212,12 +212,9 @@ void *proxyCommAcceptThread(void *p)
 
     int index, tmp;
     MPI_Comm comm;
-	MPI_Status status;
 
     while (1) {
-		sleep(70);
-        //MPI_Comm_accept(voclPortName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &comm);
-        MPI_Recv(&tmp, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, &status);
+        MPI_Comm_accept(voclPortName, MPI_INFO_NULL, 0, MPI_COMM_SELF, &comm);
 		/* lock the mutex to do update */
 		pthread_mutex_lock(&commLock);
         index = voclGetAppIndex();
