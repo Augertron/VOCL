@@ -69,9 +69,8 @@ int main(int argc, char ** argv)
 	int blockNum;
 	cpu_set_t set;
 	CPU_ZERO(&set);
-	//record time
+
 	memset(&strTime, 0, sizeof(STRUCT_TIME));
-	//timerStart();
 
 	openPenalty = 5.0f;
 	extensionPenalty = 0.5;
@@ -84,7 +83,6 @@ int main(int argc, char ** argv)
 		deviceNo = atoi(argv[6]);
 	}
 
-	//for opencl initialization
 	cl_int err;
 	cl_uint platformNum, totalDeviceNum, usedDeviceNum, *deviceNums;
 	cl_platform_id *platformIDs;
@@ -428,7 +426,10 @@ int main(int argc, char ** argv)
 				err = clEnqueueWriteBuffer(hCmdQueues[i], blosum62Ds[i], CL_FALSE, 0,
 										   nblosumWidth * nblosumHeight * sizeof(cl_float), blosum62[0], 0, NULL, NULL);
 				CHECK_ERR(err, "copy blosum62 to device");
+			}
 
+			for (i = 0; i < usedDeviceNum; i++)
+			{
 				err  = clSetKernelArg(hMatchStringKernels[i], 0, sizeof(cl_mem), (void *)&pathFlagDs[i]);
 				err |= clSetKernelArg(hMatchStringKernels[i], 1, sizeof(cl_mem), (void *)&extFlagDs[i]);
 				err |= clSetKernelArg(hMatchStringKernels[i], 2, sizeof(cl_mem), (void *)&nGapDistDs[i]);
@@ -485,7 +486,10 @@ int main(int argc, char ** argv)
 					//start position for next kernel launch
 					startPos += diffPos[launchNo + 1] + nOffset;
 				}
+			}
 
+			for (i = 0; i < usedDeviceNum; i++)
+			{
 				//record time
 				err  = clSetKernelArg(hTraceBackKernels[i], 0, sizeof(cl_mem), (void *)&pathFlagDs[i]);
 				err |= clSetKernelArg(hTraceBackKernels[i], 1, sizeof(cl_mem), (void *)&extFlagDs[i]);
@@ -501,7 +505,10 @@ int main(int argc, char ** argv)
 				err = clEnqueueNDRangeKernel(hCmdQueues[i], hTraceBackKernels[i], 1, NULL, tbGlobalSize,
 											 tbLocalSize, 0, NULL, NULL);
 				CHECK_ERR(err, "Launch kernel trace back error");
+			}
 
+			for (i = 0; i < usedDeviceNum; i++)
+			{
 				//copy matrix score structure back
 				err = clEnqueueReadBuffer(hCmdQueues[i], maxInfoDs[i], CL_FALSE, 0, sizeof(MAX_INFO),
 										  maxInfo, 0, 0, 0);
