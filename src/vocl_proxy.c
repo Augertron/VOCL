@@ -794,15 +794,21 @@ int main(int argc, char *argv[])
                                           global_work_offset,
                                           global_work_size, local_work_size, args_ptr);
 
-            MPI_Isend(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply),
+			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
+			{
+            	MPI_Isend(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply),
                       MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL, appComm[commIndex],
                       curRequest);
+			}
 
             if (num_events_in_wait_list > 0) {
                 free(event_wait_list);
             }
 
-            MPI_Wait(curRequest, curStatus);
+			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
+			{
+            	MPI_Wait(curRequest, curStatus);
+			}
         }
 
         else if (status.MPI_TAG == ENQUEUE_READ_BUFFER) {
