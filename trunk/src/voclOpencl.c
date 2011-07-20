@@ -1533,8 +1533,6 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
                    sizeof(kernel_args) * kernelPtr->args_num);
             paramOffset += (sizeof(kernel_args) * kernelPtr->args_num);
         }
-        /* arguments for current call are processed */
-        kernelPtr->args_num = 0;
         tmpEnqueueNDRangeKernel.dataSize = paramOffset;
 
         /* send parameters to remote node */
@@ -1554,8 +1552,11 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 
         kernelLaunchReply.res = CL_SUCCESS;
 
-        MPI_Irecv(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply), MPI_BYTE,
+		if (event != NULL)
+		{
+        	MPI_Irecv(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply), MPI_BYTE,
                   proxyRank, ENQUEUE_ND_RANGE_KERNEL, proxyComm, request + (requestNo++));
+		}
         MPI_Waitall(requestNo, request, status);
         for (i = 0; i < requestNo; i++) {
             if (status[i].MPI_ERROR != MPI_SUCCESS) {
@@ -1563,6 +1564,8 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
             }
         }
     }
+    /* arguments for current call are processed */
+    kernelPtr->args_num = 0;
 
     if (event != NULL) {
         /* covert opencl event to vocl event to be stored */

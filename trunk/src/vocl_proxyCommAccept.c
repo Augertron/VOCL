@@ -220,7 +220,6 @@ void *proxyCommAcceptThread(void *p)
         index = voclGetAppIndex();
         appComm[index] = comm;
         MPI_Comm_dup(appComm[index], &appCommData[index]);
-        //MPI_Intercomm_merge(appComm[index], 0, &appCommData[index]);
         voclIssueConMsgIrecv(index);
 		pthread_mutex_unlock(&commLock);
     }
