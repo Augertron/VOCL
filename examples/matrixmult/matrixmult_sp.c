@@ -56,10 +56,10 @@ int main(int argc, char **argv)
 {
     if (argc != 4) {
         printf("Usage: %s matrixSize, numIterations, deviceNo\n", argv[0]);
-		printf("       deviceNo = -1: all virtual GPUs are used.\n");
+        printf("       deviceNo = -1: all virtual GPUs are used.\n");
         return 1;
     }
-	
+
     cpu_set_t set;
     CPU_ZERO(&set);
 
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     cl_command_queue *hCmdQueues;
     cl_program *hPrograms;
     cl_mem *deviceMems;
-	cl_kernel *hKernels;
+    cl_kernel *hKernels;
     size_t sourceFileSize;
     char *cSourceCL = NULL;
     char kernel_source[KERNEL_SOURCE_FILE_LEN];
@@ -100,11 +100,11 @@ int main(int argc, char **argv)
     timerStart();
     err = clGetPlatformIDs(0, NULL, &platformNum);
     CHECK_ERR(err, "Get platform ID error!");
-	
-	platformIDs = (cl_platform_id *)malloc(sizeof(cl_platform_id) * platformNum);
-	deviceNums = (cl_uint *)malloc(sizeof(cl_uint) * platformNum);
-    
-	err = clGetPlatformIDs(platformNum, platformIDs, NULL);
+
+    platformIDs = (cl_platform_id *) malloc(sizeof(cl_platform_id) * platformNum);
+    deviceNums = (cl_uint *) malloc(sizeof(cl_uint) * platformNum);
+
+    err = clGetPlatformIDs(platformNum, platformIDs, NULL);
     CHECK_ERR(err, "Get platform ID error!");
     timerEnd();
     strTime.getPlatform = elapsedTime();
@@ -113,68 +113,62 @@ int main(int argc, char **argv)
     printf("cpuid = %d\n", set.__bits[0]);
 
     timerStart();
-	totalDeviceNum = 0;
-	for (i = 0; i < platformNum; i++)
-	{
-    	err = clGetDeviceIDs(platformIDs[i], CL_DEVICE_TYPE_GPU, 0, NULL, &deviceNums[i]);
-		totalDeviceNum += deviceNums[i];
-	}
+    totalDeviceNum = 0;
+    for (i = 0; i < platformNum; i++) {
+        err = clGetDeviceIDs(platformIDs[i], CL_DEVICE_TYPE_GPU, 0, NULL, &deviceNums[i]);
+        totalDeviceNum += deviceNums[i];
+    }
 
-	deviceIDs = (cl_device_id *)malloc(sizeof(cl_device_id) * totalDeviceNum);
-	hContexts = (cl_context *)malloc(sizeof(cl_context) * totalDeviceNum);
-	hCmdQueues = (cl_command_queue *)malloc(sizeof(cl_command_queue) * totalDeviceNum);
-	hPrograms = (cl_program *)malloc(sizeof(cl_program) * totalDeviceNum);
-	hKernels = (cl_kernel *)malloc(sizeof(cl_kernel) * totalDeviceNum);
-	deviceMems = (cl_mem *)malloc(sizeof(cl_mem) * 3 * totalDeviceNum);
+    deviceIDs = (cl_device_id *) malloc(sizeof(cl_device_id) * totalDeviceNum);
+    hContexts = (cl_context *) malloc(sizeof(cl_context) * totalDeviceNum);
+    hCmdQueues = (cl_command_queue *) malloc(sizeof(cl_command_queue) * totalDeviceNum);
+    hPrograms = (cl_program *) malloc(sizeof(cl_program) * totalDeviceNum);
+    hKernels = (cl_kernel *) malloc(sizeof(cl_kernel) * totalDeviceNum);
+    deviceMems = (cl_mem *) malloc(sizeof(cl_mem) * 3 * totalDeviceNum);
 
-	totalDeviceNum = 0;
-	for (i = 0; i < platformNum; i++)
-	{
-    	err = clGetDeviceIDs(platformIDs[i], CL_DEVICE_TYPE_GPU, deviceNums[i],
-					&deviceIDs[totalDeviceNum], NULL);
-		totalDeviceNum += deviceNums[i];
-    	CHECK_ERR(err, "Get device ID error!");
-	}
+    totalDeviceNum = 0;
+    for (i = 0; i < platformNum; i++) {
+        err = clGetDeviceIDs(platformIDs[i], CL_DEVICE_TYPE_GPU, deviceNums[i],
+                             &deviceIDs[totalDeviceNum], NULL);
+        totalDeviceNum += deviceNums[i];
+        CHECK_ERR(err, "Get device ID error!");
+    }
     timerEnd();
     strTime.getDeviceID = elapsedTime();
 
-	/* deviceNo is -1 means all virtual GPUs are used */
-	if (deviceNo == -1)
-	{
-		printf("All GPUs are used..., deviceCount = %d\n", totalDeviceNum);
-		usedDeviceNum = totalDeviceNum;
-		deviceNo = 0;
-	}
-	else
-	{	
-		printf("device %d is used...\n\n", deviceNo);
-		usedDeviceNum = 1;
-	}
+    /* deviceNo is -1 means all virtual GPUs are used */
+    if (deviceNo == -1) {
+        printf("All GPUs are used..., deviceCount = %d\n", totalDeviceNum);
+        usedDeviceNum = totalDeviceNum;
+        deviceNo = 0;
+    }
+    else {
+        printf("device %d is used...\n\n", deviceNo);
+        usedDeviceNum = 1;
+    }
 
-	if (deviceNo >= totalDeviceNum)
-	{
-		printf("Device no %d is larger than the total device num %d...\n\n", deviceNo, totalDeviceNum);
-	}
+    if (deviceNo >= totalDeviceNum) {
+        printf("Device no %d is larger than the total device num %d...\n\n", deviceNo,
+               totalDeviceNum);
+    }
 
     //create opencl device and context
     timerStart();
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-		index = i + deviceNo;
-    	hContexts[i] = clCreateContext(0, 1, &deviceIDs[index], 0, 0, &err);
-    	CHECK_ERR(err, "Create context from type error");
-	}
+    for (i = 0; i < usedDeviceNum; i++) {
+        index = i + deviceNo;
+        hContexts[i] = clCreateContext(0, 1, &deviceIDs[index], 0, 0, &err);
+        CHECK_ERR(err, "Create context from type error");
+    }
     timerEnd();
     strTime.createContext = elapsedTime();
 
     //create a command queue for the first device the context reported
     timerStart();
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-		index = i + deviceNo;
-    	hCmdQueues[i] = clCreateCommandQueue(hContexts[i], deviceIDs[index], 0, &err);
-    	CHECK_ERR(err, "Create command queue error");
-	}
+    for (i = 0; i < usedDeviceNum; i++) {
+        index = i + deviceNo;
+        hCmdQueues[i] = clCreateCommandQueue(hContexts[i], deviceIDs[index], 0, &err);
+        CHECK_ERR(err, "Create command queue error");
+    }
     timerEnd();
     strTime.createCommandQueue = elapsedTime();
 
@@ -185,21 +179,19 @@ int main(int argc, char **argv)
 
     //Create & compile program
     timerStart();
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-    	hPrograms[i] = clCreateProgramWithSource(hContexts[i], 1, (const char **) &cSourceCL,
-                             &sourceFileSize, &err);
-    	CHECK_ERR(err, "Create program with source error");
-	}
+    for (i = 0; i < usedDeviceNum; i++) {
+        hPrograms[i] = clCreateProgramWithSource(hContexts[i], 1, (const char **) &cSourceCL,
+                                                 &sourceFileSize, &err);
+        CHECK_ERR(err, "Create program with source error");
+    }
     timerEnd();
     strTime.createProgramWithSource = elapsedTime();
 
     timerStart();
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-    	err = clBuildProgram(hPrograms[i], 0, 0, 0, 0, 0);
-    	CHECK_ERR(err, "Build program error");
-	}
+    for (i = 0; i < usedDeviceNum; i++) {
+        err = clBuildProgram(hPrograms[i], 0, 0, 0, 0, 0);
+        CHECK_ERR(err, "Build program error");
+    }
     timerEnd();
     strTime.buildProgram = elapsedTime();
     strTime.numBuildProgram++;
@@ -235,102 +227,104 @@ int main(int argc, char **argv)
 
     //allocate device memory
     timerStart();
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-		deviceMems[3*i] = clCreateBuffer(hContexts[i],
-									  CL_MEM_READ_WRITE, sizeA * sizeof(cl_float), 0, &err);
-		CHECK_ERR(err, "Create deviceMem[0] on device error");
+    for (i = 0; i < usedDeviceNum; i++) {
+        deviceMems[3 * i] = clCreateBuffer(hContexts[i],
+                                           CL_MEM_READ_WRITE, sizeA * sizeof(cl_float), 0,
+                                           &err);
+        CHECK_ERR(err, "Create deviceMem[0] on device error");
 
-		deviceMems[3*i+1] = clCreateBuffer(hContexts[i],
-									  CL_MEM_READ_WRITE, sizeB * sizeof(cl_float), 0, &err);
-		CHECK_ERR(err, "Create deviceMem[1] on device error");
-		deviceMems[3*i+2] = clCreateBuffer(hContexts[i],
-									  CL_MEM_READ_WRITE, sizeC * sizeof(cl_float), 0, &err);
-		CHECK_ERR(err, "Create deviceMem[2] on device error");
-	}
+        deviceMems[3 * i + 1] = clCreateBuffer(hContexts[i],
+                                               CL_MEM_READ_WRITE, sizeB * sizeof(cl_float), 0,
+                                               &err);
+        CHECK_ERR(err, "Create deviceMem[1] on device error");
+        deviceMems[3 * i + 2] = clCreateBuffer(hContexts[i],
+                                               CL_MEM_READ_WRITE, sizeC * sizeof(cl_float), 0,
+                                               &err);
+        CHECK_ERR(err, "Create deviceMem[2] on device error");
+    }
     timerEnd();
     strTime.createBuffer += elapsedTime();
 
     //create kernel
     timerStart();
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-    	hKernels[i] = clCreateKernel(hPrograms[i], "matrixMul", &err);
-    	CHECK_ERR(err, "Create kernel error");
-	}
+    for (i = 0; i < usedDeviceNum; i++) {
+        hKernels[i] = clCreateKernel(hPrograms[i], "matrixMul", &err);
+        CHECK_ERR(err, "Create kernel error");
+    }
     timerEnd();
     strTime.createKernel += elapsedTime();
 
-	//debug--------------------------------------------------------
-	int tempIterations[8] = {300,300,15,15,15,15,15,15};
-	//-------------------------------------------------------------
-
     timerStart();
     //copy the matrix to device memory
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-		for (iterationNo = 0; iterationNo < numIterations; iterationNo++) {
-		//for (iterationNo = 0; iterationNo < tempIterations[i]; iterationNo++) {
-			err  = clEnqueueWriteBuffer(hCmdQueues[i], deviceMems[3*i], CL_FALSE, 0,
-									   sizeA * sizeof(cl_float), a, 0, NULL, NULL);
-			err |= clEnqueueWriteBuffer(hCmdQueues[i], deviceMems[3*i+1], CL_FALSE, 0,
-									   sizeB * sizeof(cl_float), b, 0, NULL, NULL);
-			CHECK_ERR(err, "Write buffer error!");
+    for (iterationNo = 0; iterationNo < numIterations; iterationNo++) {
+        for (i = 0; i < usedDeviceNum; i++) {
+            err = clEnqueueWriteBuffer(hCmdQueues[i], deviceMems[3 * i], CL_FALSE, 0,
+                                       sizeA * sizeof(cl_float), a, 0, NULL, NULL);
+            err |= clEnqueueWriteBuffer(hCmdQueues[i], deviceMems[3 * i + 1], CL_FALSE, 0,
+                                        sizeB * sizeof(cl_float), b, 0, NULL, NULL);
+            CHECK_ERR(err, "Write buffer error!");
+        }
 
-			err  = clSetKernelArg(hKernels[i], 0, sizeof(cl_mem), (void *) &deviceMems[3*i]);
-			err |= clSetKernelArg(hKernels[i], 1, sizeof(cl_mem), (void *) &deviceMems[3*i+1]);
-			err |= clSetKernelArg(hKernels[i], 2, sizeof(cl_mem), (void *) &deviceMems[3*i+2]);
-			err |=
-				clSetKernelArg(hKernels[i], 3, sizeof(cl_float) * BLOCK_SIZE * (BLOCK_SIZE + 1),
-							   (void *) NULL);
-			err |=
-				clSetKernelArg(hKernels[i], 4, sizeof(cl_float) * BLOCK_SIZE * (BLOCK_SIZE + 1),
-							   (void *) NULL);
-			err |= clSetKernelArg(hKernels[i], 5, sizeof(cl_int), (void *) &hA);
-			err |= clSetKernelArg(hKernels[i], 6, sizeof(cl_int), (void *) &wA);
-			err |= clSetKernelArg(hKernels[i], 7, sizeof(cl_int), (void *) &wB);
-			err |= clEnqueueNDRangeKernel(hCmdQueues[i], hKernels[i], 2, NULL, globalSize,
-										 blockSize, 0, NULL, NULL);
+        for (i = 0; i < usedDeviceNum; i++) {
+            err = clSetKernelArg(hKernels[i], 0, sizeof(cl_mem), (void *) &deviceMems[3 * i]);
+            err |=
+                clSetKernelArg(hKernels[i], 1, sizeof(cl_mem),
+                               (void *) &deviceMems[3 * i + 1]);
+            err |=
+                clSetKernelArg(hKernels[i], 2, sizeof(cl_mem),
+                               (void *) &deviceMems[3 * i + 2]);
+            err |=
+                clSetKernelArg(hKernels[i], 3,
+                               sizeof(cl_float) * BLOCK_SIZE * (BLOCK_SIZE + 1),
+                               (void *) NULL);
+            err |=
+                clSetKernelArg(hKernels[i], 4,
+                               sizeof(cl_float) * BLOCK_SIZE * (BLOCK_SIZE + 1),
+                               (void *) NULL);
+            err |= clSetKernelArg(hKernels[i], 5, sizeof(cl_int), (void *) &hA);
+            err |= clSetKernelArg(hKernels[i], 6, sizeof(cl_int), (void *) &wA);
+            err |= clSetKernelArg(hKernels[i], 7, sizeof(cl_int), (void *) &wB);
+            err |= clEnqueueNDRangeKernel(hCmdQueues[i], hKernels[i], 2, NULL, globalSize,
+                                          blockSize, 0, NULL, NULL);
+        }
 
-			err = clEnqueueReadBuffer(hCmdQueues[i], deviceMems[3*i+2], CL_FALSE, 0,
-									  sizeC * sizeof(cl_float), c, 0, 0, 0);
-			CHECK_ERR(err, "Enqueue read buffer error");
-		}
+        for (i = 0; i < usedDeviceNum; i++) {
+            err = clEnqueueReadBuffer(hCmdQueues[i], deviceMems[3 * i + 2], CL_FALSE, 0,
+                                      sizeC * sizeof(cl_float), c, 0, 0, 0);
+            CHECK_ERR(err, "Enqueue read buffer error");
+        }
     }
 
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-    	clFinish(hCmdQueues[i]);
-	}
+    for (i = 0; i < usedDeviceNum; i++) {
+        clFinish(hCmdQueues[i]);
+    }
     timerEnd();
     strTime.kernelExecution += elapsedTime();
 
     timerStart();
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-    	clReleaseKernel(hKernels[i]);
-	}
+    for (i = 0; i < usedDeviceNum; i++) {
+        clReleaseKernel(hKernels[i]);
+    }
     timerEnd();
     strTime.releaseKernel += elapsedTime();
 
     timerStart();
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-		clReleaseMemObject(deviceMems[3*i]);
-		clReleaseMemObject(deviceMems[3*i+1]);
-		clReleaseMemObject(deviceMems[3*i+2]);
-	}
+    for (i = 0; i < usedDeviceNum; i++) {
+        clReleaseMemObject(deviceMems[3 * i]);
+        clReleaseMemObject(deviceMems[3 * i + 1]);
+        clReleaseMemObject(deviceMems[3 * i + 2]);
+    }
     timerEnd();
     strTime.releaseMemObj += elapsedTime();
 
     timerStart();
-  for (i = 0; i < hA; i++)
-  {
-          for (j = 0; j < 1; j++)
-          {
-                  printf("c[%d][%d] = %lf\n", i, j, c[i * wB + j]);
-          }
-  }
+//  for (i = 0; i < hA; i++)
+//  {
+//          for (j = 0; j < 1; j++)
+//          {
+//                  printf("c[%d][%d] = %lf\n", i, j, c[i * wB + j]);
+//          }
+//  }
     timerEnd();
     strTime.printMatrix = elapsedTime();
 
@@ -340,39 +334,35 @@ int main(int argc, char **argv)
     free(cSourceCL);
 
     timerStart();
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-    	clReleaseProgram(hPrograms[i]);
-	}
+    for (i = 0; i < usedDeviceNum; i++) {
+        clReleaseProgram(hPrograms[i]);
+    }
     timerEnd();
     strTime.releaseProgram = elapsedTime();
 
     timerStart();
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-    	clReleaseCommandQueue(hCmdQueues[i]);
-	}
+    for (i = 0; i < usedDeviceNum; i++) {
+        clReleaseCommandQueue(hCmdQueues[i]);
+    }
     timerEnd();
     strTime.releaseCmdQueue = elapsedTime();
 
     timerStart();
-	for (i = 0; i < usedDeviceNum; i++)
-	{
-    	clReleaseContext(hContexts[i]);
-	}
+    for (i = 0; i < usedDeviceNum; i++) {
+        clReleaseContext(hContexts[i]);
+    }
     timerEnd();
 
-	free(platformIDs);
-	free(deviceIDs);
-	free(hContexts);
-	free(hCmdQueues);
-	free(hPrograms);
-	free(hKernels);
-	free(deviceMems);
+    free(platformIDs);
+    free(deviceIDs);
+    free(hContexts);
+    free(hCmdQueues);
+    free(hPrograms);
+    free(hKernels);
+    free(deviceMems);
 
     printTime_toStandardOutput();
     printTime_toFile();
 
     return 0;
 }
-
