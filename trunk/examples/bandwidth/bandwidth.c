@@ -9,7 +9,6 @@
  * test the host device and device host memory bandwidth
  *********************************************************************/
 
-#define BLOCK_SIZE 16
 #define MAX_BUFF_NUM 60
 #define MAX_NUM 200
 
@@ -31,68 +30,104 @@ int main(int argc, char **argv)
 	double *hostMem[MAX_NUM];
 	unsigned int buffNum = 1;
 	size_t buffSize = 1 << 10;
-	int i, index;
+	cl_uint i, index, deviceIndex;
 	float megaBytes = 1.0f;
 	float issueTime;
 	FILE *pfile;
-	int deviceNo = 0;
 
 	buffNum = atoi(argv[2]);
 	megaBytes = atof(argv[1]);
-	deviceNo = atoi(argv[3]);
 
 	buffSize = (size_t)(buffSize * megaBytes);
 
-
 	cl_int err;
-	cl_platform_id platformID;
-	cl_device_id deviceID[2];
-	cl_context hContext;
-	cl_command_queue hCmdQueue;
-	cl_program hProgram;
-	cl_mem deviceMem[MAX_BUFF_NUM];
-	cl_uint numPlatforms, deviceCount;
-	size_t sourceFileSize;
-	char *cSourceCL = NULL;
+	cl_uint platformNum, *deviceNums;
+	cl_uint totalDeviceNum, usedDeviceNum, deviceNo = 0;
+	cl_platform_id *platformIDs;
+	cl_device_id *deviceIDs;
+	cl_context *hContexts;
+	cl_command_queue *hCmdQueues;
+	cl_mem *deviceMems;
 	cpu_set_t set;
-
-	//get an opencl platform
-	timerStart();
-	err = clGetPlatformIDs(0, NULL, &numPlatforms);
-	printf("numPlatforms = %d\n", numPlatforms);
-	err = clGetPlatformIDs(1, &platformID, NULL);
-	CHECK_ERR(err, "Get platform ID error!");
-	timerEnd();
-	strTime.getPlatform = elapsedTime();
-	strTime.numGetPlatform++;
-
+	deviceNo = atoi(argv[3]);
     sched_getaffinity(0, sizeof(set), &set);
 	printf("cpuid = %d\n", set.__bits[0]);
 
+	//get an opencl platform
 	timerStart();
-	err = clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, 0, NULL, &deviceCount);
-	printf("deviceCount = %d\n", deviceCount);
-	err = clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, deviceCount, deviceID, NULL);
-	CHECK_ERR(err, "Get device ID error!");
+	err = clGetPlatformIDs(0, NULL, &platformNum);
+	CHECK_ERR(err, "Get platform ID error!");
+	printf("platformNum = %d\n", platformNum);
+	platformIDs = (cl_platform_id *) malloc(sizeof(cl_platform_id) * platformNum);
+	deviceNums = (cl_uint *) malloc(sizeof(cl_uint) * platformNum);
+	err = clGetPlatformIDs(platformNum, platformIDs, NULL);
+	CHECK_ERR(err, "Get platform ID error!");
+	timerEnd();
+	strTime.getPlatform = elapsedTime();
+
+
+	timerStart();
+	totalDeviceNum = 0;
+	for (i = 0; i < platformNum; i++)
+	{
+		err = clGetDeviceIDs(platformIDs[i], CL_DEVICE_TYPE_GPU, 0, NULL, &deviceNums[i]);
+		CHECK_ERR(err, "Get device ID error!");
+		totalDeviceNum += deviceNums[i];
+	}
+
+    deviceIDs = (cl_device_id *) malloc(sizeof(cl_device_id) * totalDeviceNum);
+    hContexts = (cl_context *) malloc(sizeof(cl_context) * totalDeviceNum);
+    hCmdQueues = (cl_command_queue *) malloc(sizeof(cl_command_queue) * totalDeviceNum);
+    deviceMems = (cl_mem *) malloc(sizeof(cl_mem) * (MAX_BUFF_NUM) * totalDeviceNum);
+
+	totalDeviceNum = 0;
+	for (i = 0; i < platformNum; i++)
+	{
+		err = clGetDeviceIDs(platformIDs[i], CL_DEVICE_TYPE_GPU, deviceNums[i], &deviceIDs[totalDeviceNum], NULL);
+		CHECK_ERR(err, "Get device ID error!");
+		totalDeviceNum += deviceNums[i];
+	}
 	timerEnd();
 	strTime.getDeviceID = elapsedTime();
-	strTime.numGetDeviceID++;
+
+    /* deviceNo is -1 means all virtual GPUs are used */
+    if (deviceNo == -1) {
+        printf("All GPUs are used..., deviceCount = %d\n", totalDeviceNum);
+        usedDeviceNum = totalDeviceNum;
+        deviceNo = 0;
+    }
+    else {
+        printf("device %d is used...\n\n", deviceNo);
+        usedDeviceNum = 1;
+    }
+
+    if (deviceNo >= totalDeviceNum) {
+        printf("Device no %d is larger than the total device num %d...\n\n", deviceNo,
+               totalDeviceNum);
+    }
+
 
 	//create opencl device and context
 	timerStart();
-	hContext = clCreateContext(0, 2, deviceID, 0, 0, &err);
-	CHECK_ERR(err, "Create context from type error");
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		deviceIndex = i + deviceNo; 
+		hContexts[i] = clCreateContext(0, 1, &deviceIDs[deviceIndex], 0, 0, &err);
+		CHECK_ERR(err, "Create context from type error");
+	}
 	timerEnd();
 	strTime.createContext = elapsedTime();
-	strTime.numCreateContext++;
 
 	//create a command queue for the first device the context reported
 	timerStart();
-	hCmdQueue = clCreateCommandQueue(hContext, deviceID[deviceNo], CL_QUEUE_PROFILING_ENABLE, &err);
-	CHECK_ERR(err, "Create command queue error");
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		deviceIndex = i + deviceNo;
+		hCmdQueues[i] = clCreateCommandQueue(hContexts[i], deviceIDs[deviceIndex], 0, &err);
+		CHECK_ERR(err, "Create command queue error");
+	}
 	timerEnd();
 	strTime.createCommandQueue = elapsedTime();
-	strTime.numCreateCommandQueue++;
 
 	//create host buffer;
 	for (i = 0; i < buffNum; i++)
@@ -103,96 +138,116 @@ int main(int argc, char **argv)
 
 	//allocate device memory
 	timerStart();
-	int tmpNum = MAX_BUFF_NUM < buffNum ? MAX_BUFF_NUM : buffNum;
-	for (i = 0; i < tmpNum; i++)
+	for (i = 0; i < buffNum; i++)
 	{
-		deviceMem[i] = clCreateBuffer(hContext,
+		for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
+		{
+			deviceMems[i+buffNum*deviceIndex] = clCreateBuffer(hContexts[deviceIndex],
 									 CL_MEM_READ_WRITE,
 									 buffSize,
 									 0,
 									 &err);
-		CHECK_ERR(err, "Create deviceMem on device error");
+			CHECK_ERR(err, "Create deviceMem on device error");
+		}
 	}
 	timerEnd();
-	err = clFinish(hCmdQueue);
 	CHECK_ERR(err, "clFinish, create buffer error!");
 	strTime.createBuffer += elapsedTime();
-	strTime.numCreateBuffer += buffNum;
 
 	for (i = 0; i < buffNum; i++)
 	{
-		index = i % MAX_BUFF_NUM;
-		err = clEnqueueWriteBuffer(hCmdQueue, deviceMem[index], CL_FALSE, 0, 
+		for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
+		{
+			err = clEnqueueWriteBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], CL_FALSE, 0, 
 								   buffSize,
 								   hostMem[i], 0, NULL, NULL);
-		CHECK_ERR(err, "Write buffer error!");
+			CHECK_ERR(err, "Write buffer error!");
+		}
 	}
 	
-	err = clFinish(hCmdQueue);
-	CHECK_ERR(err, "clFinish, Write buffer error!");
+	for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
+	{
+		err = clFinish(hCmdQueues[deviceIndex]);
+		CHECK_ERR(err, "clFinish, Write buffer error!");
+	}
 
 	//copy the matrix to device memory
 	timerStart();
 	for (i = 0; i < buffNum; i++)
 	{
-		index = i % MAX_BUFF_NUM;
-		err = clEnqueueWriteBuffer(hCmdQueue, deviceMem[index], CL_FALSE, 0, 
+		for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
+		{
+			err = clEnqueueWriteBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], CL_FALSE, 0, 
 								   buffSize,
 								   hostMem[i], 0, NULL, NULL);
-		CHECK_ERR(err, "Write buffer error!");
+			CHECK_ERR(err, "Write buffer error!");
+		}
 	}
 	timerEnd();
 	issueTime = elapsedTime();
 
 	timerStart();
-	err = clFinish(hCmdQueue);
-	CHECK_ERR(err, "clFinish, Write buffer error!");
+	for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
+	{
+		err = clFinish(hCmdQueues[deviceIndex]);
+		CHECK_ERR(err, "clFinish, Write buffer error!");
+	}
 	timerEnd();
 	strTime.enqueueWriteBuffer = elapsedTime();
 	printf("===>>writeTime:%.3f, %.3f\n", issueTime, strTime.enqueueWriteBuffer);
 	strTime.enqueueWriteBuffer += issueTime;
-	strTime.numEnqueueWriteBuffer += buffNum;
   
 	for (i = 0; i < buffNum; i++)
 	{
-		index = i % MAX_BUFF_NUM;
-		err = clEnqueueReadBuffer(hCmdQueue, deviceMem[index], CL_FALSE, 0,
+		for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
+		{
+			err = clEnqueueReadBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], CL_FALSE, 0,
 							buffSize,
 							hostMem[i], 0, 0, 0);
-		CHECK_ERR(err, "Enqueue read buffer error");
+			CHECK_ERR(err, "Enqueue read buffer error");
+		}
 	}
-	err = clFinish(hCmdQueue);
-	CHECK_ERR(err, "clFinish, Read buffer error!");
+
+
+	for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
+	{
+		err = clFinish(hCmdQueues[deviceIndex]);
+		CHECK_ERR(err, "clFinish, Read buffer error!");
+	}
 
 	timerStart();
 	for (i = 0; i < buffNum; i++)
 	{
-		index = i % MAX_BUFF_NUM;
-		err = clEnqueueReadBuffer(hCmdQueue, deviceMem[index], CL_FALSE, 0,
+		for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
+		{
+			err = clEnqueueReadBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], CL_FALSE, 0,
 							buffSize,
 							hostMem[i], 0, 0, 0);
-		CHECK_ERR(err, "Enqueue read buffer error");
+			CHECK_ERR(err, "Enqueue read buffer error");
+		}
 	}
 	timerEnd();
 	issueTime = elapsedTime();
 
 	timerStart();
-	err = clFinish(hCmdQueue);
-	CHECK_ERR(err, "clFinish, read buffer error!");
+	for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
+	{
+		err = clFinish(hCmdQueues[deviceIndex]);
+		CHECK_ERR(err, "clFinish, read buffer error!");
+	}
 	timerEnd();
 	strTime.enqueueReadBuffer += elapsedTime();
-	strTime.numEnqueueReadBuffer += buffNum;
+
 	printf("===>>readTime:%.3f, %.3f\n", issueTime, strTime.enqueueReadBuffer);
 	strTime.enqueueReadBuffer += issueTime;
 
 	timerStart();
-	for (i = 0; i < tmpNum; i++)
+	for (i = 0; i < buffNum * usedDeviceNum; i++)
 	{
-		clReleaseMemObject(deviceMem[i]);
+		clReleaseMemObject(deviceMems[i]);
 	}
 	timerEnd();
 	strTime.releaseMemObj += elapsedTime();
-    strTime.numReleaseMemObj += buffNum;
 
 	for (i = 0; i < buffNum; i++)
 	{
@@ -200,16 +255,27 @@ int main(int argc, char **argv)
 	}
 
 	timerStart();
-	clReleaseCommandQueue(hCmdQueue);
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		clReleaseCommandQueue(hCmdQueues[i]);
+	}
 	timerEnd();
 	strTime.releaseCmdQueue = elapsedTime();
-	strTime.numReleaseCmdQueue++;
 
 	timerStart();
-	clReleaseContext(hContext);
+	for (i = 0; i < usedDeviceNum; i++)
+	{
+		clReleaseContext(hContexts[i]);
+	}
 	timerEnd();
 	strTime.releaseContext = elapsedTime();
-	strTime.numReleaseContext++;
+
+	free(platformIDs);
+	free(deviceNums);
+	free(deviceIDs);
+	free(hContexts);
+	free(hCmdQueues);
+	free(deviceMems);
 
 	pfile = fopen("bandWidth.txt", "at");
 	if (pfile == NULL)
@@ -219,11 +285,11 @@ int main(int argc, char **argv)
 	}
 
 	printf("%.1fKB\t\%d\t%.3f\t%.3f\n", megaBytes, buffNum, 
-			buffSize * buffNum/strTime.enqueueWriteBuffer/1000000.0,
-			buffSize * buffNum/strTime.enqueueReadBuffer/1000000.0);
+			buffSize * buffNum * usedDeviceNum/strTime.enqueueWriteBuffer/1000000.0,
+			buffSize * buffNum * usedDeviceNum/strTime.enqueueReadBuffer/1000000.0);
 	fprintf(pfile, "%.1fKB\t\%d\t%.3f\t%.3f\n", megaBytes, buffNum, 
-			buffSize * buffNum/strTime.enqueueWriteBuffer/1000000.0,
-			buffSize * buffNum/strTime.enqueueReadBuffer/1000000.0);
+			buffSize * buffNum * usedDeviceNum/strTime.enqueueWriteBuffer/1000000.0,
+			buffSize * buffNum * usedDeviceNum/strTime.enqueueReadBuffer/1000000.0);
 	fclose(pfile);
 
 	return 0;
