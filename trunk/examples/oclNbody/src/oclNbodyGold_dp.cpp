@@ -13,9 +13,10 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // export C interface
-extern "C" void computeGold( double* reference, double* idata, const unsigned int len);
+extern "C" void computeGold(double *reference, double *idata, const unsigned int len);
 
-void bodyBodyInteraction(double accel[3], double posMass0[4], double posMass1[4], double softeningSquared) 
+void bodyBodyInteraction(double accel[3], double posMass0[4], double posMass1[4],
+                         double softeningSquared)
 {
     double r[3];
 
@@ -30,7 +31,7 @@ void bodyBodyInteraction(double accel[3], double posMass0[4], double posMass1[4]
 
     // invDistCube =1/distSqr^(3/2)  [4 FLOPS (2 mul, 1 sqrt, 1 inv)]
     double invDist = 1.0f / sqrtf(distSqr);
-	double invDistCube =  invDist * invDist * invDist;
+    double invDistCube = invDist * invDist * invDist;
 
     // s = m_j * invDistCube [1 FLOP]
     double s = posMass1[3] * invDistCube;
@@ -48,27 +49,23 @@ void bodyBodyInteraction(double accel[3], double posMass0[4], double posMass1[4]
 //! @param idata      input data as provided to device
 //! @param len        number of elements in reference / idata
 ////////////////////////////////////////////////////////////////////////////////
-void computeGold( double* force, double* pos, const unsigned int numBodies, double softeningSquared) 
+void computeGold(double *force, double *pos, const unsigned int numBodies,
+                 double softeningSquared)
 {
-    for(unsigned int i = 0; i < numBodies; ++i)
-    {
-        force[i*4  ] = 0;
-		force[i*4+1] = 0;
-		force[i*4+2] = 0;
-		force[i*4+3] = 0;
+    for (unsigned int i = 0; i < numBodies; ++i) {
+        force[i * 4] = 0;
+        force[i * 4 + 1] = 0;
+        force[i * 4 + 2] = 0;
+        force[i * 4 + 3] = 0;
     }
 
-    for(unsigned int i = 0; i < numBodies; ++i) 
-    {
-        for(unsigned int j = 0; j < numBodies; ++j) 
-	    {
-	        double f[4];		
-	        bodyBodyInteraction(f, &pos[j*4], &pos[i*4], softeningSquared);	
-	        for (int k = 0; k < 3; ++k)
-	        {
-	            force[i*4+k] += f[k];
-	        }
-	    }
+    for (unsigned int i = 0; i < numBodies; ++i) {
+        for (unsigned int j = 0; j < numBodies; ++j) {
+            double f[4];
+            bodyBodyInteraction(f, &pos[j * 4], &pos[i * 4], softeningSquared);
+            for (int k = 0; k < 3; ++k) {
+                force[i * 4 + k] += f[k];
+            }
+        }
     }
 }
-

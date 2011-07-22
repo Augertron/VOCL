@@ -135,6 +135,7 @@ int main(int argc, char** argv)
     int q = 1;              // workgroup Y dimension
 	int i, deviceNo = 0, index;
 	bool bUseAllDevices = false;
+	struct timeval t1, t2;
 
     // latch the executable path for other funcs to use
     cExecutablePath = argv[0];
@@ -317,12 +318,18 @@ int main(int argc, char** argv)
 
 	//data transmission
 	timerStart();
+	gettimeofday(&t1, NULL);
 	for (iterNo = 0; iterNo < numIterations; iterNo++)
 	{
-		for (i = 0; i < deviceNumUsed; i++)
-		{
+		for (i = 0; i < deviceNumUsed; i++) {
 			copyDataH2D(nbody[i], i);
+		}
+
+		for (i = 0; i < deviceNumUsed; i++) {
 			RunProfiling(100, (unsigned int)(p * q), i);  // 100 iterations
+		}
+
+		for (i = 0; i < deviceNumUsed; i++) {
 			copyDataD2H(nbody[i]);
 		}
 	}
@@ -331,8 +338,9 @@ int main(int argc, char** argv)
 	{
 		nbody[i]->synchronizeThreads();
 	}
+	gettimeofday(&t2, NULL);
 	timerEnd();
-	strTime.kernelExecution += elapsedTime();
+	strTime.kernelExecution = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
 
     // Cleanup/exit 
     Cleanup(EXIT_SUCCESS);
