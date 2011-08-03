@@ -10,6 +10,7 @@ typedef struct voclLibMemory {
 
 typedef struct voclLibCmdQueue {
 	cl_command_queue cmdQueue;
+	cl_uint kernelNumInCmdQueue;
 	struct voclLibCmdQueue *next;
 } LIB_CMD_QUEUE;
 

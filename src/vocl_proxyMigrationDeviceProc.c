@@ -4,8 +4,9 @@
 #include "vocl_proxyMigrationDeviceProc.h"
 
 VOCL_PROXY_DEVICE *voclProxyDevicePtr = NULL;
-
-/* device operations */
+/******************************************************************************/
+/*                         device operations                                  */
+/******************************************************************************/
 void voclProxyCreateDevice(cl_device_id device, size_t globalSize)
 {
 	VOCL_PROXY_DEVICE *devicePtr = (VOCL_PROXY_DEVICE *)malloc(sizeof(VOCL_PROXY_DEVICE));
@@ -188,7 +189,9 @@ int voclProxyIsDeviceExist(cl_device_id device)
 	}
 }
 
-/* command queue operations */
+/******************************************************************************/
+/*                      command queue operations                              */
+/******************************************************************************/
 void voclProxyUpdateCmdQueueOnDevicePtr(VOCL_PROXY_DEVICE *devicePtr, cl_command_queue cmdQueue)
 {
 	PROXY_CMD_QUEUE *cmdQueuePtr, *curCmdQueuePtr;
@@ -208,6 +211,7 @@ void voclProxyUpdateCmdQueueOnDevicePtr(VOCL_PROXY_DEVICE *devicePtr, cl_command
 	{
 		cmdQueuePtr = (PROXY_CMD_QUEUE *)malloc(sizeof(PROXY_CMD_QUEUE));
 		cmdQueuePtr->cmdQueue = cmdQueue;
+		cmdQueuePtr->kernelNumInCmdQueue = 0;
 		cmdQueuePtr->next = devicePtr->cmdQueuePtr;
 		devicePtr->cmdQueuePtr = cmdQueuePtr;
 		devicePtr->cmdQueueNum++;
@@ -308,14 +312,93 @@ void voclProxyReleaseCommandQueue(cl_command_queue cmdQueue)
 	return;
 }
 
-int voclProxyGetCommandQueueNum(cl_command_queue cmdQueue)
+/******************************************************************************/
+/* for the management of kernel numbers in a command queue */
+/******************************************************************************/
+PROXY_CMD_QUEUE *voclProxyGetCmdQueuePtrFromCmdQueue(cl_command_queue cmdQueue)
 {
-	VOCL_PROXY_DEVICE *devicePtr = voclProxyGetDeviceIDFromCmdQueue(cmdQueue);
-	return devicePtr->cmdQueueNum;
+	PROXY_CMD_QUEUE *cmdQueuePtr;
+	VOCL_PROXY_DEVICE *devicePtr = voclProxyDevicePtr;
+	while (devicePtr != NULL)
+	{
+		cmdQueuePtr = devicePtr->cmdQueuePtr;
+		while (cmdQueuePtr != NULL)
+		{
+			if (cmdQueue == cmdQueuePtr->cmdQueue)
+			{
+				break;
+			}
+			cmdQueuePtr = cmdQueuePtr->next;
+		}
+
+		if (cmdQueuePtr != NULL)
+		{
+			break;
+		}
+		else
+		{
+			devicePtr = devicePtr->next;
+		}
+	}
+
+	if (devicePtr == NULL)
+	{
+		printf("voclProxyGetDeviceIDFromCmdQueue, command queue does not exist!\n");
+		exit (1);
+	}
+
+	return cmdQueuePtr;
 }
 
+/*increase the number of kernels in the command queue */
+void voclProxyIncreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum)
+{
+	PROXY_CMD_QUEUE *cmdQueuePtr;
+	cmdQueuePtr = voclProxyGetCmdQueuePtrFromCmdQueue(cmdQueue);
+	cmdQueuePtr->kernelNumInCmdQueue += kernelNum;
+}
 
-/* memory operations */
+void voclProxyDecreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum)
+{
+	PROXY_CMD_QUEUE *cmdQueuePtr;
+	cmdQueuePtr = voclProxyGetCmdQueuePtrFromCmdQueue(cmdQueue);
+	cmdQueuePtr->kernelNumInCmdQueue -= kernelNum;
+}
+
+void voclProxyResetKernelNumInCmdQueue(cl_command_queue cmdQueue)
+{
+	PROXY_CMD_QUEUE *cmdQueuePtr;
+	cmdQueuePtr = voclProxyGetCmdQueuePtrFromCmdQueue(cmdQueue);
+	cmdQueuePtr->kernelNumInCmdQueue = 0;
+}
+
+void voclProxyGetDeviceKernelNums(struct strDeviceKernelNums *kernelNums)
+{
+    VOCL_PROXY_DEVICE *devicePtr;
+    PROXY_CMD_QUEUE *cmdQueuePtr;
+
+    kernelNums->deviceNum = 0;
+    devicePtr = voclProxyDevicePtr;
+    while (devicePtr != NULL)
+    {
+        kernelNums->deviceIDs[kernelNums->deviceNum] = devicePtr->device;
+        cmdQueuePtr = devicePtr->cmdQueuePtr;
+        kernelNums->kernelNums[kernelNums->deviceNum] = 0;
+        while (cmdQueuePtr != NULL)
+        {
+            kernelNums->kernelNums[kernelNums->deviceNum] += cmdQueuePtr->kernelNumInCmdQueue;
+            cmdQueuePtr = cmdQueuePtr->next;
+        }
+        kernelNums->deviceNum++;
+        devicePtr = devicePtr->next;
+    }
+
+    return;
+}
+
+/******************************************************************************/
+/* memory management operations for devices on each proxy process */
+/******************************************************************************/
 void voclProxyUpdateMemoryOnDevice(VOCL_PROXY_DEVICE *devicePtr, cl_mem mem, size_t size)
 {
 	PROXY_MEM *memPtr, *curMemPtr;

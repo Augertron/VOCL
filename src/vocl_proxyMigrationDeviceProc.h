@@ -10,6 +10,7 @@ typedef struct voclProxyMemory {
 
 typedef struct voclProxyCmdQueue {
 	cl_command_queue cmdQueue;
+	cl_uint kernelNumInCmdQueue;
 	struct voclProxyCmdQueue *next;
 } PROXY_CMD_QUEUE;
 
