@@ -16,7 +16,9 @@ extern kernel_info *getKernelPtr(cl_kernel kernel);
 
 VOCL_LIB_DEVICE *voclLibDevicePtr = NULL;
 
-/* device operations */
+/******************************************************************************/
+/*                       device operations                                    */
+/******************************************************************************/
 void voclLibCreateDevice(cl_device_id device, size_t globalSize)
 {
 	VOCL_LIB_DEVICE *devicePtr = (VOCL_LIB_DEVICE *)malloc(sizeof(VOCL_LIB_DEVICE));
@@ -177,7 +179,9 @@ void voclLibGetDeviceCmdQueueNums(struct strDeviceCmdQueueNums *cmdQueueNums)
 	return;
 }
 
-/* command queue operations */
+/******************************************************************************/
+/*                    command queue operations                                */
+/******************************************************************************/
 void voclLibUpdateCmdQueueOnDevicePtr(VOCL_LIB_DEVICE *devicePtr, cl_command_queue cmdQueue)
 {
 	LIB_CMD_QUEUE *cmdQueuePtr, *curCmdQueuePtr;
@@ -197,6 +201,7 @@ void voclLibUpdateCmdQueueOnDevicePtr(VOCL_LIB_DEVICE *devicePtr, cl_command_que
 	{
 		cmdQueuePtr = (LIB_CMD_QUEUE *)malloc(sizeof(LIB_CMD_QUEUE));
 		cmdQueuePtr->cmdQueue = cmdQueue;
+		cmdQueuePtr->kernelNumInCmdQueue = 0;
 		cmdQueuePtr->next = devicePtr->cmdQueuePtr;
 		devicePtr->cmdQueuePtr = cmdQueuePtr;
 		devicePtr->cmdQueueNum++;
@@ -210,7 +215,6 @@ void voclLibUpdateCmdQueueOnDeviceID(cl_device_id device, cl_command_queue cmdQu
 	VOCL_LIB_DEVICE *devicePtr = voclLibGetDevicePtr(device);
 	voclLibUpdateCmdQueueOnDevicePtr(devicePtr, cmdQueue);
 }
-
 
 VOCL_LIB_DEVICE *voclLibGetDeviceIDFromCmdQueue(cl_command_queue cmdQueue)
 {
@@ -298,7 +302,92 @@ void voclLibReleaseCommandQueue(cl_command_queue cmdQueue)
 	return;
 }
 
-/* memory operations */
+/******************************************************************************/
+/*               management of kernel num in a command queue                  */
+/******************************************************************************/
+LIB_CMD_QUEUE *voclLibGetCmdQueuePtrFromCmdQueue(cl_command_queue cmdQueue)
+{
+	LIB_CMD_QUEUE *cmdQueuePtr;
+	VOCL_LIB_DEVICE *devicePtr = voclLibDevicePtr;
+	while (devicePtr != NULL)
+	{
+		cmdQueuePtr = devicePtr->cmdQueuePtr;
+		while (cmdQueuePtr != NULL)
+		{
+			if (cmdQueue == cmdQueuePtr->cmdQueue)
+			{
+				break;
+			}
+			cmdQueuePtr = cmdQueuePtr->next;
+		}
+
+		if (cmdQueuePtr != NULL)
+		{
+			break;
+		}
+		else
+		{
+			devicePtr = devicePtr->next;
+		}
+	}
+
+	if (devicePtr == NULL)
+	{
+		printf("voclLibGetDeviceIDFromCmdQueue, command queue does not exist!\n");
+		exit (1);
+	}
+
+	return cmdQueuePtr;
+}
+
+void voclLibIncreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum)
+{
+    LIB_CMD_QUEUE *cmdQueuePtr;
+    cmdQueuePtr = voclLibGetCmdQueuePtrFromCmdQueue(cmdQueue);
+    cmdQueuePtr->kernelNumInCmdQueue += kernelNum;
+}
+
+void voclLibDecreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum)
+{
+    LIB_CMD_QUEUE *cmdQueuePtr;
+    cmdQueuePtr = voclLibGetCmdQueuePtrFromCmdQueue(cmdQueue);
+    cmdQueuePtr->kernelNumInCmdQueue -= kernelNum;
+}
+
+void voclLibResetKernelNumInCmdQueue(cl_command_queue cmdQueue)
+{
+    LIB_CMD_QUEUE *cmdQueuePtr;
+    cmdQueuePtr = voclLibGetCmdQueuePtrFromCmdQueue(cmdQueue);
+    cmdQueuePtr->kernelNumInCmdQueue = 0;
+}
+
+void voclLibGetDeviceKernelNums(struct strDeviceKernelNums *kernelNums)
+{
+    VOCL_LIB_DEVICE *devicePtr;
+	LIB_CMD_QUEUE *cmdQueuePtr;
+
+    kernelNums->deviceNum = 0;
+    devicePtr = voclLibDevicePtr;
+    while (devicePtr != NULL)
+    {
+        kernelNums->deviceIDs[kernelNums->deviceNum] = devicePtr->device;
+		cmdQueuePtr = devicePtr->cmdQueuePtr;
+		kernelNums->kernelNums[kernelNums->deviceNum] = 0;
+		while (cmdQueuePtr != NULL)
+		{
+        	kernelNums->kernelNums[kernelNums->deviceNum] += cmdQueuePtr->kernelNumInCmdQueue;
+			cmdQueuePtr = cmdQueuePtr->next;
+		}
+        kernelNums->deviceNum++;
+        devicePtr = devicePtr->next;
+    }
+
+	return;
+}
+
+/******************************************************************************/
+/*             management of global memory usage on the local node            */
+/******************************************************************************/
 void voclLibUpdateMemoryOnDevice(VOCL_LIB_DEVICE *devicePtr, cl_mem mem, size_t size)
 {
 	LIB_MEM *memPtr, *curMemPtr;

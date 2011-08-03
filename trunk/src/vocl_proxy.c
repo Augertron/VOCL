@@ -62,6 +62,7 @@ static struct strMigGPUMemoryReadCmpd tmpMigReadMemCmpdRst;
 static struct strMigRemoteGPURWCmpd tmpMigGPUMemRWCmpd;
 static struct strForcedMigration tmpForcedMigration;
 static struct strDeviceCmdQueueNums tmpDeviceCmdQueueNums;
+static struct strDeviceKernelNums tmpDeviceKernelNums;
 /* forced migration status */
 static int forcedMigrationStatus = 0;
 static int voclRankThreshold = 1000;
@@ -203,6 +204,11 @@ extern MPI_Request *voclMigGetWriteRequestPtr(int rank, int index);
 extern int voclMigGetNextWriteBufferIndex(int rank);
 extern int voclMigFinishDataWrite(int rank);
 
+/* management of kernel numbers on the node */
+extern void voclProxyIncreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
+extern void voclProxyDecreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
+extern void voclProxyResetKernelNumInCmdQueue(cl_command_queue cmdQueue);
+
 extern void voclMigReadBufferInitializeAll();
 extern void voclMigReadBufferFinalize();
 extern void voclMigSetReadBufferFlag(int rank, int index, int flag);
@@ -235,6 +241,7 @@ extern void voclProxyReleaseMem(cl_mem mem);
 extern void voclProxyUpdateGlobalMemUsage(cl_command_queue comman_queue, kernel_args * argsPtr,
                                           int argsNum);
 extern void voclProxyGetDeviceCmdQueueNums(struct strDeviceCmdQueueNums *cmdQueueNums);
+extern void voclProxyGetDeviceKernelNums(struct strDeviceKernelNums *kernelNums);
 
 /* functions to manage objects allocated in the proxy process */
 extern void voclProxyObjCountInitialize();
@@ -794,6 +801,9 @@ int main(int argc, char *argv[])
                                           global_work_offset,
                                           global_work_size, local_work_size, args_ptr);
 
+			/* increase the number of kernels in the command queue by 1 */
+			voclProxyIncreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 1);
+
 			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
 			{
             	MPI_Isend(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply),
@@ -894,6 +904,10 @@ int main(int argc, char *argv[])
             processAllWrites(appIndex);
             processAllReads(appIndex);
             mpiOpenCLFinish(&tmpFinish);
+
+			/* all kernels complete their computation */
+			voclProxyResetKernelNumInCmdQueue(tmpFinish.command_queue);
+
             MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, appRank,
                       FINISH_FUNC, appComm[commIndex], curRequest);
 
@@ -1488,6 +1502,12 @@ int main(int argc, char *argv[])
             voclProxyGetDeviceCmdQueueNums(&tmpDeviceCmdQueueNums);
             MPI_Send(&tmpDeviceCmdQueueNums, sizeof(struct strDeviceCmdQueueNums), MPI_BYTE,
                      appRank, LB_GET_CMDQUEUE_NUM, appComm[commIndex]);
+        }
+
+        else if (status.MPI_TAG == LB_GET_KERNEL_NUM) {
+            voclProxyGetDeviceKernelNums(&tmpDeviceKernelNums);
+            MPI_Send(&tmpDeviceKernelNums, sizeof(struct strDeviceKernelNums), MPI_BYTE,
+                     appRank, LB_GET_KERNEL_NUM, appComm[commIndex]);
         }
 
         else if (status.MPI_TAG == PROGRAM_END) {

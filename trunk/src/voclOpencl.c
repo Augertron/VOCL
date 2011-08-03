@@ -220,6 +220,11 @@ extern void voclLibReleaseMem(cl_mem mem);
 void voclLibUpdateGlobalMemUsage(cl_command_queue cmdQueue, kernel_args * argsPtr,
                                  int argsNum);
 
+/* kernel number management */
+void voclLibIncreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
+void voclLibDecreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
+void voclLibResetKernelNumInCmdQueue(cl_command_queue cmdQueue);
+
 /* proxy process name process */
 extern int voclIsOnLocalNode(int index);
 extern void voclSetIndex2NodeMapping(int index, int node);
@@ -1476,6 +1481,9 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
         /* store the global memory usage info */
         voclLibUpdateGlobalMemUsage(tmpEnqueueNDRangeKernel.command_queue,
                                     kernelPtr->args_ptr, kernelPtr->args_num);
+
+		/* increase the number of kernels in the cmdQueue by 1 */
+		voclLibIncreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 1);
     }
     else {
         tmpEnqueueNDRangeKernel.work_dim = work_dim;
@@ -1829,6 +1837,8 @@ cl_int clFinish(cl_command_queue hInCmdQueue)
 
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         tmpFinish.res = dlCLFinish(tmpFinish.command_queue);
+		/* all kernels in the command queue complete their computation */
+		voclLibResetKernelNumInCmdQueue(tmpFinish.command_queue);
     }
     else {
         MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, proxyRank, FINISH_FUNC, proxyComm,
