@@ -196,7 +196,7 @@ void voclProxyDisconnectOneApp(int commIndex)
 	/* issuing connection requests */
 	while (voclAppNo == 0)
 	{
-		sleep(1);
+		usleep(50000);
 	}
 
 	return;

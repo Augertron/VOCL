@@ -41,7 +41,8 @@ vocl_proxy_SOURCES = $(top_srcdir)/src/vocl_proxy.c \
 					 $(top_srcdir)/src/vocl_proxyCommAccept.c \
 					 $(top_srcdir)/src/vocl_proxyMigrationDataTransfer.c \
 					 $(top_srcdir)/src/vocl_proxyMigrationDeviceProc.c \
-					 $(top_srcdir)/src/vocl_proxyKernelArgProc.c
+					 $(top_srcdir)/src/vocl_proxyKernelArgProc.c \
+					 $(top_srcdir)/src/vocl_proxyInternalQueueUp.c
 
 bandwidth_SOURCES = $(top_srcdir)/examples/bandwidth/bandwidth.c \
 	$(top_srcdir)/examples/bandwidth/bw_timer.c

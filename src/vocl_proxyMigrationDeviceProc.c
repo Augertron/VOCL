@@ -343,7 +343,7 @@ PROXY_CMD_QUEUE *voclProxyGetCmdQueuePtrFromCmdQueue(cl_command_queue cmdQueue)
 
 	if (devicePtr == NULL)
 	{
-		printf("voclProxyGetDeviceIDFromCmdQueue, command queue does not exist!\n");
+		printf("voclProxyGetCmdQueuePtrFromCmdQueue, command queue does not exist!\n");
 		exit (1);
 	}
 
