@@ -1,9 +1,11 @@
 #ifndef __VOCL_PROXY_MACRO_H__
 #define __VOCL_PROXY_MACRO_H__
 
+
 #define MAX_CMSG_SIZE @control_msg_size@        /* max control message size */
 typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 
+#define GET_PROXY_COMM_INFO         9
 #define GET_PLATFORM_ID_FUNC        10
 #define GET_DEVICE_ID_FUNC          11
 #define CREATE_CONTEXT_FUNC         12
@@ -60,6 +62,10 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define CMSG_NUM                    50  /* number of buffers for control messages */
 #define DMSG_NUM      				100     /* number of buffers for data messages */
 #define TOTAL_MSG_NUM				(CMSG_NUM + DMSG_NUM)
+
+
+#define SERVICE_NAME_LEN            64
+#define DEFAULT_PROXY_NUM           64
 #define DEFAULT_APP_NUM             20
 
 #define GET_PLATFORM_ID_FUNC1	    10000
@@ -94,7 +100,7 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define ENQ_UNMAP_MEMOBJ_FUNC1      10029
 
 
-/* number of applications supported by each proxy */
+/* default number of applications supported by each proxy */
 #define VOCL_PROXY_APP_NUM 4
 #define MAX_DEVICE_NUM_PER_NODE 10
 

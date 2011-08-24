@@ -53,6 +53,7 @@ extern "C" {
 #define VOCL_MIG_LOCAL_RW_BUF_WTGPUMEM  8
 
 /* for api function identification */
+#define GET_PROXY_COMM_INFO         9
 #define GET_PLATFORM_ID_FUNC        10
 #define GET_DEVICE_ID_FUNC          11
 #define CREATE_CONTEXT_FUNC         12
