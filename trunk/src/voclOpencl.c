@@ -249,6 +249,12 @@ extern int voclGetTaskMigrationCondition();
 extern int voclCheckMigrationInWriteBuffer(cl_command_queue cmdQueue, size_t size);
 extern void voidMigrationHack(int *isMigrated);
 
+
+extern void voclWinInfoInitialize();
+extern void voclWinInfoFinalize();
+extern void voclAddWinInfo(MPI_Comm comm, int proxyRank, char *serviceName);
+extern void voclWinInfoFree(int proxyIndex);
+
 /*******************************************************************/
 /* for Opencl object count processing */
 static unsigned int *voclObjCountPtr = NULL;
@@ -314,6 +320,8 @@ void voclFinalize()
         /* only for remote node */
         if (voclIsOnLocalNode(i) == VOCL_FALSE) {
             MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
+			/* free the window */
+			voclWinInfoFree(i);
             MPI_Comm_disconnect(&voclProxyComm[i]);
             MPI_Comm_disconnect(&voclProxyCommData[i]);
         }
@@ -344,6 +352,9 @@ void voclFinalize()
     finalizeVoclWriteBufferAll();
     finalizeVoclReadBufferAll();
 
+	/* release the window */
+	voclWinInfoFinalize();
+
     /* close opencl lib */
     voclOpenclModuleRelease();
 
@@ -371,6 +382,8 @@ void voclInitialize()
     /* initialize buffer pool for gpu memory reads and writes */
     initializeVoclWriteBufferAll();
     initializeVoclReadBufferAll();
+	
+	voclWinInfoInitialize();
 
     /* initialization for dynamic opencl function call */
     voclOpenclModuleInitialize();
@@ -462,6 +475,9 @@ static void checkSlaveProc()
 
                 /* since MPI_COMM_SELF, rankes of all proxy processes are 0 */
                 voclProxyRank[i] = 0;
+
+				/* create a window for data access by the proxy process */
+				voclAddWinInfo(voclProxyComm[i], voclProxyRank[i], serviceName);
             }
             else { 
                 /* lcoal gpu retrieve global memory info */

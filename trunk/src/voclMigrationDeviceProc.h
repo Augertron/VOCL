@@ -24,4 +24,6 @@ typedef struct strVoclLibDevice {
 	struct strVoclLibDevice *next;
 } VOCL_LIB_DEVICE;
 
+
+
 #endif

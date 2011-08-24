@@ -7,6 +7,11 @@
 extern "C" {
 #endif
 
+	struct strGetProxyCommInfo {
+		int proxyRank;
+		MPI_Comm comm;
+	};
+
     struct strGetPlatformIDs {
         cl_uint num_entries;
         cl_platform_id *platforms;

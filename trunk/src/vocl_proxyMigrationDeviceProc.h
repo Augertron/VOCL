@@ -24,4 +24,5 @@ typedef struct strVoclProxyDevice {
 	struct strVoclProxyDevice *next;
 } VOCL_PROXY_DEVICE;
 
+
 #endif

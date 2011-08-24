@@ -229,9 +229,7 @@ void *proxyEnqueueThread(void *p)
 		if (appIndex >= voclProxyAppNum)
 		{
 			voclProxyNumOfKernelsLaunched = (int *)realloc(voclProxyNumOfKernelsLaunched, sizeof(int) * 2 * appIndex);
-			//voclProxyNumOfKernelsCompleted = (int *)realloc(voclProxyNumOfKernelsCompleted, sizeof(int) * 2 * appIndex);
 			memset(&voclProxyNumOfKernelsLaunched[voclProxyAppNum], 0, sizeof(int) * (2 * appIndex - voclProxyAppNum));
-			//memset(&voclProxyNumOfKernelsCompleted[voclProxyAppNum], 0, sizeof(int) * (2 * appIndex - voclProxyAppNum));
 			voclProxyAppNum = appIndex * 2;
 		}
 			
@@ -374,8 +372,8 @@ void *proxyEnqueueThread(void *p)
 
 			/* update global memory usage on the device */
 			//printf("kernelLaunch, cmdQueue = %p\n", tmpEnqueueNDRangeKernel.command_queue);
-			voclProxyUpdateGlobalMemUsage(tmpEnqueueNDRangeKernel.command_queue,
-										  args_ptr, tmpEnqueueNDRangeKernel.args_num);
+			//voclProxyUpdateGlobalMemUsage(tmpEnqueueNDRangeKernel.command_queue,
+			//							  args_ptr, tmpEnqueueNDRangeKernel.args_num);
 
 			/* if there are data received, but not write to */
 			/* the GPU memory yet, use the helper thread to */

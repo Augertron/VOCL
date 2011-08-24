@@ -10,6 +10,11 @@
 #include <sched.h>
 #include "vocl_proxy_macro.h"
 
+struct strGetProxyCommInfo {
+    int proxyRank;
+	MPI_Comm comm;
+};
+
 struct strGetPlatformIDs {
     cl_uint num_entries;
     cl_platform_id *platforms;
@@ -401,7 +406,7 @@ struct strDeviceCmdQueueNums {
 	int cmdQueueNums[MAX_DEVICE_NUM_PER_NODE];
 };
 
-struct strDeviceKernelNums {
+struct strKernelNumOnDevice {
 	int deviceNum;
 	cl_device_id deviceIDs[MAX_DEVICE_NUM_PER_NODE];
 	int kernelNums[MAX_DEVICE_NUM_PER_NODE];
@@ -456,7 +461,7 @@ union CMSG_UNION {
 	struct strMigRemoteGPURWCmpd tmpMigGPUMemRWCmpd;
 	struct strForcedMigration tmpForcedMigration;
 	struct strDeviceCmdQueueNums tmpDeviceCmdQueueNums;
-	struct strDeviceKernelNums tmpDeviceKernelNums;
+	struct strKernelNumOnDevice tmpKernelNumOnDevice;
 } CONTROL_MSG_UNION;
 
 #endif

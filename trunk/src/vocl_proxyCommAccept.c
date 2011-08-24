@@ -116,6 +116,11 @@ static int voclGetAppIndex()
 	}
 }
 
+int voclIsCommUsed(int appIndex)
+{
+	return voclCommUsedFlag[appIndex];
+}
+
 /* a new app process is connected */
 void voclIssueConMsgIrecv(int index)
 {
@@ -196,6 +201,7 @@ void voclProxyDisconnectOneApp(int commIndex)
 	/* issuing connection requests */
 	while (voclAppNo == 0)
 	{
+		printf("proxy9\n");
 		usleep(50000);
 	}
 

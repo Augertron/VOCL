@@ -351,28 +351,28 @@ PROXY_CMD_QUEUE *voclProxyGetCmdQueuePtrFromCmdQueue(cl_command_queue cmdQueue)
 }
 
 /*increase the number of kernels in the command queue */
-void voclProxyIncreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum)
+void voclProxyIncreaseKernelNumInCmdQueueMig(cl_command_queue cmdQueue, int kernelNum)
 {
 	PROXY_CMD_QUEUE *cmdQueuePtr;
 	cmdQueuePtr = voclProxyGetCmdQueuePtrFromCmdQueue(cmdQueue);
 	cmdQueuePtr->kernelNumInCmdQueue += kernelNum;
 }
 
-void voclProxyDecreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum)
+void voclProxyDecreaseKernelNumInCmdQueueMig(cl_command_queue cmdQueue, int kernelNum)
 {
 	PROXY_CMD_QUEUE *cmdQueuePtr;
 	cmdQueuePtr = voclProxyGetCmdQueuePtrFromCmdQueue(cmdQueue);
 	cmdQueuePtr->kernelNumInCmdQueue -= kernelNum;
 }
 
-void voclProxyResetKernelNumInCmdQueue(cl_command_queue cmdQueue)
+void voclProxyResetKernelNumInCmdQueueMig(cl_command_queue cmdQueue)
 {
 	PROXY_CMD_QUEUE *cmdQueuePtr;
 	cmdQueuePtr = voclProxyGetCmdQueuePtrFromCmdQueue(cmdQueue);
 	cmdQueuePtr->kernelNumInCmdQueue = 0;
 }
 
-void voclProxyGetDeviceKernelNums(struct strDeviceKernelNums *kernelNums)
+void voclProxyGetDeviceKernelNumsMig(struct strKernelNumOnDevice *kernelNums)
 {
     VOCL_PROXY_DEVICE *devicePtr;
     PROXY_CMD_QUEUE *cmdQueuePtr;
