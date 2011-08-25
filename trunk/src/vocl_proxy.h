@@ -400,12 +400,6 @@ struct strForcedMigration {
 	int res;
 };
 
-struct strDeviceCmdQueueNums {
-	int deviceNum;
-	cl_device_id deviceIDs[MAX_DEVICE_NUM_PER_NODE];
-	int cmdQueueNums[MAX_DEVICE_NUM_PER_NODE];
-};
-
 struct strKernelNumOnDevice {
 	int deviceNum;
 	cl_device_id deviceIDs[MAX_DEVICE_NUM_PER_NODE];
@@ -460,7 +454,6 @@ union CMSG_UNION {
 	struct strMigRemoteGPUMemoryRW tmpMigGPUMemRW;
 	struct strMigRemoteGPURWCmpd tmpMigGPUMemRWCmpd;
 	struct strForcedMigration tmpForcedMigration;
-	struct strDeviceCmdQueueNums tmpDeviceCmdQueueNums;
 	struct strKernelNumOnDevice tmpKernelNumOnDevice;
 } CONTROL_MSG_UNION;
 
