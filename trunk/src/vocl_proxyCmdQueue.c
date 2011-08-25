@@ -137,7 +137,7 @@ void voclProxyAddMemToCmdQueue(cl_command_queue command_queue, str_vocl_proxy_me
 		cmdQueuePtr->memNo++;
 
 		/* check whether memptr buffer is enough */
-		if (cmdQueuePtr->memNo == cmdQueuePtr->memNum)
+		if (cmdQueuePtr->memNo >= cmdQueuePtr->memNum)
 		{
 			cmdQueuePtr->memPtr = (str_vocl_proxy_mem **)realloc(cmdQueuePtr->memPtr, sizeof(str_vocl_proxy_mem *) * cmdQueuePtr->memNum * 2);
 			memset(&cmdQueuePtr->memPtr[cmdQueuePtr->memNum], 0, sizeof(str_vocl_proxy_mem *) * cmdQueuePtr->memNum);
@@ -168,7 +168,7 @@ void voclProxyAddKernelToCmdQueue(cl_command_queue command_queue, str_vocl_proxy
 		cmdQueuePtr->kernelNo++;
 
 		/* check whether memptr buffer is enough */
-		if (cmdQueuePtr->kernelNo == cmdQueuePtr->kernelNum)
+		if (cmdQueuePtr->kernelNo >= cmdQueuePtr->kernelNum)
 		{
 			cmdQueuePtr->kernelPtr = (str_vocl_proxy_kernel **)realloc(cmdQueuePtr->kernelPtr, sizeof(str_vocl_proxy_kernel *) * cmdQueuePtr->kernelNum * 2);
 			memset(&cmdQueuePtr->memPtr[cmdQueuePtr->kernelNum], 0, sizeof(str_vocl_proxy_kernel *) * cmdQueuePtr->kernelNum);
