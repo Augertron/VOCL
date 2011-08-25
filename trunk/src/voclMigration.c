@@ -2,7 +2,6 @@
 #include "voclOpencl.h"
 #include "voclStructures.h"
 #include "voclKernelArgProc.h"
-#include "voclMigrationDeviceProc.h"
 
 #define VOCL_MIG_CHECK_ERR(err, str) \
 	if (err != CL_SUCCESS)  \
@@ -75,8 +74,6 @@ extern void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIn
                                  vocl_context context);
 extern cl_int clMigReleaseOldMemObject(vocl_mem memobj);
 extern int voclMemGetMigrationStatus(vocl_mem mem);
-extern VOCL_LIB_DEVICE *voclLibGetDeviceIDFromCmdQueue(cl_command_queue cmdQueue);
-extern void voclLibUpdateMemoryOnDevice(VOCL_LIB_DEVICE *devicePtr, cl_mem mem, size_t size);
 extern cl_command_queue voclVOCLCommandQueue2OldCLCommandQueueComm(vocl_command_queue command_queue,
                                                             int *proxyRank, int *proxyIndex,
                                                             MPI_Comm * proxyComm,
