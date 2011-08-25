@@ -163,21 +163,21 @@ VOCL_LIB_DEVICE *voclLibGetDevicePtr(cl_device_id device)
 	return devicePtr;
 }
 
-void voclLibGetDeviceCmdQueueNums(struct strDeviceCmdQueueNums *cmdQueueNums)
-{
-    VOCL_LIB_DEVICE *devicePtr;
-    cmdQueueNums->deviceNum = 0;
-    devicePtr = voclLibDevicePtr;
-    while (devicePtr != NULL)
-    {
-        cmdQueueNums->deviceIDs[cmdQueueNums->deviceNum] = devicePtr->device;
-        cmdQueueNums->cmdQueueNums[cmdQueueNums->deviceNum] = devicePtr->cmdQueueNum;
-        cmdQueueNums->deviceNum++;
-        devicePtr = devicePtr->next;
-    }
-
-	return;
-}
+//void voclLibGetDeviceCmdQueueNums(struct strDeviceCmdQueueNums *cmdQueueNums)
+//{
+//    VOCL_LIB_DEVICE *devicePtr;
+//    cmdQueueNums->deviceNum = 0;
+//    devicePtr = voclLibDevicePtr;
+//    while (devicePtr != NULL)
+//    {
+//        cmdQueueNums->deviceIDs[cmdQueueNums->deviceNum] = devicePtr->device;
+//        cmdQueueNums->cmdQueueNums[cmdQueueNums->deviceNum] = devicePtr->cmdQueueNum;
+//        cmdQueueNums->deviceNum++;
+//        devicePtr = devicePtr->next;
+//    }
+//
+//	return;
+//}
 
 /******************************************************************************/
 /*                    command queue operations                                */
