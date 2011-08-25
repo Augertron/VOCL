@@ -103,9 +103,8 @@ extern "C" {
 #define MIG_SAME_REMOTE_NODE_CMPLD  56
 #define MIGRATION_CHECK             57
 #define FORCED_MIGRATION            58
-#define LB_GET_CMDQUEUE_NUM         59
-#define LB_GET_KERNEL_NUM           60
-#define PROGRAM_END                 61
+#define LB_GET_KERNEL_NUM           59
+#define PROGRAM_END                 60
 
 #define CMSG_NUM                    61
 #define DATAMSG_NUM                 100

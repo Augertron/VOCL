@@ -204,12 +204,6 @@ struct voclWriteBuffer {
     struct strWriteBufferInfo voclWriteBufferInfo[VOCL_WRITE_BUFFER_NUM];
 };
 
-struct strDeviceCmdQueueNums {
-	int deviceNum;
-	cl_device_id deviceIDs[MAX_DEVICE_NUM_PER_NODE];
-	int cmdQueueNums[MAX_DEVICE_NUM_PER_NODE];
-};
-
 struct strDeviceKernelNums {
 	int deviceNum;
 	cl_device_id deviceIDs[MAX_DEVICE_NUM_PER_NODE];
