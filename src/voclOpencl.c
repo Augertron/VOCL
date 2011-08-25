@@ -254,6 +254,7 @@ extern void voclWinInfoInitialize();
 extern void voclWinInfoFinalize();
 extern void voclAddWinInfo(MPI_Comm comm, int proxyRank, char *serviceName);
 extern void voclWinInfoFree(int proxyIndex);
+extern void voclPrintWinInfo();
 
 /*******************************************************************/
 /* for Opencl object count processing */

@@ -206,6 +206,7 @@ extern void voclProxyWinInitialize();
 extern void voclProxyWinFinalize();
 extern void voclProxyCreateWin(MPI_Comm comm, int appIndex);
 extern void voclProxyFreeWin(int appIndex);
+extern void voclProxyPrintWinInfo();
 
 /* migration functions */
 extern void voclMigWriteBufferInitializeAll();
@@ -601,6 +602,9 @@ int main(int argc, char *argv[])
 
             free(kernelName);
             MPI_Wait(curRequest, curStatus);
+
+			//debug--------------------
+			voclProxyPrintWinInfo();
         }
 
         else if (status.MPI_TAG == CREATE_BUFFER_FUNC) {

@@ -31,8 +31,6 @@ void voclWinInfoInitialize()
 
 void voclWinInfoFinalize()
 {
-	int i;
-
 	totalVoclWinInfoNum = 0;
 	voclWinInfoNo = 0;
 	free(voclWinInfoPtr);
@@ -88,5 +86,16 @@ void voclAddWinInfo(MPI_Comm comm, int proxyRank, char *serviceName)
 }
 
 
+void voclPrintWinInfo()
+{
+	int i;
+	for (i = 0; i < voclWinInfoNo; i++)
+	{
+		printf("proxyIndex = %d, serviceName = %s, proxyRank = %d, commProxy = %p, commWin = %p\n",
+				i, voclWinInfoPtr[i].serviceName, voclWinInfoPtr[i].proxyRank, 
+				voclWinInfoPtr[i].commProxy, voclWinInfoPtr[i].commWin);
+	}
 
+	return;
+}
 

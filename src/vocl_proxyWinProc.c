@@ -58,6 +58,7 @@ void voclProxyCreateWin(MPI_Comm comm, int appIndex)
 
 void voclProxyFreeWin(int appIndex)
 {
+	/* free the merged MPI communicator */
 	MPI_Comm_free(&voclProxyWinComm[appIndex]);
 	MPI_Win_free(&voclProxyWinPtr[appIndex]);
 }
@@ -76,10 +77,10 @@ void voclProxyPrintWinInfo()
 			MPI_Get(winPtr, sizeof(struct strVoclWinInfo) * (DEFAULT_PROXY_NUM), MPI_BYTE, 0, 0,
 					sizeof(struct strVoclWinInfo) * (DEFAULT_PROXY_NUM), MPI_BYTE, voclProxyWinPtr[i]);
 			MPI_Win_unlock(0, voclProxyWinPtr[i]);
-			printf("AppIndex = %d:\n", i);
-			for (j = 0; j < DEFAULT_PROXY_NUM; j++)
+			//for (j = 0; j < DEFAULT_PROXY_NUM; j++)
+			for (j = 0; j < 2; j++)
 			{
-				printf("\tproxyIndex = %j, serviceName = %s, proxyRank = %d, commProxy = %p, commWin = %p\n", 
+				printf("\tproxyIndex = %d, serviceName = %s, proxyRank = %d, commProxy = %p, commWin = %p\n", 
 						j, winPtr[j].serviceName, winPtr[j].proxyRank, winPtr[j].commProxy, winPtr[j].commWin);
 			}
 		}
