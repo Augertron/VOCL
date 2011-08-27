@@ -3,12 +3,12 @@
 #include "vocl_proxy.h"
 #include "vocl_proxyStructures.h"
 
-static str_vocl_proxy_command_queue *voclProxyCmdQueuePtr = NULL;
+static vocl_proxy_command_queue *voclProxyCmdQueuePtr = NULL;
 
 void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queue_properties properties, cl_context context, cl_device_id deviceID)
 {
-	str_vocl_proxy_command_queue *cmdQueuePtr;
-	cmdQueuePtr = (str_vocl_proxy_command_queue *)malloc(sizeof(str_vocl_proxy_command_queue));
+	vocl_proxy_command_queue *cmdQueuePtr;
+	cmdQueuePtr = (vocl_proxy_command_queue *)malloc(sizeof(vocl_proxy_command_queue));
 	cmdQueuePtr->command_queue = command_queue;
 	cmdQueuePtr->properties = properties;
 	cmdQueuePtr->context = context;
@@ -16,13 +16,13 @@ void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queue_prope
 
 	cmdQueuePtr->memNo = 0;
 	cmdQueuePtr->memNum = 100;
-	cmdQueuePtr->memPtr = (str_vocl_proxy_mem **)malloc(sizeof(str_vocl_proxy_mem *) * cmdQueuePtr->memNum);
-	memset(cmdQueuePtr->memPtr, 0, sizeof(str_vocl_proxy_mem *) * cmdQueuePtr->memNum);
+	cmdQueuePtr->memPtr = (vocl_proxy_mem **)malloc(sizeof(vocl_proxy_mem *) * cmdQueuePtr->memNum);
+	memset(cmdQueuePtr->memPtr, 0, sizeof(vocl_proxy_mem *) * cmdQueuePtr->memNum);
 
 	cmdQueuePtr->kernelNo = 0;
 	cmdQueuePtr->kernelNum = 50;
-	cmdQueuePtr->kernelPtr = (str_vocl_proxy_kernel **)malloc(sizeof(str_vocl_proxy_mem *) * cmdQueuePtr->kernelNum);
-	memset(cmdQueuePtr->kernelPtr, 0, sizeof(str_vocl_proxy_kernel *) * cmdQueuePtr->kernelNum);
+	cmdQueuePtr->kernelPtr = (vocl_proxy_kernel **)malloc(sizeof(vocl_proxy_mem *) * cmdQueuePtr->kernelNum);
+	memset(cmdQueuePtr->kernelPtr, 0, sizeof(vocl_proxy_kernel *) * cmdQueuePtr->kernelNum);
 
 	cmdQueuePtr->kernelNumInCmdQueue = 0;
 
@@ -32,9 +32,9 @@ void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queue_prope
 	return;
 }
 
-str_vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_queue)
+vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_queue)
 {
-	str_vocl_proxy_command_queue *cmdQueuePtr;
+	vocl_proxy_command_queue *cmdQueuePtr;
 	cmdQueuePtr = voclProxyCmdQueuePtr;
 	while (cmdQueuePtr != NULL)
 	{
@@ -55,7 +55,7 @@ str_vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_q
 
 void voclProxyReleaseCommandQueue(cl_command_queue command_queue)
 {
-	str_vocl_proxy_command_queue *cmdQueuePtr, *preCmdQueuePtr;
+	vocl_proxy_command_queue *cmdQueuePtr, *preCmdQueuePtr;
 	/* if the cmdQueue is in the first node */
 	cmdQueuePtr = voclProxyCmdQueuePtr;
 	if (cmdQueuePtr != NULL)
@@ -100,7 +100,7 @@ void voclProxyReleaseCommandQueue(cl_command_queue command_queue)
 
 void voclProxyReleaseAllCommandQueues()
 {
-	str_vocl_proxy_command_queue *cmdQueuePtr, *nextCmdQueuePtr;
+	vocl_proxy_command_queue *cmdQueuePtr, *nextCmdQueuePtr;
 
 	cmdQueuePtr = voclProxyCmdQueuePtr;
 	while (cmdQueuePtr != NULL)
@@ -117,10 +117,10 @@ void voclProxyReleaseAllCommandQueues()
 	return;
 }
 
-void voclProxyAddMemToCmdQueue(cl_command_queue command_queue, str_vocl_proxy_mem *mem)
+void voclProxyAddMemToCmdQueue(cl_command_queue command_queue, vocl_proxy_mem *mem)
 {
 	int i;
-	str_vocl_proxy_command_queue *cmdQueuePtr;
+	vocl_proxy_command_queue *cmdQueuePtr;
 	cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
 
 	for (i = 0; i < cmdQueuePtr->memNo; i++)
@@ -139,8 +139,8 @@ void voclProxyAddMemToCmdQueue(cl_command_queue command_queue, str_vocl_proxy_me
 		/* check whether memptr buffer is enough */
 		if (cmdQueuePtr->memNo >= cmdQueuePtr->memNum)
 		{
-			cmdQueuePtr->memPtr = (str_vocl_proxy_mem **)realloc(cmdQueuePtr->memPtr, sizeof(str_vocl_proxy_mem *) * cmdQueuePtr->memNum * 2);
-			memset(&cmdQueuePtr->memPtr[cmdQueuePtr->memNum], 0, sizeof(str_vocl_proxy_mem *) * cmdQueuePtr->memNum);
+			cmdQueuePtr->memPtr = (vocl_proxy_mem **)realloc(cmdQueuePtr->memPtr, sizeof(vocl_proxy_mem *) * cmdQueuePtr->memNum * 2);
+			memset(&cmdQueuePtr->memPtr[cmdQueuePtr->memNum], 0, sizeof(vocl_proxy_mem *) * cmdQueuePtr->memNum);
 			cmdQueuePtr->memNum *= 2;
 		}
 	}
@@ -148,10 +148,41 @@ void voclProxyAddMemToCmdQueue(cl_command_queue command_queue, str_vocl_proxy_me
 	return;
 }
 
-void voclProxyAddKernelToCmdQueue(cl_command_queue command_queue, str_vocl_proxy_kernel *kernel)
+void voclProxyRemoveMemFromCmdQueue(cl_command_queue command_queue, vocl_proxy_mem *mem)
+{
+	int i, j;
+	vocl_proxy_command_queue *cmdQueuePtr;
+	cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
+
+	for (i = 0; i < cmdQueuePtr->memNo; i++)
+	{
+		if (cmdQueuePtr->memPtr[i] == mem)
+		{
+			break;
+		}
+	}
+
+	if (i == cmdQueuePtr->memNo)
+	{
+		printf("voclProxyRemoveMemFromCmdQueue, memory %p does not exist!\n", mem->mem);
+		exit(1);
+	}
+	else
+	{
+		for (j = i; j < cmdQueuePtr->memNo - 1; j++)
+		{
+			cmdQueuePtr->memPtr[j] = cmdQueuePtr->memPtr[j+1];
+		}
+		cmdQueuePtr->memNo--;
+	}
+
+	return;
+}
+
+void voclProxyAddKernelToCmdQueue(cl_command_queue command_queue, vocl_proxy_kernel *kernel)
 {
 	int i;
-	str_vocl_proxy_command_queue *cmdQueuePtr;
+	vocl_proxy_command_queue *cmdQueuePtr;
 	cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
 
 	for (i = 0; i < cmdQueuePtr->kernelNo; i++)
@@ -170,10 +201,41 @@ void voclProxyAddKernelToCmdQueue(cl_command_queue command_queue, str_vocl_proxy
 		/* check whether memptr buffer is enough */
 		if (cmdQueuePtr->kernelNo >= cmdQueuePtr->kernelNum)
 		{
-			cmdQueuePtr->kernelPtr = (str_vocl_proxy_kernel **)realloc(cmdQueuePtr->kernelPtr, sizeof(str_vocl_proxy_kernel *) * cmdQueuePtr->kernelNum * 2);
-			memset(&cmdQueuePtr->memPtr[cmdQueuePtr->kernelNum], 0, sizeof(str_vocl_proxy_kernel *) * cmdQueuePtr->kernelNum);
+			cmdQueuePtr->kernelPtr = (vocl_proxy_kernel **)realloc(cmdQueuePtr->kernelPtr, sizeof(vocl_proxy_kernel *) * cmdQueuePtr->kernelNum * 2);
+			memset(&cmdQueuePtr->kernelPtr[cmdQueuePtr->kernelNum], 0, sizeof(vocl_proxy_kernel *) * cmdQueuePtr->kernelNum);
 			cmdQueuePtr->kernelNum *= 2;
 		}
+	}
+
+	return;
+}
+
+void voclProxyRemoveKernelFromCmdQueue(cl_command_queue command_queue, vocl_proxy_kernel *kernel)
+{
+	int i, j;
+	vocl_proxy_command_queue *cmdQueuePtr;
+	cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
+
+	for (i = 0; i < cmdQueuePtr->kernelNo; i++)
+	{
+		if (cmdQueuePtr->kernelPtr[i] == kernel)
+		{
+			break;
+		}
+	}
+
+	if (i == cmdQueuePtr->kernelNo)
+	{
+		printf("voclProxyRemoveKernelFromCmdQueue, kernel %p does not exist!\n", kernel->kernel);
+		exit(1);
+	}
+	else
+	{
+		for (j = i; j < cmdQueuePtr->kernelNo - 1; j++)
+		{
+			cmdQueuePtr->kernelPtr[j] = cmdQueuePtr->kernelPtr[j+1];
+		}
+		cmdQueuePtr->kernelNo--;
 	}
 
 	return;
@@ -182,21 +244,21 @@ void voclProxyAddKernelToCmdQueue(cl_command_queue command_queue, str_vocl_proxy
 /*increase the number of kernels in the command queue */
 void voclProxyIncreaseKernelNumInCmdQueue(cl_command_queue command_queue, int kernelNum)
 {
-    str_vocl_proxy_command_queue *cmdQueuePtr;
+    vocl_proxy_command_queue *cmdQueuePtr;
     cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
     cmdQueuePtr->kernelNumInCmdQueue += kernelNum;
 }
 
 void voclProxyDecreaseKernelNumInCmdQueue(cl_command_queue command_queue, int kernelNum)
 {
-    str_vocl_proxy_command_queue *cmdQueuePtr;
+    vocl_proxy_command_queue *cmdQueuePtr;
     cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
     cmdQueuePtr->kernelNumInCmdQueue -= kernelNum;
 }
 
 void voclProxyResetKernelNumInCmdQueue(cl_command_queue command_queue)
 {
-    str_vocl_proxy_command_queue *cmdQueuePtr;
+    vocl_proxy_command_queue *cmdQueuePtr;
     cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
     cmdQueuePtr->kernelNumInCmdQueue = 0;
 }
@@ -204,7 +266,7 @@ void voclProxyResetKernelNumInCmdQueue(cl_command_queue command_queue)
 void voclProxyGetKernelNumsOnDevice(struct strKernelNumOnDevice *kernelNums)
 {
 	int newDeviceFound, i;
-	str_vocl_proxy_command_queue *cmdQueuePtr, *tmpCmdQueuePtr;
+	vocl_proxy_command_queue *cmdQueuePtr, *tmpCmdQueuePtr;
 	cl_device_id deviceID;
 
 	/* obtain the devices used on the node */
