@@ -39,7 +39,13 @@ vocl_proxy_SOURCES = $(top_srcdir)/src/vocl_proxy.c \
 					 $(top_srcdir)/src/vocl_proxyWriteBufferProc.c \
 					 $(top_srcdir)/src/vocl_proxyCommAccept.c \
 					 $(top_srcdir)/src/vocl_proxyMigrationDataTransfer.c \
-					 $(top_srcdir)/src/vocl_proxyWinProc.c
+					 $(top_srcdir)/src/vocl_proxyWinProc.c \
+					 $(top_srcdir)/src/vocl_proxyVirtualGPU.c \
+					 $(top_srcdir)/src/vocl_proxyContext.c \
+					 $(top_srcdir)/src/vocl_proxyCmdQueue.c \
+					 $(top_srcdir)/src/vocl_proxyProgram.c \
+					 $(top_srcdir)/src/vocl_proxyMemory.c \
+					 $(top_srcdir)/src/vocl_proxyKernel.c
 
 bandwidth_SOURCES = $(top_srcdir)/examples/bandwidth/bandwidth.c \
 	$(top_srcdir)/examples/bandwidth/bw_timer.c

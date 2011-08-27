@@ -2,12 +2,12 @@
 #include <string.h>
 #include "vocl_proxyStructures.h"
 
-static str_vocl_proxy_program *voclProxyProgramPtr = NULL;
+static vocl_proxy_program *voclProxyProgramPtr = NULL;
 
 void voclProxyAddProgram(cl_program program, char *sourceString, size_t sourceSize, int stringNum, size_t *stringSizeArray, cl_context context)
 {
-    str_vocl_proxy_program *programPtr;
-    programPtr = (str_vocl_proxy_program *)malloc(sizeof(str_vocl_proxy_program));
+    vocl_proxy_program *programPtr;
+    programPtr = (vocl_proxy_program *)malloc(sizeof(vocl_proxy_program));
 	programPtr->program = program;
 	programPtr->sourceSize = sourceSize;
 	programPtr->context = context;
@@ -22,15 +22,19 @@ void voclProxyAddProgram(cl_program program, char *sourceString, size_t sourceSi
 	programPtr->stringSizeArray = (size_t *)malloc(stringNum * sizeof(size_t));
 	memcpy(programPtr->stringSizeArray, stringSizeArray, stringNum);
 
+	programPtr->kernelNum = 20;
+	programPtr->kernelNo = 0;
+	programPtr->kernelPtr = (vocl_proxy_kernel **)malloc(sizeof(vocl_proxy_kernel *) * programPtr->kernelNum);
+
     programPtr->next = voclProxyProgramPtr;
     voclProxyProgramPtr = programPtr;
 
     return;
 }
 
-str_vocl_proxy_program *voclProxyGetProgramPtr(cl_program program)
+vocl_proxy_program *voclProxyGetProgramPtr(cl_program program)
 {
-    str_vocl_proxy_program *programPtr;
+    vocl_proxy_program *programPtr;
     programPtr = voclProxyProgramPtr;
     while (programPtr != NULL)
     {
@@ -49,11 +53,108 @@ str_vocl_proxy_program *voclProxyGetProgramPtr(cl_program program)
     return programPtr;
 }
 
+void voclProxyAddKernelToProgram(cl_program program, vocl_proxy_kernel *kernel)
+{
+	int i;
+	vocl_proxy_program *programPtr;
+	programPtr = voclProxyGetProgramPtr(program);
+	for (i = 0; i < programPtr->kernelNo; i++)
+	{
+		if (programPtr->kernelPtr[i] == kernel)
+		{
+			break;
+		}
+	}
+
+	if (i == programPtr->kernelNo)
+	{
+		programPtr->kernelPtr[programPtr->kernelNo] = kernel;
+		programPtr->kernelNo++;
+		if (programPtr->kernelNo >= programPtr->kernelNum)
+		{
+			programPtr->kernelPtr = (vocl_proxy_kernel **)realloc(programPtr->kernelPtr, sizeof(vocl_proxy_kernel *) * programPtr->kernelNum * 2);
+			memset(&programPtr->kernelPtr[programPtr->kernelNum], 0, sizeof(vocl_proxy_kernel *) * programPtr->kernelNum);
+			programPtr->kernelNum *= 2;
+		}
+	}
+
+	return;
+}
+
+void voclProxyRemoveKernelFromProgram(vocl_proxy_kernel *kernel)
+{
+	int i, j;
+	int kernelFound = 0;
+	vocl_proxy_program *programPtr;
+	programPtr = voclProxyProgramPtr;
+	
+	while (programPtr != NULL)
+	{
+		for (i = 0; i < programPtr->kernelNo; i++)
+		{
+			if (programPtr->kernelPtr[i] == kernel)
+			{
+				kernelFound = 1;
+				break;
+			}
+		}
+
+		if (i < programPtr->kernelNo)
+		{
+			for (j = i; j < programPtr->kernelNo - 1; j++)
+			{
+				programPtr->kernelPtr[j] = programPtr->kernelPtr[j+1];
+			}
+			programPtr->kernelNo--;
+		}
+
+		programPtr = programPtr->next;
+	}
+
+	if (kernelFound == 1)
+	{
+        printf("voclProxyRemoveKernelFromProgram, cl_kernel %p does not exist!\n", kernel->kernel);
+        exit(1);
+	}
+
+	return;
+}
+
+void voclProxyRemoveKernelFromProgramSimple(cl_program program, vocl_proxy_kernel *kernel)
+{
+	int i, j;
+	vocl_proxy_program *programPtr;
+	programPtr = voclProxyGetProgramPtr(program);
+	for (i = 0; i < programPtr->kernelNo; i++)
+	{
+		if (programPtr->kernelPtr[i] == kernel)
+		{
+			break;
+		}
+	}
+
+	if (i == programPtr->kernelNo)
+	{
+        printf("voclProxyRemoveKernelFromProgram, cl_kernel %p does not exist!\n", kernel->kernel);
+        exit(1);
+	}
+	else
+	{
+		for (j = i; j < programPtr->kernelNo - 1; j++)
+		{
+			programPtr->kernelPtr[j] = programPtr->kernelPtr[j+1];
+		}
+		programPtr->kernelNo--;
+	}
+
+	return;
+}
+
 void voclProxySetProgramBuildOptions(cl_program program, cl_uint deviceNum, cl_device_id *device_list, char *buildOptions)
 {
 	int buildOptionLen;
-	str_vocl_proxy_program *programPtr;
-	programPtr = voclProxyProgramPtr;
+	vocl_proxy_program *programPtr;
+	programPtr = voclProxyGetProgramPtr(program);
 
 	if (buildOptions != NULL)
 	{
@@ -72,9 +173,29 @@ void voclProxySetProgramBuildOptions(cl_program program, cl_uint deviceNum, cl_d
 	return;
 }
 
+char* voclProxyGetProgramBuildOptions(cl_program program)
+{
+	int buildOptionLen;
+	vocl_proxy_program *programPtr;
+	programPtr = voclProxyGetProgramPtr(program);
+
+	return programPtr->buildOptions;
+}
+
+cl_device_id* voclProxyGetProgramDevices(cl_program program, cl_uint *deviceNum)
+{
+	int buildOptionLen;
+	vocl_proxy_program *programPtr;
+	programPtr = voclProxyGetProgramPtr(program);
+
+	*deviceNum = programPtr->deviceNum;
+
+	return programPtr->device_list;
+}
+
 void voclProxyReleaseProgram(cl_program program)
 {
-    str_vocl_proxy_program *programPtr, *preProgramPtr;
+    vocl_proxy_program *programPtr, *preProgramPtr;
 
     /* if the cmdQueue is in the first node */
 	programPtr = voclProxyProgramPtr;
@@ -89,6 +210,7 @@ void voclProxyReleaseProgram(cl_program program)
 			free(programPtr->stringSizeArray);
 			free(programPtr->buildOptions);
 			free(programPtr->device_list);
+			free(programPtr->kernelPtr);
 			free(programPtr);
 			return;
 		}
@@ -118,6 +240,7 @@ void voclProxyReleaseProgram(cl_program program)
 	free(programPtr->stringSizeArray);
 	free(programPtr->buildOptions);
 	free(programPtr->device_list);
+	free(programPtr->kernelPtr);
     free(programPtr);
 
     return;
@@ -125,7 +248,7 @@ void voclProxyReleaseProgram(cl_program program)
 
 void voclProxyReleaseAllPrograms()
 {
-    str_vocl_proxy_program *programPtr, *nextProgramPtr;
+    vocl_proxy_program *programPtr, *nextProgramPtr;
 
     programPtr = voclProxyProgramPtr;
     while (programPtr != NULL)
@@ -135,6 +258,7 @@ void voclProxyReleaseAllPrograms()
 		free(programPtr->stringSizeArray);
 		free(programPtr->buildOptions);
 		free(programPtr->device_list);
+		free(programPtr->kernelPtr);
         free(programPtr);
         programPtr = nextProgramPtr;
     }

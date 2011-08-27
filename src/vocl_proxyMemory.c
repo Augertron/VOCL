@@ -2,13 +2,13 @@
 #include <string.h>
 #include "vocl_proxyStructures.h"
 
-static str_vocl_proxy_mem *voclProxyMemPtr = NULL;
+static vocl_proxy_mem *voclProxyMemPtr = NULL;
 
 void voclProxyAddMem(cl_mem mem, size_t size, cl_context context)
 {
-    str_vocl_proxy_mem *memPtr;
+    vocl_proxy_mem *memPtr;
 
-    memPtr = (str_vocl_proxy_mem *)malloc(sizeof(str_vocl_proxy_mem));
+    memPtr = (vocl_proxy_mem *)malloc(sizeof(vocl_proxy_mem));
 	memPtr->mem = mem;
 	memPtr->size = size;
 	memPtr->context = context;
@@ -19,9 +19,9 @@ void voclProxyAddMem(cl_mem mem, size_t size, cl_context context)
     return;
 }
 
-str_vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem)
+vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem)
 {
-    str_vocl_proxy_mem *memPtr;
+    vocl_proxy_mem *memPtr;
     memPtr = voclProxyMemPtr;
     while (memPtr != NULL)
     {
@@ -42,7 +42,7 @@ str_vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem)
 
 void voclProxyReleaseMem(cl_mem mem)
 {
-    str_vocl_proxy_mem *memPtr, *preMemPtr;
+    vocl_proxy_mem *memPtr, *preMemPtr;
 
     /* if the cmdQueue is in the first node */
 	memPtr = voclProxyMemPtr;
@@ -85,7 +85,7 @@ void voclProxyReleaseMem(cl_mem mem)
 
 void voclProxyReleaseAllMems()
 {
-    str_vocl_proxy_mem *memPtr, *nextMemPtr;
+    vocl_proxy_mem *memPtr, *nextMemPtr;
 
     memPtr = voclProxyMemPtr;
     while (memPtr != NULL)

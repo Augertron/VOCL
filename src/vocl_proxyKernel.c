@@ -2,14 +2,14 @@
 #include <string.h>
 #include "vocl_proxyStructures.h"
 
-static str_vocl_proxy_kernel *voclProxyKernelPtr = NULL;
+static vocl_proxy_kernel *voclProxyKernelPtr = NULL;
 
 void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program)
 {
-    str_vocl_proxy_kernel *kernelPtr;
+    vocl_proxy_kernel *kernelPtr;
 	int kernelNameLen;
 
-    kernelPtr = (str_vocl_proxy_kernel *)malloc(sizeof(str_vocl_proxy_kernel));
+    kernelPtr = (vocl_proxy_kernel *)malloc(sizeof(vocl_proxy_kernel));
 	kernelPtr->kernel = kernel;
 	kernelPtr->program = program;
 	kernelNameLen = strlen(kernelName);
@@ -22,9 +22,9 @@ void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program)
     return;
 }
 
-str_vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel)
+vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel)
 {
-    str_vocl_proxy_kernel *kernelPtr;
+    vocl_proxy_kernel *kernelPtr;
     kernelPtr = voclProxyKernelPtr;
     while (kernelPtr != NULL)
     {
@@ -45,7 +45,7 @@ str_vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel)
 
 void voclProxyReleaseKernel(cl_kernel kernel)
 {
-    str_vocl_proxy_kernel *kernelPtr, *preKernelPtr;
+    vocl_proxy_kernel *kernelPtr, *preKernelPtr;
 
     /* if the cmdQueue is in the first node */
 	kernelPtr = voclProxyKernelPtr;
@@ -90,7 +90,7 @@ void voclProxyReleaseKernel(cl_kernel kernel)
 
 void voclProxyReleaseAllKernels()
 {
-    str_vocl_proxy_kernel *kernelPtr, *nextKernelPtr;
+    vocl_proxy_kernel *kernelPtr, *nextKernelPtr;
 
     kernelPtr = voclProxyKernelPtr;
     while (kernelPtr != NULL)
