@@ -32,6 +32,7 @@ vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel)
         {
             break;
         }
+		kernelPtr = kernelPtr->next;
     }
 
     if (kernelPtr == NULL)

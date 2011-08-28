@@ -42,6 +42,8 @@ vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_queue
 		{
 			break;
 		}
+
+		cmdQueuePtr = cmdQueuePtr->next;
 	}
 
 	if (cmdQueuePtr == NULL)
