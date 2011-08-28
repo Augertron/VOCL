@@ -42,6 +42,8 @@ vocl_proxy_program *voclProxyGetProgramPtr(cl_program program)
         {
             break;
         }
+
+		programPtr = programPtr->next;
     }
 
     if (programPtr == NULL)
@@ -67,7 +69,7 @@ void voclProxyAddKernelToProgram(cl_program program, vocl_proxy_kernel *kernel)
 	}
 
 	if (i == programPtr->kernelNo)
-	{
+	{	
 		programPtr->kernelPtr[programPtr->kernelNo] = kernel;
 		programPtr->kernelNo++;
 		if (programPtr->kernelNo >= programPtr->kernelNum)
@@ -111,7 +113,7 @@ void voclProxyRemoveKernelFromProgram(vocl_proxy_kernel *kernel)
 		programPtr = programPtr->next;
 	}
 
-	if (kernelFound == 1)
+	if (kernelFound == 0)
 	{
         printf("voclProxyRemoveKernelFromProgram, cl_kernel %p does not exist!\n", kernel->kernel);
         exit(1);

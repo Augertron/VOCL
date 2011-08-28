@@ -8,6 +8,14 @@ void voclProxyAddContext(cl_context context, cl_uint deviceNum, cl_device_id *de
 {
 	vocl_proxy_context *contextPtr;
 	contextPtr = (vocl_proxy_context *)malloc(sizeof(vocl_proxy_context));
+	contextPtr->context = context;
+	contextPtr->deviceNum = deviceNum;
+	contextPtr->devices = NULL;
+	if (deviceNum > 0)
+	{
+		contextPtr->devices = (cl_device_id *)malloc(sizeof(cl_device_id) * deviceNum);
+		memcpy(contextPtr->devices, deviceIDs, sizeof(cl_device_id) * deviceNum);
+	}
 
 	contextPtr->cmdQueueNo = 0;
 	contextPtr->cmdQueueNum = 50;
@@ -40,15 +48,25 @@ vocl_proxy_context *voclProxyGetContextPtr(cl_context context)
 		{
 			break;
 		}
+		contextPtr = contextPtr->next;
 	}
 
 	if (contextPtr == NULL)
 	{
-		printf("voclProxyGetContextPtr, command queue %p does not exist!\n", context);
+		printf("voclProxyGetContextPtr, context %p does not exist!\n", context);
 		exit (1);
 	}
 
 	return contextPtr;
+}
+
+cl_device_id *voclProxyGetDeviceIDsFromContext(cl_context context, cl_uint *deviceNum)
+{
+	vocl_proxy_context *contextPtr;
+	contextPtr = voclProxyGetContextPtr(context);
+	
+	*deviceNum = contextPtr->deviceNum;
+	return contextPtr->devices;
 }
 
 void voclProxyReleaseContext(cl_context context)
@@ -65,6 +83,7 @@ void voclProxyReleaseContext(cl_context context)
 			free(contextPtr->memPtr);
 			free(contextPtr->cmdQueuePtr);
 			free(contextPtr->programPtr);
+			free(contextPtr->devices);
 			free(contextPtr);
 			return;
 		}
@@ -93,6 +112,7 @@ void voclProxyReleaseContext(cl_context context)
 	free(contextPtr->memPtr);
 	free(contextPtr->cmdQueuePtr);
 	free(contextPtr->programPtr);
+	free(contextPtr->devices);
 	free(contextPtr);
 
 	return;
@@ -109,6 +129,7 @@ void voclProxyReleaseAllContexts()
 		free(contextPtr->memPtr);
 		free(contextPtr->cmdQueuePtr);
 		free(contextPtr->programPtr);
+		free(contextPtr->devices);
 		free(contextPtr);
 		contextPtr = nextContextPtr;
 	}

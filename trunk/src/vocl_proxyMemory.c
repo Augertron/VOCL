@@ -29,6 +29,8 @@ vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem)
         {
             break;
         }
+
+		memPtr = memPtr->next;
     }
 
     if (memPtr == NULL)

@@ -25,6 +25,35 @@ void voclProxyAddVirtualGPU(int appIndex, cl_device_id deviceID)
 	return;
 }
 
+void voclProxyPrintVirtualGPUs()
+{
+	int i, j;
+	vocl_virtual_gpu *vgpuPtr;
+	printf("In voclProxyPrintVirtualGPUs>>>>\n");
+	
+	i = 0;
+	vgpuPtr = virtualGPUPtr;
+	while (vgpuPtr != NULL)
+	{
+		printf("virtual GPU %d:\n", i++);
+		printf("\tappIndex = %d, deviceID = %p\n", vgpuPtr->appIndex, vgpuPtr->deviceID);
+		
+		for (j = 0; j < vgpuPtr->contextNo; j++)
+		{
+			printf("\t\tcontext = %p\n", vgpuPtr->contexts[j]);
+		}
+
+		for (j = 0; j < vgpuPtr->cmdQueueNo; j++)
+		{
+			printf("\t\tcommand queue = %p\n", vgpuPtr->cmdQueues[j]);
+		}
+		printf("\n");
+		vgpuPtr = vgpuPtr->next;
+	}
+
+	return;
+}
+
 vocl_virtual_gpu *voclProxyGetVirtualGPUPtr(int appIndex, cl_device_id deviceID)
 {
 	vocl_virtual_gpu *vgpuPtr;
@@ -47,6 +76,67 @@ vocl_virtual_gpu *voclProxyGetVirtualGPUPtr(int appIndex, cl_device_id deviceID)
 	}
 
 	return vgpuPtr;
+}
+
+void voclProxyRemoveVirtualGPU(int appIndex, cl_device_id deviceID)
+{
+	vocl_virtual_gpu *vgpuPtr, *preVgpuPtr;
+
+	vgpuPtr = virtualGPUPtr;
+	if (vgpuPtr != NULL)
+	{
+		if (vgpuPtr->appIndex == appIndex && vgpuPtr->deviceID == deviceID)
+		{
+			virtualGPUPtr = vgpuPtr->next;
+			free(vgpuPtr->contexts);
+			free(vgpuPtr->cmdQueues);
+			free(vgpuPtr);
+
+			return;
+		}
+		
+		preVgpuPtr = vgpuPtr;
+		vgpuPtr = vgpuPtr->next;
+		while (vgpuPtr != NULL)
+		{
+			if (vgpuPtr->appIndex == appIndex && vgpuPtr->deviceID == deviceID)
+			{
+				break;
+			}
+			preVgpuPtr = vgpuPtr;
+			vgpuPtr = vgpuPtr->next;
+		}
+	}
+
+	if (vgpuPtr == NULL)
+	{
+		printf("voclProxyRemoveVirtualGPU, virtual GPU with appRank %d and deviceID %p does not exist!\n",
+				appIndex, deviceID);
+		exit(1);
+	}
+
+	preVgpuPtr->next = vgpuPtr->next;
+	free(vgpuPtr->contexts);
+	free(vgpuPtr->cmdQueues);
+	free(vgpuPtr);
+
+	return;
+}
+
+void voclProxyReleaseAllVirtualGPU()
+{
+	vocl_virtual_gpu *vgpuPtr, *nextVgpuPtr;
+	vgpuPtr = virtualGPUPtr;
+	while (vgpuPtr != NULL)
+	{
+		nextVgpuPtr = vgpuPtr->next;
+		free(vgpuPtr->contexts);
+		free(vgpuPtr->cmdQueues);
+		free(vgpuPtr);
+		vgpuPtr = nextVgpuPtr;
+	}
+
+	return;
 }
 
 void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, cl_context context)
@@ -157,64 +247,4 @@ void voclProxyRemoveCommandQueueFromVGPU(int appIndex, cl_command_queue command_
 	return;
 }
 
-void voclProxyRemoveVirtualGPU(int appIndex, cl_device_id deviceID)
-{
-	vocl_virtual_gpu *vgpuPtr, *preVgpuPtr;
-
-	vgpuPtr = virtualGPUPtr;
-	if (vgpuPtr != NULL)
-	{
-		if (vgpuPtr->appIndex == appIndex && vgpuPtr->deviceID == deviceID)
-		{
-			virtualGPUPtr = vgpuPtr->next;
-			free(vgpuPtr->contexts);
-			free(vgpuPtr->cmdQueues);
-			free(vgpuPtr);
-
-			return;
-		}
-		
-		preVgpuPtr = vgpuPtr;
-		vgpuPtr = vgpuPtr->next;
-		while (vgpuPtr != NULL)
-		{
-			if (vgpuPtr->appIndex == appIndex && vgpuPtr->deviceID == deviceID)
-			{
-				break;
-			}
-			preVgpuPtr = vgpuPtr;
-			vgpuPtr = vgpuPtr->next;
-		}
-	}
-
-	if (vgpuPtr == NULL)
-	{
-		printf("voclProxyRemoveVirtualGPU, virtual GPU with appRank %d and deviceID %p does not exist!\n",
-				appIndex, deviceID);
-		exit(1);
-	}
-
-	preVgpuPtr->next = vgpuPtr->next;
-	free(vgpuPtr->contexts);
-	free(vgpuPtr->cmdQueues);
-	free(vgpuPtr);
-
-	return;
-}
-
-void voclProxyReleaseAllVirtualGPU()
-{
-	vocl_virtual_gpu *vgpuPtr, *nextVgpuPtr;
-	vgpuPtr = virtualGPUPtr;
-	while (vgpuPtr != NULL)
-	{
-		nextVgpuPtr = vgpuPtr->next;
-		free(vgpuPtr->contexts);
-		free(vgpuPtr->cmdQueues);
-		free(vgpuPtr);
-		vgpuPtr = nextVgpuPtr;
-	}
-
-	return;
-}
 

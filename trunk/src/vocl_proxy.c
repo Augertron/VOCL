@@ -203,6 +203,7 @@ extern void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, 
 extern void voclProxyRemoveCommandQueueFromVGPU(int appIndex, cl_command_queue command_queue);
 extern void voclProxyRemoveVirtualGPU(int appIndex, cl_device_id deviceID);
 extern void voclProxyReleaseAllVirtualGPU();
+extern void voclProxyPrintVirtualGPUs();
 
 extern void voclProxyAddContext(cl_context context, cl_uint deviceNum, cl_device_id *deviceIDs);
 extern void voclProxyAddCommandQueueToContext(cl_context context, vocl_proxy_command_queue *command_queue);
@@ -437,8 +438,8 @@ int main(int argc, char *argv[])
         conMsgRequestForWait[commIndex] = conMsgRequest[conMsgRequestIndex[commIndex]];
 
         //debug-----------------------------
-        //printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
-        //      tmp, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
+              tmp, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
         //-------------------------------------
 		if (status.MPI_TAG == GET_PROXY_COMM_INFO) {
 			tmpGetProxyCommInfo.proxyRank = tmp;
@@ -541,6 +542,7 @@ int main(int argc, char *argv[])
             mpiOpenCLCreateCommandQueue(&tmpCreateCommandQueue);
             MPI_Isend(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, appRank,
                       CREATE_COMMAND_QUEUE_FUNC, appComm[commIndex], curRequest);
+
 			/* store the command queue */
 			voclProxyAddCmdQueue(tmpCreateCommandQueue.clCommand, 
 								 tmpCreateCommandQueue.properties, 
@@ -1188,12 +1190,19 @@ int main(int argc, char *argv[])
 			/* release context */
 			contextPtr = voclProxyGetContextPtr(tmpReleaseContext.context);
 			voclProxyRemoveContextFromVGPU(appIndex, tmpReleaseContext.context);
+
+			/*release the virtual GPU */
+			for (i = 0; i < contextPtr->deviceNum; i++)
+			{
+				voclProxyRemoveVirtualGPU(appIndex, contextPtr->devices[i]);
+			}
 			voclProxyReleaseContext(tmpReleaseContext.context);
 
             mpiOpenCLReleaseContext(&tmpReleaseContext);
             MPI_Isend(&tmpReleaseContext, sizeof(tmpReleaseContext), MPI_BYTE, appRank,
                       REL_CONTEXT_FUNC, appComm[commIndex], curRequest);
             MPI_Wait(curRequest, curStatus);
+
         }
 
         else if (status.MPI_TAG == GET_DEVICE_INFO_FUNC) {
