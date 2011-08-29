@@ -78,10 +78,10 @@ typedef struct strVoclVirtualGPU {
 	cl_device_id deviceID;
 
     cl_uint contextNum, contextNo;  /* buffer size and number of contexts created */
-    cl_context *contexts;
+	vocl_proxy_context **contextPtr;
 
     cl_uint cmdQueueNum, cmdQueueNo; /*buffer size and number of cmdQueue created */
-    cl_command_queue *cmdQueues;
+    vocl_proxy_command_queue **cmdQueuePtr;
 
 	struct strVoclVirtualGPU *next;
 } vocl_virtual_gpu;
