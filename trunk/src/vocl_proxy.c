@@ -197,10 +197,10 @@ extern void mpiOpenCLEnqueueUnmapMemObject(struct strEnqueueUnmapMemObject
                                            cl_event * event_wait_list);
 
 extern void voclProxyAddVirtualGPU(int appIndex, cl_device_id deviceID);
-extern void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, cl_context context);
-extern void voclProxyRemoveContextFromVGPU(int appIndex, cl_context context);
-extern void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, cl_command_queue command_queue);
-extern void voclProxyRemoveCommandQueueFromVGPU(int appIndex, cl_command_queue command_queue);
+extern void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_context *context);
+extern void voclProxyRemoveContextFromVGPU(int appIndex, vocl_proxy_context *context);
+extern void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_command_queue *command_queue);
+extern void voclProxyRemoveCommandQueueFromVGPU(int appIndex, vocl_proxy_command_queue *command_queue);
 extern void voclProxyRemoveVirtualGPU(int appIndex, cl_device_id deviceID);
 extern void voclProxyReleaseAllVirtualGPU();
 extern void voclProxyPrintVirtualGPUs();
@@ -524,11 +524,12 @@ int main(int argc, char *argv[])
 
 			/* a new virtual GPU is created for each app on each physical GPU. */
 			voclProxyAddContext(tmpCreateContext.hContext, tmpCreateContext.num_devices, devices);
+			contextPtr = voclProxyGetContextPtr(tmpCreateContext.hContext);
 
 			for (i = 0; i < tmpCreateContext.num_devices; i++)
 			{
 				voclProxyAddVirtualGPU(appIndex, devices[i]);
-				voclProxyAddContextToVGPU(appIndex, devices[i], tmpCreateContext.hContext);
+				voclProxyAddContextToVGPU(appIndex, devices[i], contextPtr);
 			}
 
             MPI_Wait(curRequest, curStatus);
@@ -552,7 +553,7 @@ int main(int argc, char *argv[])
 			/* add the cmdQueue to the proxy */
 			cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpCreateCommandQueue.clCommand);
 			voclProxyAddCommandQueueToContext(tmpCreateCommandQueue.context, cmdQueuePtr);
-			voclProxyAddCommandQueueToVGPU(appIndex, tmpCreateCommandQueue.device, tmpCreateCommandQueue.clCommand);
+			voclProxyAddCommandQueueToVGPU(appIndex, tmpCreateCommandQueue.device, cmdQueuePtr);
 
             MPI_Wait(curRequest, curStatus);
         }
@@ -1176,7 +1177,7 @@ int main(int argc, char *argv[])
 			cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpReleaseCommandQueue.command_queue);
 			voclProxyRemoveCommandQueueFromContext(cmdQueuePtr);
 			voclProxyReleaseCommandQueue(tmpReleaseCommandQueue.command_queue);
-			voclProxyRemoveCommandQueueFromVGPU(appIndex, tmpReleaseCommandQueue.command_queue);
+			voclProxyRemoveCommandQueueFromVGPU(appIndex, cmdQueuePtr);
 
             mpiOpenCLReleaseCommandQueue(&tmpReleaseCommandQueue);
             MPI_Isend(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE,
@@ -1189,7 +1190,7 @@ int main(int argc, char *argv[])
 
 			/* release context */
 			contextPtr = voclProxyGetContextPtr(tmpReleaseContext.context);
-			voclProxyRemoveContextFromVGPU(appIndex, tmpReleaseContext.context);
+			voclProxyRemoveContextFromVGPU(appIndex, contextPtr);
 
 			/*release the virtual GPU */
 			for (i = 0; i < contextPtr->deviceNum; i++)

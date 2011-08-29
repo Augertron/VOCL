@@ -13,11 +13,11 @@ void voclProxyAddVirtualGPU(int appIndex, cl_device_id deviceID)
 
 	vgpuPtr->contextNum = 100;
 	vgpuPtr->contextNo = 0;
-	vgpuPtr->contexts = (cl_context *)malloc(sizeof(cl_context) * vgpuPtr->contextNum);
+	vgpuPtr->contextPtr = (vocl_proxy_context **)malloc(sizeof(vocl_proxy_context*) * vgpuPtr->contextNum);
 
 	vgpuPtr->cmdQueueNum = 100;
 	vgpuPtr->cmdQueueNo = 0;
-	vgpuPtr->cmdQueues = (cl_command_queue *)malloc(sizeof(cl_command_queue) * vgpuPtr->cmdQueueNum);
+	vgpuPtr->cmdQueuePtr = (vocl_proxy_command_queue **)malloc(sizeof(vocl_proxy_command_queue*) * vgpuPtr->cmdQueueNum);
 
 	vgpuPtr->next = virtualGPUPtr;
 	virtualGPUPtr = vgpuPtr;
@@ -40,12 +40,12 @@ void voclProxyPrintVirtualGPUs()
 		
 		for (j = 0; j < vgpuPtr->contextNo; j++)
 		{
-			printf("\t\tcontext = %p\n", vgpuPtr->contexts[j]);
+			printf("\t\tcontext = %p\n", vgpuPtr->contextPtr[j]->context);
 		}
 
 		for (j = 0; j < vgpuPtr->cmdQueueNo; j++)
 		{
-			printf("\t\tcommand queue = %p\n", vgpuPtr->cmdQueues[j]);
+			printf("\t\tcommand queue = %p\n", vgpuPtr->cmdQueuePtr[j]->command_queue);
 		}
 		printf("\n");
 		vgpuPtr = vgpuPtr->next;
@@ -88,8 +88,8 @@ void voclProxyRemoveVirtualGPU(int appIndex, cl_device_id deviceID)
 		if (vgpuPtr->appIndex == appIndex && vgpuPtr->deviceID == deviceID)
 		{
 			virtualGPUPtr = vgpuPtr->next;
-			free(vgpuPtr->contexts);
-			free(vgpuPtr->cmdQueues);
+			free(vgpuPtr->contextPtr);
+			free(vgpuPtr->cmdQueuePtr);
 			free(vgpuPtr);
 
 			return;
@@ -116,8 +116,8 @@ void voclProxyRemoveVirtualGPU(int appIndex, cl_device_id deviceID)
 	}
 
 	preVgpuPtr->next = vgpuPtr->next;
-	free(vgpuPtr->contexts);
-	free(vgpuPtr->cmdQueues);
+	free(vgpuPtr->contextPtr);
+	free(vgpuPtr->cmdQueuePtr);
 	free(vgpuPtr);
 
 	return;
@@ -130,8 +130,8 @@ void voclProxyReleaseAllVirtualGPU()
 	while (vgpuPtr != NULL)
 	{
 		nextVgpuPtr = vgpuPtr->next;
-		free(vgpuPtr->contexts);
-		free(vgpuPtr->cmdQueues);
+		free(vgpuPtr->contextPtr);
+		free(vgpuPtr->cmdQueuePtr);
 		free(vgpuPtr);
 		vgpuPtr = nextVgpuPtr;
 	}
@@ -139,22 +139,23 @@ void voclProxyReleaseAllVirtualGPU()
 	return;
 }
 
-void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, cl_context context)
+void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_context *context)
 {
 	vocl_virtual_gpu *vgpuPtr;
 	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+	vgpuPtr->contextPtr[vgpuPtr->contextNo] = context;
+	vgpuPtr->contextNo++;
+
 	if (vgpuPtr->contextNo >= vgpuPtr->contextNum)
 	{
 		vgpuPtr->contextNum *= 2;
-		vgpuPtr->contexts = (cl_context *)realloc(vgpuPtr->contexts, sizeof(cl_context) * vgpuPtr->contextNum);
+		vgpuPtr->contextPtr = (vocl_proxy_context **)realloc(vgpuPtr->contextPtr, sizeof(vocl_proxy_context*) * vgpuPtr->contextNum);
 	}
-	vgpuPtr->contexts[vgpuPtr->contextNo] = context;
-	vgpuPtr->contextNo++;
 
 	return;
 }
 
-void voclProxyRemoveContextFromVGPU(int appIndex, cl_context context)
+void voclProxyRemoveContextFromVGPU(int appIndex, vocl_proxy_context *context)
 {
 	vocl_virtual_gpu *vgpuPtr;
 	int i, j;
@@ -164,7 +165,7 @@ void voclProxyRemoveContextFromVGPU(int appIndex, cl_context context)
 	{
 		for (i = 0; i < vgpuPtr->contextNo; i++)
 		{
-			if (vgpuPtr->contexts[i] == context)
+			if (vgpuPtr->contextPtr[i] == context)
 			{
 				contextFound = 1;
 				break;
@@ -175,7 +176,7 @@ void voclProxyRemoveContextFromVGPU(int appIndex, cl_context context)
 		{
 			for (j = i; j < vgpuPtr->contextNo - 1; j++)
 			{
-				vgpuPtr->contexts[j] = vgpuPtr->contexts[j+1];
+				vgpuPtr->contextPtr[j] = vgpuPtr->contextPtr[j+1];
 			}
 		}
 		
@@ -186,29 +187,31 @@ void voclProxyRemoveContextFromVGPU(int appIndex, cl_context context)
 	if (contextFound == 0)
 	{
 		printf("voclProxyRemoveContextFromVGPU, context %p from app %d does not exist!\n",
-				context, appIndex);
+				context->context, appIndex);
 		exit(1);
 	}
 
 	return;
 }
 
-void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, cl_command_queue command_queue)
+void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_command_queue *command_queue)
 {
 	vocl_virtual_gpu *vgpuPtr;
 	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+	vgpuPtr->cmdQueuePtr[vgpuPtr->cmdQueueNo] = command_queue;
+	vgpuPtr->cmdQueueNo++;
+
 	if (vgpuPtr->cmdQueueNo >= vgpuPtr->cmdQueueNum)
 	{
 		vgpuPtr->cmdQueueNum *= 2;
-		vgpuPtr->cmdQueues = (cl_command_queue *)realloc(vgpuPtr->cmdQueues, sizeof(cl_command_queue) * vgpuPtr->cmdQueueNum);
+		vgpuPtr->cmdQueuePtr = (vocl_proxy_command_queue **)realloc(vgpuPtr->cmdQueuePtr, 
+				sizeof(vocl_proxy_command_queue*) * vgpuPtr->cmdQueueNum);
 	}
-	vgpuPtr->cmdQueues[vgpuPtr->cmdQueueNo] = command_queue;
-	vgpuPtr->cmdQueueNo++;
 
 	return;
 }
 
-void voclProxyRemoveCommandQueueFromVGPU(int appIndex, cl_command_queue command_queue)
+void voclProxyRemoveCommandQueueFromVGPU(int appIndex, vocl_proxy_command_queue *command_queue)
 {
 	vocl_virtual_gpu *vgpuPtr;
 	int i, j;
@@ -218,7 +221,7 @@ void voclProxyRemoveCommandQueueFromVGPU(int appIndex, cl_command_queue command_
 	{
 		for (i = 0; i < vgpuPtr->cmdQueueNo; i++)
 		{
-			if (vgpuPtr->cmdQueues[i] == command_queue)
+			if (vgpuPtr->cmdQueuePtr[i] == command_queue)
 			{
 				cmdQueueFound = 1;
 				break;
@@ -229,7 +232,7 @@ void voclProxyRemoveCommandQueueFromVGPU(int appIndex, cl_command_queue command_
 		{
 			for (j = i; j < vgpuPtr->cmdQueueNo - 1; j++)
 			{
-				vgpuPtr->cmdQueues[j] = vgpuPtr->cmdQueues[j+1];
+				vgpuPtr->cmdQueuePtr[j] = vgpuPtr->cmdQueuePtr[j+1];
 			}
 		}
 		
@@ -240,7 +243,7 @@ void voclProxyRemoveCommandQueueFromVGPU(int appIndex, cl_command_queue command_
 	if (cmdQueueFound == 0)
 	{
 		printf("voclProxyRemoveCommandQueueFromVGPU, command queue %p from app %d does not exist!\n",
-				command_queue, appIndex);
+				command_queue->command_queue, appIndex);
 		exit(1);
 	}
 
