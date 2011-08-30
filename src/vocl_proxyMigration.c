@@ -5,174 +5,35 @@
 extern vocl_virtual_gpu *voclProxyGetVirtualGPUPtr(int appIndex, cl_device_id deviceID);
 extern void voclProxyAddVirtualGPU(int appIndex, cl_device_id deviceID);
 extern void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_context *context);
+extern void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_command_queue *command_queue);
+extern void voclProxyReleaseVirtualGPU(int appIndex, cl_device_id deviceID);
 
 extern void voclProxyAddContext(cl_context context, cl_uint deviceNum, cl_device_id *deviceIDs);
 extern vocl_proxy_context *voclProxyGetContextPtr(cl_context context);
 extern void voclProxyAddProgramToContext(cl_context context, vocl_proxy_program *program);
 extern void voclProxyAddCommandQueueToContext(cl_context context, vocl_proxy_command_queue *command_queue);
+extern void voclProxyAddMemToContext(cl_context context, vocl_proxy_mem *mem);
+extern void void voclProxyReleaseContext(cl_context context);
 
 extern void voclProxyAddProgram(cl_program program, char *sourceString, size_t sourceSize, int stringNum, size_t *stringSizeArray, cl_context context);
 extern vocl_proxy_program *voclProxyGetProgramPtr(cl_program program);
 extern void voclProxySetProgramBuildOptions(cl_program program, cl_uint deviceNum, cl_device_id *device_list, char *buildOptions);
+extern void voclProxyAddKernelToProgram(cl_program program, vocl_proxy_kernel *kernel);
+extern void voclProxyReleaseProgram(cl_program program);
 
 extern void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program);
 extern vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel);
-extern void voclProxyAddKernelToProgram(cl_program program, vocl_proxy_kernel *kernel);
+extern void voclProxyReleaseKernel(cl_kernel kernel);
 
 extern void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queue_properties properties, cl_context context, cl_device_id deviceID);
 extern vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_queue);
-extern void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_command_queue *command_queue);
+extern void voclProxyReleaseCommandQueue(cl_command_queue command_queue);
 
 extern void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context context);
 extern vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem);
-extern void voclProxyAddMemToContext(cl_context context, vocl_proxy_mem *mem);
+extern void voclProxyReleaseMem(cl_mem mem);
 
-/* pack the message for migration of virtual GPU */
-void voclProxyGetMessageSizeForVGPU(int appIndex, cl_device_id deviceID, vocl_vgpu_msg *msgPtr)
-/*return the message buffer */
-{
-	size_t msgSize;
-	int i, j, k;
-	vocl_virtual_gpu *vgpuPtr;
-	vocl_proxy_context **contextPtr;
-	vocl_proxy_command_queue **cmdQueuePtr;
-	vocl_proxy_program **programPtr;
-	vocl_proxy_mem **memPtr;
-	vocl_proxy_kernel **kernelPtr;
-	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
-
-	msgPtr->contextNum = vgpuPtr->contextNo;
-	msgPtr->cmdQueueNum = 0;
-	msgPtr->programNum = 0;
-	msgPtr->memNum = 0;
-	msgPtr->kernelNum = 0;
-
-	msgSize = 0;
-	contextPtr = vgpuPtr->contextPtr;
-	for (i = 0; i < vgpuPtr->contextNo; i++)
-	{
-		/* calculate size of program */
-		msgPtr->programNum += contextPtr[i]->programNo;
-		programPtr = contextPtr[i]->programPtr;
-		for (j = 0; j < contextPtr[i]->programNo; j++)
-		{
-			/* add space for various program info */
-			msgSize += programPtr[j]->sourceSize;
-			msgSize += programPtr[j]->stringNum * sizeof(size_t);
-			msgSize += programPtr[j]->buildOptionLen;
-			msgSize += programPtr[j]->deviceNum * sizeof(cl_device_id);
-			
-			msgPtr->kernelNum += programPtr[j]->kernelNo;
-			kernelPtr = programPtr[j]->kernelPtr;
-			for (k = 0; k < programPtr[j]->kernelNo; k++)
-			{
-				msgSize += kernelPtr[k]->nameLen;
-			}
-		}
-
-		msgPtr->cmdQueueNum += contextPtr[i]->cmdQueueNo;
-		msgPtr->memNum += contextPtr[i]->memNo;
-	}
-
-	msgSize += msgPtr->contextNum * sizeof(vocl_proxy_context);
-	msgSize += msgPtr->programNum * sizeof(vocl_proxy_program);
-	msgSize += msgPtr->kernelNum * sizeof(vocl_proxy_kernel);
-	msgSize += msgPtr->cmdQueueNum * sizeof(vocl_proxy_command_queue);
-	msgSize += msgPtr->memNum * sizeof(vocl_proxy_mem);
-
-	msgPtr->size = msgSize;
-
-	return;
-}
-
-/* pack all contents in the virtual GPU in a message */
-void voclProxyPackMessageForVGPU(int appIndex, cl_device_id deviceID, vocl_vgpu_msg *msgPtr, char *bufPtr)
-{
-	size_t offset;
-	int i, j, k;
-	vocl_virtual_gpu *vgpuPtr;
-	vocl_proxy_context **contextPtr;
-	vocl_proxy_command_queue **cmdQueuePtr;
-	vocl_proxy_program **programPtr;
-	vocl_proxy_kernel **kernelPtr;
-	vocl_proxy_mem **memPtr;
-
-	/* copy the contexts to message */
-	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
-
-	offset = 0;
-	contextPtr = vgpuPtr->contextPtr;
-	for (i = 0; i < vgpuPtr->contextNo; i++)
-	{
-		/* pack the context structure */
-		memcpy(bufPtr+offset, contextPtr[i], sizeof(vocl_proxy_context));
-		offset += sizeof(vocl_proxy_context);
-		
-		/*pack the program based on the context */
-		programPtr = contextPtr[i]->programPtr;
-		for (j = 0; j < contextPtr[i]->programNo; j++)
-		{
-			memcpy(bufPtr+offset, programPtr[j], sizeof(vocl_proxy_program));
-			offset += sizeof(vocl_proxy_program);
-			
-			/* pack the program source in the message */
-			memcpy(bufPtr+offset, programPtr[j]->sourceString, programPtr[j]->sourceSize);
-			offset += programPtr[j]->sourceSize;
-
-			/* pack the string info */
-			memcpy(bufPtr+offset, programPtr[j]->stringSizeArray, sizeof(size_t) * programPtr[j]->stringNum);
-			offset += sizeof(size_t) * programPtr[j]->stringNum;
-
-			/* pack the build options */
-			if (programPtr[j]->buildOptionLen > 0)
-			{
-				memcpy(bufPtr+offset, programPtr[j]->buildOptions, programPtr[j]->buildOptionLen);
-				offset += programPtr[j]->buildOptionLen;
-			}
-
-			/* pack the devices corresponding to the program */
-			if (programPtr[j]->deviceNum > 0)
-			{
-				memcpy(bufPtr+offset, programPtr[j]->device_list, sizeof(cl_device_id) * programPtr[j]->deviceNum);
-				offset += sizeof(cl_device_id) * programPtr[j]->deviceNum;
-			}
-
-			kernelPtr = programPtr[j]->kernelPtr;
-			for (k = 0; k < programPtr[j]->kernelNo; k++)
-			{
-				/* pack the kernel structure */
-				memcpy(bufPtr+offset, kernelPtr[k], sizeof(vocl_proxy_kernel));
-				offset += sizeof(vocl_proxy_kernel);
-
-				/* pack the kernel name */
-				memcpy(bufPtr+offset, kernelPtr[k]->kernelName, kernelPtr[k]->nameLen);
-				offset += kernelPtr[k]->nameLen;
-			}
-		}
-
-		/* pack the command queue based on the context */
-		cmdQueuePtr = contextPtr[k]->cmdQueuePtr;
-		for (j = 0; j < contextPtr[i]->cmdQueueNo; j++)
-		{
-			memcpy(bufPtr+offset, cmdQueuePtr[j], sizeof(vocl_proxy_command_queue));
-			offset += sizeof(vocl_proxy_command_queue);
-		}
-
-		/* pack the mem based on the context */
-		memPtr = contextPtr[i]->memPtr;
-		for (j = 0; j < contextPtr[i]->memNo; j++)
-		{
-			memcpy(bufPtr+offset, memPtr[j], sizeof(vocl_proxy_mem));
-			offset += sizeof(vocl_proxy_mem);
-		}
-	}
-
-	return;
-}
-
-
-
-void voclMigProxyCreateVirtualGPU(int appIndex, cl_device_id deviceID, vocl_vgpu_msg *msgPtr, char *bufPtr)
+void voclProxyMigCreateVirtualGPU(int appIndex, cl_device_id deviceID, vocl_vgpu_msg *msgPtr, char *bufPtr)
 {
 	int i, j, k, stringIndex;
 	size_t offset;
@@ -318,4 +179,77 @@ void voclMigProxyCreateVirtualGPU(int appIndex, cl_device_id deviceID, vocl_vgpu
 	}
 
 	return;
+}
+
+void voclProxyMigReleaseVirtualGPU(int appIndex, cl_device_id deviceID)
+{
+	int i, j, k;
+	vocl_virgual_gpu *vgpuPtr;
+	vocl_proxy_context **contextPtr;
+	vocl_proxy_program **programPtr;
+	vocl_proxy_kernel **kernelPtr;
+	vocl_proxy_command_queue **cmdQueuePtr;
+	vocl_proxy_mem **memPtr;
+
+	cl_context context;
+	cl_program program;
+	cl_kernel kernel;
+	cl_command_queue cmdQueue;
+	cl_mem mem;
+
+	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+	
+	contextPtr = vgpuPtr->contextPtr;
+	for (i = 0; i < vgpuPtr->contextNo; i++)
+	{
+		programPtr = contextPtr[i]->programPtr;
+		for (j = 0; j < contextPtr[i]->programNo; j++)
+		{
+			kernelPtr = programPtr[j]->kernelPtr;
+			for (k = 0; k < program[j]->kernelNo; k++)
+			{
+				/* release kernel */
+				kernel = kernerPtr[i]->kernel;
+				voclProxyReleaseKernel(kernel);
+				clReleaseKernel(kernel);
+			}
+
+			/* release program */
+			program = programPtr[j]->program;
+			voclProxyReleaseProgram(program);
+			clReleaseProgram(program);
+		}
+
+		/* release command queue */
+		cmdQueuePtr = contextPtr[i]->cmdQueuePtr;
+		for (j = 0; j < contextPtr[i]->cmdQueueNo; j++)
+		{
+			cmdQueue = cmdQueuePtr[j]->command_queue;
+			voclProxyReleaseCommandQueue(cmdQueue);
+			clReleaseCommandQueue(cmdQueue);
+		}
+
+		/* release memory */
+		memPtr = contextPtr[i]->memPtr;
+		for (j = 0; j < contextPtr[i]->memNo; j++)
+		{
+			mem = memPtr[j]->mem;
+			voclProxyReleaseMem(mem);
+			clReleaseMemObject(mem);
+		}
+
+		context = contextPtr[i]->context;
+		voclProxyReleaseContext(context);
+		clReleaseContext(context);
+	}
+
+	/* release the virtual gpu itself */
+	voclProxyReleaseVirtualGPU(appIndex, deviceID);
+
+	return;
+}
+
+void voclProxyMigFindTargetGPU()
+{
+	
 }
