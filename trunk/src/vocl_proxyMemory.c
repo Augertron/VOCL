@@ -4,7 +4,7 @@
 
 static vocl_proxy_mem *voclProxyMemPtr = NULL;
 
-void voclProxyAddMem(cl_mem mem, size_t size, cl_context context)
+void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context context)
 {
     vocl_proxy_mem *memPtr;
 

@@ -6,6 +6,7 @@
 typedef struct strVoclProxyMemory {
 	cl_mem         mem;
 	cl_context     context;
+	cl_mem_flags   flags;
 	size_t         size;
 	int            isWritten;
 
@@ -15,6 +16,7 @@ typedef struct strVoclProxyMemory {
 typedef struct strVoclKernel {
 	cl_kernel      kernel;
 	cl_program     program;
+	size_t         nameLen;
 	char           *kernelName;
 
 	struct strVoclKernel *next;
@@ -27,6 +29,8 @@ typedef struct strVoclProgram {
 	size_t        sourceSize;
 	int           stringNum;
 	size_t        *stringSizeArray;
+
+	size_t        buildOptionLen;
 	char          *buildOptions;
 
 	cl_uint       deviceNum;
@@ -85,6 +89,15 @@ typedef struct strVoclVirtualGPU {
 
 	struct strVoclVirtualGPU *next;
 } vocl_virtual_gpu;
+
+typedef struct voclProxyVirtualGPUMig {
+	cl_uint contextNum;
+	cl_uint programNum;
+	cl_uint kernelNum;
+	cl_uint cmdQueueNum;
+	cl_uint memNum;
+	size_t size;
+} vocl_vgpu_msg;
 
 #endif
 
