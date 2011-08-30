@@ -201,7 +201,7 @@ extern void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, vocl_
 extern void voclProxyRemoveContextFromVGPU(int appIndex, vocl_proxy_context *context);
 extern void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_command_queue *command_queue);
 extern void voclProxyRemoveCommandQueueFromVGPU(int appIndex, vocl_proxy_command_queue *command_queue);
-extern void voclProxyRemoveVirtualGPU(int appIndex, cl_device_id deviceID);
+extern void voclProxyReleaseVirtualGPU(int appIndex, cl_device_id deviceID);
 extern void voclProxyReleaseAllVirtualGPU();
 extern void voclProxyPrintVirtualGPUs();
 
@@ -1196,7 +1196,7 @@ int main(int argc, char *argv[])
 			/*release the virtual GPU */
 			for (i = 0; i < contextPtr->deviceNum; i++)
 			{
-				voclProxyRemoveVirtualGPU(appIndex, contextPtr->devices[i]);
+				voclProxyReleaseVirtualGPU(appIndex, contextPtr->devices[i]);
 			}
 			voclProxyReleaseContext(tmpReleaseContext.context);
 
