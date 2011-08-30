@@ -2,17 +2,9 @@
 #include <CL/opencl.h>
 #include "mpi.h"
 #include "vocl_proxy_macro.h"
-
-
-struct strVoclWinInfo {
-    char serviceName[SERVICE_NAME_LEN];
-    int  proxyRank; /* rank no within the proxy comm_world */
-    MPI_Comm commProxy;
-    MPI_Comm commWin;  /* MPI communicator for win creation */
-};
+#include "vocl_proxyWinProc.h"
 
 extern int voclIsCommUsed(int appIndex);
-
 static MPI_Win *voclProxyWinPtr = NULL;
 static MPI_Comm *voclProxyWinComm = NULL;
 static int voclProxyWinNum;
@@ -56,6 +48,11 @@ void voclProxyCreateWin(MPI_Comm comm, int appIndex)
 	MPI_Win_create(NULL, 0, 1, MPI_INFO_NULL, intraComm, &voclProxyWinPtr[appIndex]);
 }
 
+MPI_Win *voclProxyGetWinPtr(int index)
+{
+	return &voclProxyWinPtr[index];
+}
+
 void voclProxyFreeWin(int appIndex)
 {
 	/* free the merged MPI communicator */
@@ -66,25 +63,28 @@ void voclProxyFreeWin(int appIndex)
 void voclProxyPrintWinInfo()
 {
 	int i, j;
-	struct strVoclWinInfo *winPtr;
-	winPtr = (struct strVoclWinInfo *)malloc(sizeof(struct strVoclWinInfo) * DEFAULT_PROXY_NUM);
+	int proxyNum;
+	vocl_proxy_wins *winPtr;
+	winPtr = (vocl_proxy_wins *)malloc(sizeof(vocl_proxy_wins));
 	/* print the win info on the proxy process */
 	for (i = 0; i < voclProxyWinNum; i++)
 	{
 		if (voclIsCommUsed(i) == 1)
 		{
 			MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, voclProxyWinPtr[i]);
-			MPI_Get(winPtr, sizeof(struct strVoclWinInfo) * (DEFAULT_PROXY_NUM), MPI_BYTE, 0, 0,
-					sizeof(struct strVoclWinInfo) * (DEFAULT_PROXY_NUM), MPI_BYTE, voclProxyWinPtr[i]);
+			MPI_Get(winPtr, sizeof(vocl_proxy_wins), MPI_BYTE, 0, 0,
+					sizeof(vocl_proxy_wins), MPI_BYTE, voclProxyWinPtr[i]);
 			MPI_Win_unlock(0, voclProxyWinPtr[i]);
-			//for (j = 0; j < DEFAULT_PROXY_NUM; j++)
-			for (j = 0; j < 2; j++)
+			for (j = 0; j < winPtr->proxyNum; j++)
 			{
 				printf("\tproxyIndex = %d, serviceName = %s, proxyRank = %d, commProxy = %p, commWin = %p\n", 
-						j, winPtr[j].serviceName, winPtr[j].proxyRank, winPtr[j].commProxy, winPtr[j].commWin);
+						j, winPtr->wins[j].serviceName, winPtr->wins[j].proxyRank, 
+						winPtr->wins[j].commProxy, winPtr->wins[j].commWin);
 			}
 		}
 	}
+
+	free(winPtr);
 
 	return;
 }

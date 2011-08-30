@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include "vocl_proxy.h"
+#include "vocl_proxyWinProc.h"
 #include "vocl_proxyStructures.h"
 
 extern vocl_virtual_gpu *voclProxyGetVirtualGPUPtr(int appIndex, cl_device_id deviceID);
@@ -7,13 +9,14 @@ extern void voclProxyAddVirtualGPU(int appIndex, cl_device_id deviceID);
 extern void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_context *context);
 extern void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_command_queue *command_queue);
 extern void voclProxyReleaseVirtualGPU(int appIndex, cl_device_id deviceID);
+extern void vocl_proxyGetKernelNumsOnGPUs(struct strKernelNumOnDevice *gpuKernelNum);
 
 extern void voclProxyAddContext(cl_context context, cl_uint deviceNum, cl_device_id *deviceIDs);
 extern vocl_proxy_context *voclProxyGetContextPtr(cl_context context);
 extern void voclProxyAddProgramToContext(cl_context context, vocl_proxy_program *program);
 extern void voclProxyAddCommandQueueToContext(cl_context context, vocl_proxy_command_queue *command_queue);
 extern void voclProxyAddMemToContext(cl_context context, vocl_proxy_mem *mem);
-extern void void voclProxyReleaseContext(cl_context context);
+extern void voclProxyReleaseContext(cl_context context);
 
 extern void voclProxyAddProgram(cl_program program, char *sourceString, size_t sourceSize, int stringNum, size_t *stringSizeArray, cl_context context);
 extern vocl_proxy_program *voclProxyGetProgramPtr(cl_program program);
@@ -32,6 +35,9 @@ extern void voclProxyReleaseCommandQueue(cl_command_queue command_queue);
 extern void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context context);
 extern vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem);
 extern void voclProxyReleaseMem(cl_mem mem);
+
+extern MPI_Win *voclProxyGetWinPtr(int index);
+
 
 void voclProxyMigCreateVirtualGPU(int appIndex, cl_device_id deviceID, vocl_vgpu_msg *msgPtr, char *bufPtr)
 {
@@ -184,7 +190,7 @@ void voclProxyMigCreateVirtualGPU(int appIndex, cl_device_id deviceID, vocl_vgpu
 void voclProxyMigReleaseVirtualGPU(int appIndex, cl_device_id deviceID)
 {
 	int i, j, k;
-	vocl_virgual_gpu *vgpuPtr;
+	vocl_virtual_gpu *vgpuPtr;
 	vocl_proxy_context **contextPtr;
 	vocl_proxy_program **programPtr;
 	vocl_proxy_kernel **kernelPtr;
@@ -206,10 +212,10 @@ void voclProxyMigReleaseVirtualGPU(int appIndex, cl_device_id deviceID)
 		for (j = 0; j < contextPtr[i]->programNo; j++)
 		{
 			kernelPtr = programPtr[j]->kernelPtr;
-			for (k = 0; k < program[j]->kernelNo; k++)
+			for (k = 0; k < programPtr[j]->kernelNo; k++)
 			{
 				/* release kernel */
-				kernel = kernerPtr[i]->kernel;
+				kernel = kernelPtr[i]->kernel;
 				voclProxyReleaseKernel(kernel);
 				clReleaseKernel(kernel);
 			}
@@ -249,7 +255,60 @@ void voclProxyMigReleaseVirtualGPU(int appIndex, cl_device_id deviceID)
 	return;
 }
 
-void voclProxyMigFindTargetGPU()
+/* go through each proxy process and obtain the */
+/* number of kernels in waiting */
+struct strKernelNumOnDevice *voclProxyMigQueryLoadOnGPU(int appIndex, int *proxyNum)
 {
-	
+	int myRank, proxyRank, j;
+	MPI_Request *request;
+	MPI_Status *status;
+	int requestNo = 0;
+	struct strKernelNumOnDevice *loadPtr;
+	MPI_Comm comm;
+	MPI_Win *winPtr;
+	vocl_proxy_wins *winBufPtr;
+
+	comm = MPI_COMM_WORLD;
+	MPI_Comm_rank(comm, &myRank);
+
+	/* get the number of kernels in waiting in each proxy process */
+	winPtr = voclProxyGetWinPtr(appIndex);
+	winBufPtr = (vocl_proxy_wins *)malloc(sizeof(vocl_proxy_wins));
+
+	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, *winPtr);
+	MPI_Get(winBufPtr, sizeof(vocl_proxy_wins), MPI_BYTE, 0, 0,
+			sizeof(vocl_proxy_wins), MPI_BYTE, *winPtr);
+	MPI_Win_unlock(0, *winPtr);
+	loadPtr = (struct strKernelNumOnDevice *)malloc(sizeof(struct strKernelNumOnDevice) * winBufPtr->proxyNum);
+	request = (MPI_Request *)malloc(sizeof(MPI_Request) * winBufPtr->proxyNum * 2);
+	status  = (MPI_Status  *)malloc(sizeof(MPI_Status) * winBufPtr->proxyNum * 2);
+
+	for (j = 0; j < winBufPtr->proxyNum; j++)
+	{
+		if (winBufPtr->wins[j].proxyRank != myRank)
+		{
+			MPI_Isend(&loadPtr[j], sizeof(struct strKernelNumOnDevice), MPI_BYTE, 
+					  winBufPtr->wins[j].proxyRank, LB_GET_KERNEL_NUM, comm, 
+					  request+(requestNo++));
+			MPI_Irecv(&loadPtr[j], sizeof(struct strKernelNumOnDevice), MPI_BYTE,
+					  winBufPtr->wins[j].proxyRank, LB_GET_KERNEL_NUM, comm, 
+					  request+(requestNo++));
+		}
+		else
+		{
+			vocl_proxyGetKernelNumsOnGPUs(&loadPtr[j]);
+		}
+	}
+
+	if (requestNo > 0)
+	{
+		MPI_Waitall(requestNo, request, status);
+	}
+
+	free(winBufPtr);
+	free(request);
+	free(status);
+	return loadPtr;
 }
+
+
