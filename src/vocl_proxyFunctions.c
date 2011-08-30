@@ -2,19 +2,6 @@
 #include "vocl_proxy.h"
 #include "vocl_proxyKernelArgProc.h"
 
-//extern void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queue_properties properties, cl_context context, cl_device_id deviceID);
-//extern void voclProxyReleaseCommandQueue(cl_command_queue command_queue);
-//
-//extern void voclProxyAddProgram(cl_program program, char *sourceString, size_t sourceSize, int stringNum, size_t *stringSizeArray, cl_context context);
-//extern void voclProxySetProgramBuildOptions(cl_program program, cl_uint deviceNum, cl_device_id *device_list, char *buildOptions);
-//extern void voclProxyReleaseProgram(cl_program program);
-//
-//extern void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program);
-//extern void voclProxyReleaseKernel(cl_kernel kernel);
-//
-//extern void voclProxyAddMem(cl_mem mem, size_t size, cl_context context);
-//extern void voclProxyReleaseMem(cl_mem mem);
-
 /* record number of objects accocated in the current proxy process */
 static int voclProxyObjCount = 0;
 
@@ -101,12 +88,6 @@ void mpiOpenCLCreateCommandQueue(struct strCreateCommandQueue *tmpCreateCommandQ
     tmpCreateCommandQueue->errcode_ret = err_code;
     tmpCreateCommandQueue->clCommand = hCmdQueue;
 
-	/* store the cmdqueue info locally */
-//    voclProxyAddCmdQueue(tmpCreateCommandQueue->clCommand,
-//                         tmpCreateCommandQueue->properties,
-//                         tmpCreateCommandQueue->context,
-//                         tmpCreateCommandQueue->device);
-
 	voclProxyObjCountIncrease();
 }
 
@@ -139,11 +120,6 @@ void mpiOpenCLCreateProgramWithSource(struct strCreateProgramWithSource
         free(strings[strIndex]);
     }
 
-    /* store the openCL program locally */
-//    voclProxyAddProgram(tmpCreateProgramWithSource->clProgram,
-//                        cSourceCL, (size_t)sourceFileSize, count, lengthsArray,
-//                        hInContext);
-
 	voclProxyObjCountIncrease();
     free(strings);
 }
@@ -156,9 +132,6 @@ void mpiOpenCLBuildProgram(struct strBuildProgram *tmpBuildProgram,
     cl_uint num_devices = tmpBuildProgram->num_devices;
     err_code = clBuildProgram(hInProgram, num_devices, device_list, options, 0, 0);
 
-	/* store the build options in the proxy process */
-//	voclProxySetProgramBuildOptions(hInProgram, num_devices, device_list, options);
-
     tmpBuildProgram->res = err_code;
 }
 
@@ -169,9 +142,6 @@ void mpiOpenCLCreateKernel(struct strCreateKernel *tmpCreateKernel, char *kernel
     cl_kernel hKernel = clCreateKernel(hInProgram, kernel_name, &err_code);
     tmpCreateKernel->kernel = hKernel;
     tmpCreateKernel->errcode_ret = err_code;
-
-    /* store the kernel locally */
-//    voclProxyAddKernel(tmpCreateKernel->kernel, kernel_name, tmpCreateKernel->program);
 
 	voclProxyObjCountIncrease();
 
@@ -192,9 +162,6 @@ void mpiOpenCLCreateBuffer(struct strCreateBuffer *tmpCreateBuffer, void *host_p
 
     tmpCreateBuffer->errcode_ret = err_code;
     tmpCreateBuffer->deviceMem = deviceMem;
-
-    /* store the buffer info locally */
-//    voclProxyAddMem(tmpCreateBuffer->deviceMem, tmpCreateBuffer->size, tmpCreateBuffer->context);
 
 	voclProxyObjCountIncrease();
 }
@@ -324,9 +291,6 @@ void mpiOpenCLReleaseMemObject(struct strReleaseMemObject *tmpReleaseMemObject)
     cl_int err_code;
     cl_mem deviceMem = tmpReleaseMemObject->memobj;
 
-	/* remove mem info stored in the proxy process */
-//	voclProxyReleaseMem(deviceMem);
-
     err_code = clReleaseMemObject(deviceMem);
     tmpReleaseMemObject->res = err_code;
 	voclProxyObjCountDecrease();
@@ -336,9 +300,6 @@ void mpiOpenCLReleaseKernel(struct strReleaseKernel *tmpReleaseKernel)
 {
     cl_int err_code;
     cl_kernel hInKernel = tmpReleaseKernel->kernel;
-
-	/* remove kernel info in the proxy process */
-//	voclProxyReleaseKernel(hInKernel);
 
     err_code = clReleaseKernel(hInKernel);
     tmpReleaseKernel->res = err_code;
@@ -399,9 +360,6 @@ void mpiOpenCLReleaseProgram(struct strReleaseProgram *tmpReleaseProgram)
     cl_int errcode;
     cl_program program = tmpReleaseProgram->program;
 
-	/* remove clProgram stored in the proxy process */
-//	voclProxyReleaseProgram(program);
-
     errcode = clReleaseProgram(program);
     tmpReleaseProgram->res = errcode;
 	voclProxyObjCountDecrease();
@@ -411,9 +369,6 @@ void mpiOpenCLReleaseCommandQueue(struct strReleaseCommandQueue *tmpReleaseComma
 {
     cl_int errcode;
     cl_command_queue command_queue = tmpReleaseCommandQueue->command_queue;
-
-	/* remove command queue stored in the proxy process */
-//	voclProxyReleaseCommandQueue(command_queue);
 
     errcode = clReleaseCommandQueue(command_queue);
     tmpReleaseCommandQueue->res = errcode;

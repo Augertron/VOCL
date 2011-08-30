@@ -230,7 +230,7 @@ extern void voclProxyRemoveKernelFromCmdQueue(cl_command_queue command_queue, vo
 //extern void voclProxyDecreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
 //extern void voclProxyResetKernelNumInCmdQueue(cl_command_queue cmdQueue);
 
-extern void voclProxyAddMem(cl_mem mem, size_t size, cl_context context);
+extern void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context context);
 extern vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem);
 extern void voclProxyReleaseMem(cl_mem mem);
 extern void voclProxyReleaseAllMems();
@@ -679,6 +679,7 @@ int main(int argc, char *argv[])
 
 			/* store the memory */
 			voclProxyAddMem(tmpCreateBuffer.deviceMem, 
+							tmpCreateBuffer.flags,
 							tmpCreateBuffer.size,
 							tmpCreateBuffer.context);
 			/* store the memory in the context */

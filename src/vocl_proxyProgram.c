@@ -14,6 +14,7 @@ void voclProxyAddProgram(cl_program program, char *sourceString, size_t sourceSi
 	programPtr->sourceString = (char *)malloc(sourceSize);
 	memcpy(programPtr->sourceString, sourceString, sourceSize);
 
+	programPtr->buildOptionLen = 0;
 	programPtr->buildOptions = NULL;
 	programPtr->deviceNum = 0;
 	programPtr->device_list = NULL;
@@ -154,15 +155,15 @@ void voclProxyRemoveKernelFromProgramSimple(cl_program program, vocl_proxy_kerne
 
 void voclProxySetProgramBuildOptions(cl_program program, cl_uint deviceNum, cl_device_id *device_list, char *buildOptions)
 {
-	int buildOptionLen;
 	vocl_proxy_program *programPtr;
 	programPtr = voclProxyGetProgramPtr(program);
 
 	if (buildOptions != NULL)
 	{
-		buildOptionLen = strlen(buildOptions);
-		programPtr->buildOptions = (char *)malloc(buildOptionLen+1);
-		memcpy(programPtr->buildOptions, buildOptions, buildOptionLen);
+		programPtr->buildOptionLen = strlen(buildOptions)+1;
+		programPtr->buildOptions = (char *)malloc(programPtr->buildOptionLen);
+		memcpy(programPtr->buildOptions, buildOptions, programPtr->buildOptionLen);
+		programPtr->buildOptions[programPtr->buildOptionLen-1] = '\0';
 	}
 
 	if (deviceNum > 0)

@@ -7,14 +7,14 @@ static vocl_proxy_kernel *voclProxyKernelPtr = NULL;
 void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program)
 {
     vocl_proxy_kernel *kernelPtr;
-	int kernelNameLen;
 
     kernelPtr = (vocl_proxy_kernel *)malloc(sizeof(vocl_proxy_kernel));
 	kernelPtr->kernel = kernel;
 	kernelPtr->program = program;
-	kernelNameLen = strlen(kernelName);
-	kernelPtr->kernelName = (char *)malloc(kernelNameLen);
-	memcpy(kernelPtr->kernelName, kernelName, kernelNameLen);
+	kernelPtr->nameLen = strlen(kernelName)+1;
+	kernelPtr->kernelName = (char *)malloc(kernelPtr->nameLen);
+	memcpy(kernelPtr->kernelName, kernelName, kernelPtr->nameLen);
+	kernelPtr->kernelName[kernelPtr->nameLen-1] = '\0';
 
     kernelPtr->next = voclProxyKernelPtr;
     voclProxyKernelPtr = kernelPtr;
