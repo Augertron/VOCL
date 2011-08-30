@@ -198,11 +198,13 @@ void voclProxyDisconnectOneApp(int commIndex)
 	pthread_mutex_unlock(&commLock);
 
 	/* continuously checking whether there is a new application */
-	/* issuing connection requests */
-	while (voclAppNo == 0)
+	/* issuing connection requests. the only remaining app is not */
+	/* a real application. It is used for receiving messages from */
+	/* other proxy processes instead */
+	while (voclAppNo == 1)
 	{
 		printf("proxy9\n");
-		usleep(50000);
+		usleep(50000); /* polling every 50ms */
 	}
 
 	return;
@@ -233,3 +235,50 @@ void *proxyCommAcceptThread(void *p)
     return NULL;
 }
 
+/* issue non-blocking receive for messages from other proxy processes */
+void voclProxyAcceptProxyMessages()
+{
+	int index;
+
+    index = voclGetAppIndex();
+	appComm[index] = MPI_COMM_WORLD;
+    MPI_Comm_dup(appComm[index], &appCommData[index]);
+    voclIssueConMsgIrecv(index);
+}
+
+void voclProxyReleaseProxyMsgReceive()
+{
+	int requestOffset, commIndex, requestNo, i;
+
+	/* it is issued first in each proxy process with offset 0 */
+	requestOffset = 0;
+	commIndex = 0;
+
+	/* if not the last communicator, move the last */
+	/* communicator to the disconnected one*/
+	voclAppNo--;
+	voclCommUsedFlag[commIndex] = 0;
+	for (requestNo = 0; requestNo < CMSG_NUM; requestNo++)
+	{
+		MPI_Cancel(&conMsgRequest[requestOffset + requestNo]);
+		MPI_Request_free(&conMsgRequest[requestOffset + requestNo]);
+		conMsgRequest[requestOffset + requestNo] = MPI_REQUEST_NULL;
+	}
+	conMsgRequestForWait[commIndex] = MPI_REQUEST_NULL;
+
+	if (commIndex == voclCommUsedSize - 1)
+	{
+		for (i = voclCommUsedSize - 1; i >= 0; i--)
+		{
+			if (voclCommUsedFlag[i] != 0)
+			{
+				break;
+			}
+		}
+
+		voclCommUsedSize = i+1;
+		voclTotalRequestNum = voclCommUsedSize * CMSG_NUM;
+	}
+
+	return;
+}

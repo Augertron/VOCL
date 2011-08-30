@@ -226,9 +226,9 @@ extern void voclProxyAddKernelToCmdQueue(cl_command_queue command_queue, vocl_pr
 extern void voclProxyRemoveKernelFromCmdQueue(cl_command_queue command_queue, vocl_proxy_kernel *kernel);
 
 /* management of kernel numbers on the node */
-//extern void voclProxyIncreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
-//extern void voclProxyDecreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
-//extern void voclProxyResetKernelNumInCmdQueue(cl_command_queue cmdQueue);
+extern void voclProxyIncreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
+extern void voclProxyDecreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
+extern void voclProxyResetKernelNumInCmdQueue(cl_command_queue cmdQueue);
 
 extern void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context context);
 extern vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem);
@@ -255,6 +255,8 @@ extern void voclProxyCommFinalize();
 extern void voclProxyAcceptOneApp();
 extern void voclProxyDisconnectOneApp(int commIndex);
 extern void *proxyCommAcceptThread(void *p);
+extern void voclProxyAcceptProxyMessages();
+extern void voclProxyReleaseProxyMsgReceive();
 
 /* for MPI window management */
 extern void voclProxyWinInitialize();
@@ -288,6 +290,8 @@ extern void voclMigSetRWBufferFlag(int rank, int index, int flag);
 extern int voclMigFinishDataRWOnSameNode(int rank);
 extern void voclProxyRecvOnlyMigrationMsgs(int index);
 extern void voclProxyRecvAllMsgs(int index);
+
+extern void vocl_proxyGetKernelNumsOnGPUs(struct strKernelNumOnDevice *gpuKernelNum);
 
 extern void voclProxyCmdQueueInit();
 extern void voclProxyCmdQueueFinalize();
@@ -413,6 +417,10 @@ int main(int argc, char *argv[])
     /* no forced migration needed */
     //debug-------------------
     maintenanceMigrationStatus = 0;
+
+	/* issue non-blocking receiving for messages from other processes */
+	voclProxyAcceptProxyMessages();
+
 
     /* wait for one app to issue connection request */
     voclProxyAcceptOneApp();
@@ -925,7 +933,7 @@ int main(int argc, char *argv[])
 										  global_work_size, local_work_size, args_ptr);
 
 			/* increase the number of kernels in the command queue by 1 */
-			//voclProxyIncreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 1);
+			voclProxyIncreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 1);
 
 			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
 			{
@@ -1072,7 +1080,7 @@ int main(int argc, char *argv[])
             mpiOpenCLFinish(&tmpFinish);
 
             /* all kernels complete their computation */
-            //voclProxyResetKernelNumInCmdQueue(tmpFinish.command_queue);
+            voclProxyResetKernelNumInCmdQueue(tmpFinish.command_queue);
 
             MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, appRank,
                       FINISH_FUNC, appComm[commIndex], curRequest);
@@ -1688,8 +1696,9 @@ int main(int argc, char *argv[])
         }
 
         else if (status.MPI_TAG == LB_GET_KERNEL_NUM) {
-            //MPI_Send(&tmpKernelNumOnDevice, sizeof(struct strKernelNumOnDevice), MPI_BYTE,
-            //         appRank, LB_GET_KERNEL_NUM, appComm[commIndex]);
+			vocl_proxyGetKernelNumsOnGPUs(&tmpKernelNumOnDevice);
+            MPI_Send(&tmpKernelNumOnDevice, sizeof(struct strKernelNumOnDevice), MPI_BYTE,
+                     appRank, LB_GET_KERNEL_NUM, appComm[commIndex]);
         }
 
         else if (status.MPI_TAG == PROGRAM_END) {
@@ -1745,6 +1754,7 @@ int main(int argc, char *argv[])
     voclMigReadBufferFinalize();
     voclMigRWBufferFinalize();
 
+	voclProxyReleaseProxyMsgReceive();
     voclProxyCommFinalize();
 
     /* record objects allocated */

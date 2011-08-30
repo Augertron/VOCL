@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include "vocl_proxy.h"
 #include "vocl_proxyStructures.h"
 
 static vocl_virtual_gpu *virtualGPUPtr = NULL;
@@ -388,6 +389,49 @@ void voclProxyRemoveCommandQueueFromVGPU(int appIndex, vocl_proxy_command_queue 
 		printf("voclProxyRemoveCommandQueueFromVGPU, command queue %p from app %d does not exist!\n",
 				command_queue->command_queue, appIndex);
 		exit(1);
+	}
+
+	return;
+}
+
+void vocl_proxyGetKernelNumsOnGPUs(struct strKernelNumOnDevice *gpuKernelNum)
+{
+	/* go through each gpu and add the numbers of all kernels in the waiting state together */
+	int i, j, k;
+	vocl_virtual_gpu *vgpuPtr;
+	vocl_proxy_context **contextPtr;
+	vocl_proxy_command_queue **cmdQueuePtr;
+
+	memset(gpuKernelNum, 0, sizeof(struct strKernelNumOnDevice));
+	gpuKernelNum->deviceNum = 0;
+	vgpuPtr = virtualGPUPtr;
+	while (vgpuPtr != NULL)
+	{
+		contextPtr = vgpuPtr->contextPtr;
+		for (i = 0; i < vgpuPtr->contextNo; i++)
+		{
+			cmdQueuePtr = contextPtr[i]->cmdQueuePtr;
+			for (j = 0; j < contextPtr[i]->cmdQueueNo; j++)
+			{
+				for (k = 0; k < gpuKernelNum->deviceNum; k++)
+				{
+					if (gpuKernelNum->deviceIDs[k] == vgpuPtr->deviceID)
+					{
+						break;
+					}
+				}
+
+				gpuKernelNum->kernelNums[k] += cmdQueuePtr[j]->kernelNumInCmdQueue;
+				
+				if (k == gpuKernelNum->deviceNum)
+				{
+					gpuKernelNum->deviceIDs[k] = vgpuPtr->deviceID;
+					gpuKernelNum->deviceNum++;
+				}
+			}
+		}
+
+		vgpuPtr = vgpuPtr->next;
 	}
 
 	return;
