@@ -80,18 +80,19 @@ vocl_virtual_gpu *voclProxyGetVirtualGPUPtr(int appIndex, cl_device_id deviceID)
 }
 
 /* pack the message for migration of virtual GPU */
-void voclProxyGetMessageSizeForVGPU(int appIndex, cl_device_id deviceID, vocl_vgpu_msg *msgPtr)
+//void voclProxyGetMessageSizeForVGPU(int appIndex, cl_device_id deviceID, vocl_vgpu_msg *msgPtr)
+void voclProxyGetMessageSizeForVGPU(vocl_virtual_gpu *vgpuPtr, vocl_vgpu_msg *msgPtr)
 /*return the message buffer */
 {
     size_t msgSize;
     int i, j, k;
-    vocl_virtual_gpu *vgpuPtr;
+//    vocl_virtual_gpu *vgpuPtr;
     vocl_proxy_context **contextPtr;
     vocl_proxy_command_queue **cmdQueuePtr;
     vocl_proxy_program **programPtr;
     vocl_proxy_mem **memPtr;
     vocl_proxy_kernel **kernelPtr;
-    vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+//    vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
 
     msgPtr->contextNum = vgpuPtr->contextNo;
     msgPtr->cmdQueueNum = 0;
@@ -138,11 +139,12 @@ void voclProxyGetMessageSizeForVGPU(int appIndex, cl_device_id deviceID, vocl_vg
 }
 
 /* pack all contents in the virtual GPU in a message */
-void voclProxyPackMessageForVGPU(int appIndex, cl_device_id deviceID, vocl_vgpu_msg *msgPtr, char *bufPtr)
+//void voclProxyPackMessageForVGPU(int appIndex, cl_device_id deviceID, char *bufPtr)
+void voclProxyPackMessageForVGPU(vocl_virtual_gpu *vgpuPtr, char *bufPtr)
 {
     size_t offset;
     int i, j, k;
-    vocl_virtual_gpu *vgpuPtr;
+//  vocl_virtual_gpu *vgpuPtr;
     vocl_proxy_context **contextPtr;
     vocl_proxy_command_queue **cmdQueuePtr;
     vocl_proxy_program **programPtr;
@@ -150,7 +152,7 @@ void voclProxyPackMessageForVGPU(int appIndex, cl_device_id deviceID, vocl_vgpu_
     vocl_proxy_mem **memPtr;
 
     /* copy the contexts to message */
-    vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+//  vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
 
     offset = 0;
     contextPtr = vgpuPtr->contextPtr;

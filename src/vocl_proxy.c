@@ -26,7 +26,7 @@ static struct strCreateKernel tmpCreateKernel;
 static struct strCreateBuffer tmpCreateBuffer;
 static struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
 static struct strSetKernelArg tmpSetKernelArg;
-static struct strMigrationCheck tmpMigrationCheck;
+static struct strVGPUMigration tmpVGPUMigration;
 static struct strEnqueueNDRangeKernel tmpEnqueueNDRangeKernel;
 static struct strEnqueueNDRangeKernelReply kernelLaunchReply;
 static struct strEnqueueReadBuffer tmpEnqueueReadBuffer;
@@ -68,7 +68,7 @@ static struct strDeviceCmdQueueNums tmpDeviceCmdQueueNums;
 static struct strKernelNumOnDevice tmpKernelNumOnDevice;
 /* forced migration status */
 static int maintenanceMigrationStatus = 0;
-static int voclRankThreshold = 1000;
+//static int voclRankThreshold = 1000;
 
 /* control message requests */
 MPI_Request *conMsgRequest;
@@ -204,6 +204,7 @@ extern void voclProxyRemoveCommandQueueFromVGPU(int appIndex, vocl_proxy_command
 extern void voclProxyReleaseVirtualGPU(int appIndex, cl_device_id deviceID);
 extern void voclProxyReleaseAllVirtualGPU();
 extern void voclProxyPrintVirtualGPUs();
+extern void voclProxyMigCreateVirtualGPU(int appIndex, cl_device_id deviceID, cl_uint contextNum, char *bufPtr);
 
 extern void voclProxyAddContext(cl_context context, cl_uint deviceNum, cl_device_id *deviceIDs);
 extern void voclProxyAddCommandQueueToContext(cl_context context, vocl_proxy_command_queue *command_queue);
@@ -323,6 +324,7 @@ int main(int argc, char *argv[])
     MPI_Request *curRequest;
     int requestNo, index;
     int requestOffset;
+    int rankNo;
     int bufferNum, bufferIndex;
     size_t bufferSize, remainingSize;
 
@@ -365,10 +367,10 @@ int main(int argc, char *argv[])
     cl_event *event_list;
     size_t host_buff_size, kernelMsgSize;
     char *kernelMsgBuffer;
+	char *migMsgBuffer;
 
 	/* flag to control the execution of the kernel launch thread */
 	int kernelLaunchThreadExecuting = 0;
-
 
 	kernelMsgSize = 2048;
     kernelMsgBuffer = (char *) malloc(sizeof(char) * kernelMsgSize);
@@ -376,14 +378,11 @@ int main(int argc, char *argv[])
     /* get the proxy host name */
     MPI_Get_processor_name(voclProxyHostName, &len);
     voclProxyHostName[len] = '\0';
-    //debug---------------------
-    int tmp;
-    MPI_Comm_rank(MPI_COMM_WORLD, &tmp);
-    //-------------------------------------
+    MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
 
 #ifdef _PRINT_NODE_NAME
     {
-        printf("rank = %d, proxyHostName = %s\n", tmp, voclProxyHostName);
+        printf("rank = %d, proxyHostName = %s\n", rankNo, voclProxyHostName);
     }
 #endif
 
@@ -447,10 +446,10 @@ int main(int argc, char *argv[])
 
         //debug-----------------------------
         printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
-              tmp, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+              rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
         //-------------------------------------
 		if (status.MPI_TAG == GET_PROXY_COMM_INFO) {
-			tmpGetProxyCommInfo.proxyRank = tmp;
+			tmpGetProxyCommInfo.proxyRank = rankNo;
 			tmpGetProxyCommInfo.comm = MPI_COMM_WORLD;
 
 			MPI_Send(&tmpGetProxyCommInfo, sizeof(struct strGetProxyCommInfo), MPI_BYTE,
@@ -812,32 +811,17 @@ int main(int argc, char *argv[])
             MPI_Wait(curRequest, curStatus);
         }
 
-        else if (status.MPI_TAG == MIGRATION_CHECK) {
-            memcpy(&tmpMigrationCheck, conMsgBuffer[index], sizeof(struct strMigrationCheck));
-            /* requested from kernel launch */
-            tmpMigrationCheck.isMigrationNeeded = 0;
-            if (tmpMigrationCheck.checkLocation == 0) {
-                args_ptr =
-                    (kernel_args *) malloc(tmpMigrationCheck.argsNum * sizeof(kernel_args));
-                MPI_Irecv(args_ptr, tmpMigrationCheck.argsNum * sizeof(kernel_args),
-                          MPI_BYTE, appRank, MIGRATION_CHECK, appCommData[commIndex],
-                          curRequest);
-                MPI_Wait(curRequest, curStatus);
-
-                tmpMigrationCheck.isMigrationNeeded = 0;
-                free(args_ptr);
-            }
-            /* requested from enqueue write buffer */
-            else if (tmpMigrationCheck.checkLocation == 1) {
-                tmpMigrationCheck.isMigrationNeeded = 0;
-            }
-
-            if (maintenanceMigrationStatus == 1 && tmpMigrationCheck.rankNo >= voclRankThreshold) {
-                tmpMigrationCheck.isMigrationNeeded = 1;
-            }
-
-            MPI_Isend(&tmpMigrationCheck, sizeof(struct strMigrationCheck), MPI_BYTE, appRank,
-                      MIGRATION_CHECK, appComm[commIndex], curRequest);
+        else if (status.MPI_TAG == VOCL_MIGRATION) {
+            memcpy(&tmpVGPUMigration, conMsgBuffer[index], sizeof(struct strVGPUMigration));
+			requestNo = 0;
+			migMsgBuffer = (char *)malloc(tmpVGPUMigration.migMsgSize);
+			MPI_Irecv(migMsgBuffer, tmpVGPUMigration.migMsgSize, MPI_BYTE, appRank,
+					  VOCL_MIGRATION, appCommData[commIndex], curRequest+(requestNo++));
+			voclProxyMigCreateVirtualGPU(appIndex, tmpVGPUMigration.deviceID, 
+										 tmpVGPUMigration.contextNum, migMsgBuffer);
+			tmpVGPUMigration.retCode = 0; /* correct */
+            MPI_Isend(&tmpVGPUMigration, sizeof(struct strVGPUMigration), MPI_BYTE, appRank,
+                      VOCL_MIGRATION, appComm[commIndex], curRequest);
             MPI_Wait(curRequest, curStatus);
         }
 
@@ -1688,15 +1672,15 @@ int main(int argc, char *argv[])
                    sizeof(struct strForcedMigration));
             /* record forced migration status */
             maintenanceMigrationStatus = tmpForcedMigration.status;
-            voclRankThreshold = tmpForcedMigration.rankThreshold;
-            printf("voclRankThreshold = %d\n", voclRankThreshold);
             tmpForcedMigration.res = 1;
             MPI_Send(&tmpForcedMigration, sizeof(struct strForcedMigration), MPI_BYTE,
                      appRank, FORCED_MIGRATION, appComm[commIndex]);
+
         }
 
         else if (status.MPI_TAG == LB_GET_KERNEL_NUM) {
 			vocl_proxyGetKernelNumsOnGPUs(&tmpKernelNumOnDevice);
+			tmpKernelNumOnDevice.rankNo = rankNo;
             MPI_Send(&tmpKernelNumOnDevice, sizeof(struct strKernelNumOnDevice), MPI_BYTE,
                      appRank, LB_GET_KERNEL_NUM, appComm[commIndex]);
         }
