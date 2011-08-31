@@ -104,13 +104,11 @@ struct strSetKernelArg {
     cl_int res;
 };
 
-struct strMigrationCheck {
-	cl_command_queue command_queue;
-	int              rankNo;
-	int              checkLocation;
-	int              argsNum;
-	size_t           memSize;
-	int              isMigrationNeeded;
+struct strVGPUMigration {
+	size_t migMsgSize;
+	cl_device_id deviceID;
+	cl_uint contextNum;
+	cl_int retCode;
 };
 
 struct strEnqueueNDRangeKernel {
@@ -396,12 +394,13 @@ struct strMigRemoteGPURWCmpd {
 
 struct strForcedMigration {
 	int status;
-	int rankThreshold;
+//	int rankThreshold;
 	int res;
 };
 
 struct strKernelNumOnDevice {
 	int deviceNum;
+	int rankNo;
 	cl_device_id deviceIDs[MAX_DEVICE_NUM_PER_NODE];
 	int kernelNums[MAX_DEVICE_NUM_PER_NODE];
 };
@@ -417,7 +416,7 @@ union CMSG_UNION {
     struct strCreateBuffer tmpCreateBuffer;
     struct strEnqueueWriteBuffer tmpEnqueueWriteBuffer;
     struct strSetKernelArg tmpSetKernelArg;
-	struct strMigrationCheck tmpMigrationCheck;
+	struct strVGPUMigration tmpVGPUMigration;
     struct strEnqueueNDRangeKernel tmpEnqueueNDRangeKernel;
     struct strEnqueueReadBuffer tmpEnqueueReadBuffer;
     struct strReleaseMemObject tmpReleaseMemObject;

@@ -10,6 +10,8 @@ extern void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, vocl_
 extern void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_command_queue *command_queue);
 extern void voclProxyReleaseVirtualGPU(int appIndex, cl_device_id deviceID);
 extern void vocl_proxyGetKernelNumsOnGPUs(struct strKernelNumOnDevice *gpuKernelNum);
+extern void voclProxyGetMessageSizeForVGPU(vocl_virtual_gpu *vgpuPtr, vocl_vgpu_msg *msgPtr);
+extern void voclProxyPackMessageForVGPU(vocl_virtual_gpu *vgpuPtr, char *bufPtr);
 
 extern void voclProxyAddContext(cl_context context, cl_uint deviceNum, cl_device_id *deviceIDs);
 extern vocl_proxy_context *voclProxyGetContextPtr(cl_context context);
@@ -37,9 +39,9 @@ extern vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem);
 extern void voclProxyReleaseMem(cl_mem mem);
 
 extern MPI_Win *voclProxyGetWinPtr(int index);
+extern MPI_Comm *appComm, *appCommData;
 
-
-void voclProxyMigCreateVirtualGPU(int appIndex, cl_device_id deviceID, vocl_vgpu_msg *msgPtr, char *bufPtr)
+void voclProxyMigCreateVirtualGPU(int appIndex, cl_device_id deviceID, cl_uint contextNum, char *bufPtr)
 {
 	int i, j, k, stringIndex;
 	size_t offset;
@@ -64,7 +66,7 @@ void voclProxyMigCreateVirtualGPU(int appIndex, cl_device_id deviceID, vocl_vgpu
 	/* resources on the new virtual GPU */
 	offset = 0;
 	startLoc = 0;
-	for (i = 0; i < msgPtr->contextNum; i++)
+	for (i = 0; i < contextNum; i++)
 	{
 		/* obtain the context pointer to unpack the migration message */
 		contextPtr = (vocl_proxy_context *)(bufPtr+offset);
@@ -257,18 +259,20 @@ void voclProxyMigReleaseVirtualGPU(int appIndex, cl_device_id deviceID)
 
 /* go through each proxy process and obtain the */
 /* number of kernels in waiting */
-struct strKernelNumOnDevice *voclProxyMigQueryLoadOnGPU(int appIndex, int *proxyNum)
+struct strKernelNumOnDevice *voclProxyMigQueryLoadOnGPUs(int appIndex, int *proxyNum)
 {
 	int myRank, proxyRank, j;
 	MPI_Request *request;
 	MPI_Status *status;
 	int requestNo = 0;
 	struct strKernelNumOnDevice *loadPtr;
-	MPI_Comm comm;
+	MPI_Comm comm, commData;
 	MPI_Win *winPtr;
 	vocl_proxy_wins *winBufPtr;
 
-	comm = MPI_COMM_WORLD;
+	comm = appComm[0]; /* for communicator is for migration */
+	commData = appCommData[0];
+
 	MPI_Comm_rank(comm, &myRank);
 
 	/* get the number of kernels in waiting in each proxy process */
@@ -305,10 +309,79 @@ struct strKernelNumOnDevice *voclProxyMigQueryLoadOnGPU(int appIndex, int *proxy
 		MPI_Waitall(requestNo, request, status);
 	}
 
+	*proxyNum = winBufPtr->proxyNum;
+
 	free(winBufPtr);
 	free(request);
 	free(status);
 	return loadPtr;
 }
 
+/* find the physical gpu that has the least load. If all gpus have */
+/* the same amount of load, select the first device */
+cl_deivce_id voclProxyMigFindTargetGPU(struct strKernelNumOnDevice *gpuKernelNum, int proxyNum, int *rankNo)
+/* return the rank number and the device id of the corresponding gpu */
+{
+	int i, j;
+	int minKernelNumInWaiting = 999999;
+	int rankNoOfMinKernelNum = -1;
 
+	cl_device_id deviceID;
+	for (i = 0; i < proxyNum; i++)
+	{
+		for (j = 0; j < gpuKernelNum[i].deviceNum; j++)
+		{
+			if (minKernelNumInWaiting > gpuKernelNum[i].kernelNums[j])
+			{
+				minKernelNumInWaiting = gpuKernelNum[i].kernelNums[j];
+				rankNoOfMinKernelNum = gpukernelNum[i].rankNo;
+				deviceID = gpuKernelNum[i].deviceIDs[j];
+			}
+		}
+	}
+
+	*rankNo = gpukernelNum[i].rankNo;
+
+	return deviceID;
+}
+
+cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr)
+{
+	struct strKernelNumOnDevice *gpuKernelNum;
+	struct strVGPUMigration vgpuMigrationMsg;
+	vocl_vgpu_msg vgpuMsg;
+	size_t msgSize;
+	char *msgBuf;
+	int proxyNum, rankNo;
+	MPI_Comm comm, commData;
+	MPI_Request request[3];
+	MPI_Status status[3];
+	int requestNo = 0;
+	cl_device_id deviceID;
+
+	comm = appComm[0];
+	commData = appCommData[0];
+	gpuKernelNum = voclProxyMigQueryLoadOnGPUs(vpguPtr->appIndex, &proxyNum);
+	deviceID = voclProxyMigFindTargetGPU(gpuKernelNum, &rankNo);
+	free(gpuKernelNum);
+
+	/* send the migration message to target proxy process */
+	voclProxyGetMessageSizeForVGPU(vgpuPtr, &vgpuMsg);
+	vgpuMigrationMsg.migMsgSize = vpguMsg.size;
+	vgpuMigrationMsg.deviceID = deviceID;
+	vgpuMigrationMsg.contextNum = vgpuMsg.contextNum;
+	
+	MPI_Isend(&vgpuMigrationMsg, sizeof(struct strVGPUMigration), MPI_BYTE, 
+			  rankNo, VOCL_MIGRATION, comm, request+(requestNo++));
+	
+	/* pack the message for the virtual GPU */
+	msgBuf = (char *)malloc(vgpuMsg.size);
+	voclProxyPackMessageForVGPU(vgpuPtr, msgBuf);
+	MPI_Isend(msgBuf, vgpuMsg.size, MPI_BYTE, rankNo, VOCL_MIGRATION,
+			  commData, request+(requestNo++));
+	MPI_Irecv(&vgpuMigrationMsg, sizeof(struct strVGPUMigration), MPI_BYTE, 
+			  rankNo, VOCL_MIGRATION, comm, request+(requestNo++));
+	MPI_Waitall(requestNo, request, status);
+
+	return;
+}
