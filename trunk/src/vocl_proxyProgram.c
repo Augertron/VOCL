@@ -21,7 +21,7 @@ void voclProxyAddProgram(cl_program program, char *sourceString, size_t sourceSi
 
 	programPtr->stringNum = stringNum;
 	programPtr->stringSizeArray = (size_t *)malloc(stringNum * sizeof(size_t));
-	memcpy(programPtr->stringSizeArray, stringSizeArray, stringNum);
+	memcpy(programPtr->stringSizeArray, stringSizeArray, stringNum * sizeof(size_t));
 
 	programPtr->kernelNum = 20;
 	programPtr->kernelNo = 0;
