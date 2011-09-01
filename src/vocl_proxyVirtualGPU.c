@@ -4,6 +4,8 @@
 #include "vocl_proxyStructures.h"
 
 static vocl_virtual_gpu *virtualGPUPtr = NULL;
+static cl_uint voclProxyDeviceNum = 0;
+static cl_device_id *voclProxyDeviceIDs = NULL;
 
 void voclProxyAddVirtualGPU(int appIndex, cl_device_id deviceID)
 {
@@ -77,6 +79,62 @@ vocl_virtual_gpu *voclProxyGetVirtualGPUPtr(int appIndex, cl_device_id deviceID)
 	}
 
 	return vgpuPtr;
+}
+
+void voclProxyGetDeviceIDs()
+{
+	cl_platform_id *platformIDs;
+	cl_uint *deviceNums, platformNum, totalDeviceNum, i;
+	cl_int retCode;
+	retCode = clGetPlatformIDs(0, NULL, &platformNum);
+	if (retCode != CL_SUCCESS)
+	{
+		printf("voclProxyGetDeviceIDs, error %d\n", retCode);
+		exit(1);
+	}
+
+	platformIDs = (cl_platform_id *)malloc(sizeof(cl_platform_id) * platformNum);
+	deviceNums = (cl_uint *)malloc(sizeof(cl_uint) * platformNum);
+	retCode = clGetPlatformIDs(platformNum, platformIDs, NULL);
+	if (retCode != CL_SUCCESS)
+	{
+		printf("voclProxyGetDeviceIDs, clGetPlatformIDs error %d\n", retCode);
+		exit(1);
+	}
+
+	totalDeviceNum = 0;
+	retCode = CL_SUCCESS;
+	for (i = 0; i < platformNum; i++)
+	{
+		retCode |= clGetDeviceIDs(platformIDs[i], CL_DEVICE_TYPE_GPU, 0, NULL, &deviceNums[i]);
+		totalDeviceNum += deviceNums[i];
+	}
+	if (retCode != CL_SUCCESS)
+	{
+		printf("voclProxyGetDeviceIDs, clGetDeviceIDs error %d\n", retCode);
+		exit(1);
+	}
+
+	voclProxyDeviceIDs = (cl_device_id *)malloc(sizeof(cl_device_id) * totalDeviceNum);
+	voclProxyDeviceNum = totalDeviceNum;
+
+	totalDeviceNum = 0;
+	for (i = 0; i < platformNum; i++)
+	{
+		retCode |= clGetDeviceIDs(platformIDs[i], CL_DEVICE_TYPE_GPU, 
+				deviceNums[i], &voclProxyDeviceIDs[totalDeviceNum], NULL);
+		totalDeviceNum += deviceNums[i];
+	}
+	if (retCode != CL_SUCCESS)
+	{
+		printf("voclProxyGetDeviceIDs, clGetDeviceIDs error %d\n", retCode);
+		exit(1);
+	}
+
+	free(platformIDs);
+	free(deviceNums);
+
+	return;
 }
 
 /* pack the message for migration of virtual GPU */
@@ -205,7 +263,7 @@ void voclProxyPackMessageForVGPU(vocl_virtual_gpu *vgpuPtr, char *bufPtr)
         }
 
         /* pack the command queue based on the context */
-        cmdQueuePtr = contextPtr[k]->cmdQueuePtr;
+        cmdQueuePtr = contextPtr[i]->cmdQueuePtr;
         for (j = 0; j < contextPtr[i]->cmdQueueNo; j++)
         {
             memcpy(bufPtr+offset, cmdQueuePtr[j], sizeof(vocl_proxy_command_queue));
@@ -280,6 +338,11 @@ void voclProxyReleaseAllVirtualGPU()
 		free(vgpuPtr->cmdQueuePtr);
 		free(vgpuPtr);
 		vgpuPtr = nextVgpuPtr;
+	}
+
+	if (voclProxyDeviceIDs != NULL)
+	{
+		free(voclProxyDeviceIDs);
 	}
 
 	return;
@@ -400,41 +463,40 @@ void vocl_proxyGetKernelNumsOnGPUs(struct strKernelNumOnDevice *gpuKernelNum)
 {
 	/* go through each gpu and add the numbers of all kernels in the waiting state together */
 	int i, j, k;
+	int rankNo;
 	vocl_virtual_gpu *vgpuPtr;
 	vocl_proxy_context **contextPtr;
 	vocl_proxy_command_queue **cmdQueuePtr;
+	
+	MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
 
-	memset(gpuKernelNum, 0, sizeof(struct strKernelNumOnDevice));
-	gpuKernelNum->deviceNum = 0;
-	vgpuPtr = virtualGPUPtr;
-	while (vgpuPtr != NULL)
+	gpuKernelNum->deviceNum = voclProxyDeviceNum;
+	for (i = 0; i < voclProxyDeviceNum; i++)
 	{
-		contextPtr = vgpuPtr->contextPtr;
-		for (i = 0; i < vgpuPtr->contextNo; i++)
+		gpuKernelNum->kernelNums[i] = 0;
+		gpuKernelNum->deviceIDs[i] = voclProxyDeviceIDs[i];
+
+		vgpuPtr = virtualGPUPtr;
+		while (vgpuPtr != NULL)
 		{
-			cmdQueuePtr = contextPtr[i]->cmdQueuePtr;
-			for (j = 0; j < contextPtr[i]->cmdQueueNo; j++)
+			if (vgpuPtr->deviceID == gpuKernelNum->deviceIDs[i])
 			{
-				for (k = 0; k < gpuKernelNum->deviceNum; k++)
+				contextPtr = vgpuPtr->contextPtr;
+				for (j = 0; j < vgpuPtr->contextNo; j++)
 				{
-					if (gpuKernelNum->deviceIDs[k] == vgpuPtr->deviceID)
+					cmdQueuePtr = contextPtr[j]->cmdQueuePtr;
+					for (k = 0; k < contextPtr[j]->cmdQueueNo; k++)
 					{
-						break;
+						gpuKernelNum->kernelNums[i] += cmdQueuePtr[k]->kernelNumInCmdQueue;
 					}
 				}
-
-				gpuKernelNum->kernelNums[k] += cmdQueuePtr[j]->kernelNumInCmdQueue;
-				
-				if (k == gpuKernelNum->deviceNum)
-				{
-					gpuKernelNum->deviceIDs[k] = vgpuPtr->deviceID;
-					gpuKernelNum->deviceNum++;
-				}
 			}
-		}
 
-		vgpuPtr = vgpuPtr->next;
+			vgpuPtr = vgpuPtr->next;
+		}
 	}
+
+	gpuKernelNum->rankNo = rankNo;
 
 	return;
 }

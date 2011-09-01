@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <CL/opencl.h>
 #include "mpi.h"
 #include "voclOpencl.h"
@@ -15,7 +16,7 @@ struct strVoclWinInfo {
 };
 
 typedef struct strVoclWinInfoAll {
-	int numOfProxy;
+	int proxyNum;
 	struct strVoclWinInfo wins[DEFAULT_PROXY_NUM];
 } vocl_wins;
 
@@ -29,6 +30,7 @@ void voclWinInfoInitialize()
 	totalVoclWinInfoNum = DEFAULT_PROXY_NUM;
 	voclWinInfoNo = 0;
 	voclWinInfoPtr = (vocl_wins *)malloc(sizeof(vocl_wins));
+	memset(voclWinInfoPtr, 0, sizeof(vocl_wins));
 	voclMappingWin = (MPI_Win *)malloc(sizeof(MPI_Win) * totalVoclWinInfoNum);
 	
 	return;
@@ -81,6 +83,8 @@ void voclAddWinInfo(MPI_Comm comm, int proxyRank, char *serviceName)
 	MPI_Intercomm_merge(comm, 0, &mergedComm);
 	voclWinInfoPtr->wins[voclWinInfoNo].commWin = mergedComm;
 	voclWinInfoPtr->wins[voclWinInfoNo].commProxy = msgGetProxyCommInfo.comm;
+	voclWinInfoPtr->proxyNum++;
+	printf("voclLib, proxyNum = %d\n", voclWinInfoPtr->proxyNum);
 
 	/* create the window for passive data communication */
 	MPI_Win_create(voclWinInfoPtr, sizeof(vocl_wins), 
