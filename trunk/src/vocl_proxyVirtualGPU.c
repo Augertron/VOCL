@@ -7,12 +7,13 @@ static vocl_virtual_gpu *virtualGPUPtr = NULL;
 static cl_uint voclProxyDeviceNum = 0;
 static cl_device_id *voclProxyDeviceIDs = NULL;
 
-void voclProxyAddVirtualGPU(int appIndex, cl_device_id deviceID)
+void voclProxyAddVirtualGPU(int appIndex, int proxyRank, cl_device_id deviceID)
 {
 	vocl_virtual_gpu *vgpuPtr;
 	vgpuPtr = (vocl_virtual_gpu *)malloc(sizeof(vocl_virtual_gpu));
 	vgpuPtr->appIndex = appIndex;
 	vgpuPtr->deviceID = deviceID;
+	vgpuPtr->proxyRank = proxyRank;
 
 	vgpuPtr->contextNum = 100;
 	vgpuPtr->contextNo = 0;

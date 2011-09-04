@@ -11,6 +11,7 @@ void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context con
     memPtr = (vocl_proxy_mem *)malloc(sizeof(vocl_proxy_mem));
 	memPtr->mem = mem;
 	memPtr->size = size;
+	memPtr->flags = flags;
 	memPtr->context = context;
 
     memPtr->next = voclProxyMemPtr;
@@ -40,6 +41,24 @@ vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem)
     }
 
     return memPtr;
+}
+
+void voclProxySetMemWritten(cl_mem mem, int isWritten)
+{
+	vocl_proxy_mem *memPtr;
+	memPtr = voclProxyGetMemPtr(mem);
+	memPtr->isWritten = isWritten;
+
+	return;
+}
+
+void voclProxySetMemWriteCmdQueue(cl_mem mem, cl_command_queue cmdQueue)
+{
+	vocl_proxy_mem *memPtr;
+	memPtr = voclProxyGetMemPtr(mem);
+	memPtr->cmdQueue = cmdQueue;
+	
+	return;
 }
 
 void voclProxyReleaseMem(cl_mem mem)

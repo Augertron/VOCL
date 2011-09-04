@@ -8,7 +8,10 @@ typedef struct strVoclProxyMemory {
 	cl_context     context;
 	cl_mem_flags   flags;
 	size_t         size;
+
+	/* for migration */
 	int            isWritten;
+	cl_command_queue cmdQueue;
 
 	struct strVoclProxyMemory *next;
 } vocl_proxy_mem;
@@ -80,6 +83,7 @@ typedef struct strVoclProxyContext {
 typedef struct strVoclVirtualGPU {
     int appIndex;
 	cl_device_id deviceID;
+	int proxyRank;
 
     cl_uint contextNum, contextNo;  /* buffer size and number of contexts created */
 	vocl_proxy_context **contextPtr;

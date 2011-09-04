@@ -11,12 +11,15 @@
 struct strVoclWinInfo {
 	char serviceName[SERVICE_NAME_LEN];
 	int  proxyRank; /* rank no within the proxy comm_world */
+	int  appIndex;  /* index of the app on the proxy process */
 	MPI_Comm commProxy;
 	MPI_Comm commWin;  /* MPI communicator for win creation */
 };
 
 typedef struct strVoclWinInfoAll {
 	int proxyNum;
+	int migrationStatus;
+	int targetProxyIndex;
 	struct strVoclWinInfo wins[DEFAULT_PROXY_NUM];
 } vocl_wins;
 
@@ -83,7 +86,10 @@ void voclAddWinInfo(MPI_Comm comm, int proxyRank, char *serviceName)
 	MPI_Intercomm_merge(comm, 0, &mergedComm);
 	voclWinInfoPtr->wins[voclWinInfoNo].commWin = mergedComm;
 	voclWinInfoPtr->wins[voclWinInfoNo].commProxy = msgGetProxyCommInfo.comm;
+	voclWinInfoPtr->wins[voclWinInfoNo].appIndex = msgGetProxyCommInfo.appIndex;
 	voclWinInfoPtr->proxyNum++;
+	voclWinInfoPtr->migrationStatus = 0;
+	voclWinInfoPtr->targetProxyIndex = -1;
 	printf("voclLib, proxyNum = %d\n", voclWinInfoPtr->proxyNum);
 
 	/* create the window for passive data communication */
