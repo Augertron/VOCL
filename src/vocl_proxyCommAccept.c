@@ -203,7 +203,7 @@ void voclProxyDisconnectOneApp(int commIndex)
 	/* other proxy processes instead */
 	while (voclAppNo == 1)
 	{
-		printf("proxy9\n");
+		printf("polling...\n");
 		usleep(50000); /* polling every 50ms */
 	}
 

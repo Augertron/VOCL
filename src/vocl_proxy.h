@@ -13,6 +13,7 @@
 struct strGetProxyCommInfo {
     int proxyRank;
 	MPI_Comm comm;
+	int appIndex;
 };
 
 struct strGetPlatformIDs {
@@ -107,6 +108,7 @@ struct strSetKernelArg {
 struct strVGPUMigration {
 	size_t migMsgSize;
 	cl_device_id deviceID;
+	int   appIndex;
 	cl_uint contextNum;
 	cl_int retCode;
 };
@@ -401,6 +403,7 @@ struct strForcedMigration {
 struct strKernelNumOnDevice {
 	int deviceNum;
 	int rankNo;
+	int appIndex;
 	cl_device_id deviceIDs[MAX_DEVICE_NUM_PER_NODE];
 	int kernelNums[MAX_DEVICE_NUM_PER_NODE];
 };

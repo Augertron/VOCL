@@ -10,6 +10,7 @@ extern "C" {
 	struct strGetProxyCommInfo {
 		int proxyRank;
 		MPI_Comm comm;
+		int appIndex;
 	};
 
     struct strGetPlatformIDs {

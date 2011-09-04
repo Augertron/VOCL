@@ -196,7 +196,7 @@ extern void mpiOpenCLEnqueueUnmapMemObject(struct strEnqueueUnmapMemObject
                                            *tmpEnqueueUnmapMemObject,
                                            cl_event * event_wait_list);
 
-extern void voclProxyAddVirtualGPU(int appIndex, cl_device_id deviceID);
+extern void voclProxyAddVirtualGPU(int appIndex, int proxyRank, cl_device_id deviceID);
 extern void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_context *context);
 extern void voclProxyRemoveContextFromVGPU(int appIndex, vocl_proxy_context *context);
 extern void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_command_queue *command_queue);
@@ -204,7 +204,7 @@ extern void voclProxyRemoveCommandQueueFromVGPU(int appIndex, vocl_proxy_command
 extern void voclProxyReleaseVirtualGPU(int appIndex, cl_device_id deviceID);
 extern void voclProxyReleaseAllVirtualGPU();
 extern void voclProxyPrintVirtualGPUs();
-extern void voclProxyMigCreateVirtualGPU(int appIndex, cl_device_id deviceID, cl_uint contextNum, char *bufPtr);
+extern void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id deviceID, cl_uint contextNum, char *bufPtr);
 extern void voclProxyGetDeviceIDs();
 
 extern void voclProxyAddContext(cl_context context, cl_uint deviceNum, cl_device_id *deviceIDs);
@@ -234,6 +234,8 @@ extern void voclProxyResetKernelNumInCmdQueue(cl_command_queue cmdQueue);
 
 extern void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context context);
 extern vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem);
+extern void voclProxySetMemWritten(cl_mem mem, int isWritten);
+extern void voclProxySetMemWriteCmdQueue(cl_mem mem, cl_command_queue cmdQueue);
 extern void voclProxyReleaseMem(cl_mem mem);
 extern void voclProxyReleaseAllMems();
 
@@ -295,6 +297,7 @@ extern void voclProxyRecvAllMsgs(int index);
 
 extern void vocl_proxyGetKernelNumsOnGPUs(struct strKernelNumOnDevice *gpuKernelNum);
 extern cl_int voclProxyMigrationOneVGPUOverload(int appIndex, cl_device_id deviceID);
+extern void voclProxyMigRecvDeviceMemoryData(int appIndex, cl_device_id deviceID, int sourceRankNo);
 
 extern void voclProxyCmdQueueInit();
 extern void voclProxyCmdQueueFinalize();
@@ -461,6 +464,7 @@ int main(int argc, char *argv[])
 		if (status.MPI_TAG == GET_PROXY_COMM_INFO) {
 			tmpGetProxyCommInfo.proxyRank = rankNo;
 			tmpGetProxyCommInfo.comm = MPI_COMM_WORLD;
+			tmpGetProxyCommInfo.appIndex = appIndex;
 
 			MPI_Send(&tmpGetProxyCommInfo, sizeof(struct strGetProxyCommInfo), MPI_BYTE,
 					 appRank, GET_PROXY_COMM_INFO, appComm[commIndex]);
@@ -545,7 +549,7 @@ int main(int argc, char *argv[])
 
 			for (i = 0; i < tmpCreateContext.num_devices; i++)
 			{
-				voclProxyAddVirtualGPU(appIndex, devices[i]);
+				voclProxyAddVirtualGPU(appIndex, rankNo, devices[i]);
 				voclProxyAddContextToVGPU(appIndex, devices[i], contextPtr);
 			}
 
@@ -767,6 +771,11 @@ int main(int argc, char *argv[])
 			}
 			voclResetWriteEnqueueFlag(appIndex);
 
+			/* set memory migration state to be written */
+			voclProxySetMemWritten(tmpEnqueueWriteBuffer.buffer, 1);
+			voclProxySetMemWriteCmdQueue(tmpEnqueueWriteBuffer.buffer,
+										 tmpEnqueueWriteBuffer.command_queue);
+
 			if (tmpEnqueueWriteBuffer.blocking_write == CL_TRUE) {
 				if (requestNo > 0) {
 					MPI_Waitall(requestNo, curRequest, curStatus);
@@ -828,13 +837,14 @@ int main(int argc, char *argv[])
 					  VOCL_MIGRATION, appCommData[commIndex], curRequest);
 			MPI_Wait(curRequest, curStatus);
 
-			voclProxyMigCreateVirtualGPU(appIndex, tmpVGPUMigration.deviceID, 
+			voclProxyMigCreateVirtualGPU(tmpVGPUMigration.appIndex, rankNo, tmpVGPUMigration.deviceID, 
 										 tmpVGPUMigration.contextNum, migMsgBuffer);
 			tmpVGPUMigration.retCode = 0; /* correct */
             MPI_Isend(&tmpVGPUMigration, sizeof(struct strVGPUMigration), MPI_BYTE, appRank,
                       VOCL_MIGRATION, appCommData[commIndex], curRequest);
 			free(migMsgBuffer);
             MPI_Wait(curRequest, curStatus);
+			voclProxyMigRecvDeviceMemoryData(tmpVGPUMigration.appIndex, tmpVGPUMigration.deviceID, appRank);
         }
 
         else if (status.MPI_TAG == ENQUEUE_ND_RANGE_KERNEL) {
