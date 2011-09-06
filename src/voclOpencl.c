@@ -1244,7 +1244,6 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
     cl_kernel clKernel =
         voclVOCLKernel2CLKernelComm((vocl_kernel) kernel, &proxyRank, &proxyIndex,
                                     &proxyComm, &proxyCommData);
-    kernelMigStatus = voclKernelGetMigrationStatus((vocl_kernel) kernel);
     kernel_info *kernelPtr = getKernelPtr(kernel);
 
     /* if argument buffer is not enough, extend it */
@@ -1280,6 +1279,7 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
                    arg_size);
             /* record if it is a global memory and the size */
             kernelPtr->args_ptr[kernelPtr->args_num].isGlobalMemory = 1;
+			kernelPtr->args_ptr[kernelptr->args_num].migStatus = memMigStatus;
             kernelPtr->args_ptr[kernelPtr->args_num].globalSize = size;
         }
         else {
@@ -1293,10 +1293,10 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         if (kernelPtr->args_flag[arg_index] == 1) {     /*device memory */
             /* only if no migration happened, set the argument */
-            if (kernelMigStatus == memMigStatus) {
+//            if (kernelMigStatus == memMigStatus) {
                 /* add gpu memory usage */
                 return dlCLSetKernelArg(clKernel, arg_index, arg_size, (void *) &deviceMem);
-            }
+//            }
         }
         else {
             return dlCLSetKernelArg(clKernel, arg_index, arg_size, arg_value);

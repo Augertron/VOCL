@@ -137,3 +137,4 @@ void setKernelArgInfo(cl_kernel kernel, int argNum, char *argFlag)
 
 	return;
 }
+

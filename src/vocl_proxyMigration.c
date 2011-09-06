@@ -7,6 +7,7 @@
 
 extern vocl_virtual_gpu *voclProxyGetVirtualGPUPtr(int appIndex, cl_device_id deviceID);
 extern void voclProxyAddVirtualGPU(int appIndex, int proxyRank, cl_device_id deviceID);
+extern char voclProxyUpdateVGPUMigStatus(int appIndex, cl_device_id deviceID);
 extern void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_context *context);
 extern void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_command_queue *command_queue);
 extern void voclProxyReleaseVirtualGPU(int appIndex, cl_device_id deviceID);
@@ -20,23 +21,31 @@ extern void voclProxyAddProgramToContext(cl_context context, vocl_proxy_program 
 extern void voclProxyAddCommandQueueToContext(cl_context context, vocl_proxy_command_queue *command_queue);
 extern void voclProxyAddMemToContext(cl_context context, vocl_proxy_mem *mem);
 extern void voclProxyReleaseContext(cl_context context);
+extern char voclProxyUpdateContextMigStatus(cl_context context);
+extern void voclProxySetContextMigStatus(cl_context context, char migStatus);
 
 extern void voclProxyAddProgram(cl_program program, char *sourceString, size_t sourceSize, int stringNum, size_t *stringSizeArray, cl_context context);
 extern vocl_proxy_program *voclProxyGetProgramPtr(cl_program program);
 extern void voclProxySetProgramBuildOptions(cl_program program, cl_uint deviceNum, cl_device_id *device_list, char *buildOptions);
+extern void voclProxySetProgramMigStatus(cl_program program, char migStatus);
 extern void voclProxyAddKernelToProgram(cl_program program, vocl_proxy_kernel *kernel);
 extern void voclProxyReleaseProgram(cl_program program);
 
 extern void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program);
 extern vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel);
+extern void voclProxySetKernelMigStatus(cl_kernel kernel, char migStatus);
+extern void voclProxySetKernelArgFlag(cl_kernel kernel, int argNum, char *argFlag);
+extern void voclProxyStoreKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
 extern void voclProxyReleaseKernel(cl_kernel kernel);
 
 extern void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queue_properties properties, cl_context context, cl_device_id deviceID);
 extern vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_queue);
+extern void voclProxySetCommandQueueMigStatus(cl_command_queue commmand_queue, char migStatus);
 extern void voclProxyReleaseCommandQueue(cl_command_queue command_queue);
 
 extern void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context context);
 extern vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem);
+extern void voclProxySetMemMigStatus(cl_mem mem, char migStatus);
 extern void voclProxySetMemWritten(cl_mem mem, int isWritten);
 extern void voclProxyReleaseMem(cl_mem mem);
 
@@ -73,6 +82,10 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 	size_t offset;
 	size_t startLoc;
 	char **strings, *sourceString;
+	char *argFlag;
+	kernel_args *args;
+	int argNum;
+	char migStatus;
 	cl_int retCode;
 	cl_context context;
 	cl_command_queue cmdQueue;
@@ -87,6 +100,7 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 	
 	/* add the new virtual to the target proxy process */
 	voclProxyAddVirtualGPU(appIndex, proxyRank, deviceID);
+	migStatus = voclProxyUpdateVGPUMigStatus(appIndex, deviceID);
 
 	/* unpack the received message and create corresponding */
 	/* resources on the new virtual GPU */
@@ -101,6 +115,9 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 	
 		context = clCreateContext(NULL, 1, &deviceID, NULL, NULL, &retCode);
 		voclProxyAddContext(context, 1, &deviceID);
+		/* set the new migration status to that of the virtual GPU */
+		voclProxySetContextMigStatus(context, migStatus);
+
 		/* get vocl_proxy_context pointer */
 		ctxPtr = voclProxyGetContextPtr(context);
 		voclProxyAddContextToVGPU(appIndex, deviceID, ctxPtr);
@@ -161,6 +178,9 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 								programPtr->stringNum, 
 								programPtr->stringSizeArray,
 								context);
+			/* set program migration status */
+			voclProxySetProgramMigStatus(program, migStatus);
+
 			pgPtr = voclProxyGetProgramPtr(program);
 			voclProxyAddProgramToContext(context, pgPtr);
 
@@ -182,10 +202,27 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 				offset += kernelPtr->nameLen;
 				kernel = clCreateKernel(program, kernelPtr->kernelName, &retCode);
 
+				argNum = kernelPtr->argNum;
+				/*unpack the argument flag */
+				argFlag = (char *)(bufPtr + offset);
+				offset += argNum * sizeof(char);
+				
+				/* unpack the arguments */
+				args = (kernel_args *)(bufPtr + offset);
+				offset += argNum * sizeof(kernel_args);
+
 				/* store the kernel */
 				voclProxyAddKernel(kernel, kernelPtr->kernelName, program);
+
+				/* set the kernel migration status */
+				voclProxySetKernelMigStatus(kernel, migStatus);
+
 				knPtr = voclProxyGetKernelPtr(kernel);
 				voclProxyAddKernelToProgram(program, knPtr);
+
+				/* set the argument flag and arguments */
+				voclProxySetKernelArgFlag(kernel, argNum, argFlag);
+				voclProxyStoreKernelArgs(kernel, argNum, args);
 			}
 		}
 
@@ -198,6 +235,10 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 
 			/* store the command queue */
 			voclProxyAddCmdQueue(cmdQueue, cmdQueuePtr->properties, context, deviceID);
+			
+			/* set the migration status of command queue */
+			voclProxySetCommandQueueMigStatus(cmdQueue, migStatus);
+
 			cqPtr = voclProxyGetCmdQueuePtr(cmdQueue);
 			voclProxyAddCommandQueueToContext(context, cqPtr);
 			voclProxyAddCommandQueueToVGPU(appIndex, deviceID, cqPtr);
@@ -212,6 +253,8 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 								 NULL, &retCode);
 			/* store the memory */
 			voclProxyAddMem(mem, memPtr->flags, memPtr->size, context);
+			voclProxySetMemMigStatus(mem, migStatus);
+
 			voclProxySetMemWritten(mem, memPtr->isWritten);
 			mmPtr = voclProxyGetMemPtr(mem);
 			voclProxyAddMemToContext(context, mmPtr);

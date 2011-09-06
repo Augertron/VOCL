@@ -27,6 +27,8 @@ void voclProxyAddProgram(cl_program program, char *sourceString, size_t sourceSi
 	programPtr->kernelNo = 0;
 	programPtr->kernelPtr = (vocl_proxy_kernel **)malloc(sizeof(vocl_proxy_kernel *) * programPtr->kernelNum);
 
+	programPtr->migStatus = 0;
+
     programPtr->next = voclProxyProgramPtr;
     voclProxyProgramPtr = programPtr;
 
@@ -54,6 +56,22 @@ vocl_proxy_program *voclProxyGetProgramPtr(cl_program program)
     }
 
     return programPtr;
+}
+
+void voclProxySetProgramMigStatus(cl_program program, char migStatus)
+{
+	vocl_proxy_program *programPtr;
+	programPtr = voclProxyGetProgramPtr(program);
+	programPtr->migStatus = migStatus;
+
+	return;
+}
+
+char voclProxyGetProgramMigStatus(cl_program program)
+{
+	vocl_proxy_program *programPtr;
+	programPtr = voclProxyGetProgramPtr(program);
+	return programPtr->migStatus;
 }
 
 void voclProxyAddKernelToProgram(cl_program program, vocl_proxy_kernel *kernel)

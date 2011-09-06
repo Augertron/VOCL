@@ -24,6 +24,8 @@ void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queue_prope
 	cmdQueuePtr->kernelPtr = (vocl_proxy_kernel **)malloc(sizeof(vocl_proxy_mem *) * cmdQueuePtr->kernelNum);
 	memset(cmdQueuePtr->kernelPtr, 0, sizeof(vocl_proxy_kernel *) * cmdQueuePtr->kernelNum);
 
+	cmdQueuePtr->migStatus = 0;
+
 	cmdQueuePtr->kernelNumInCmdQueue = 0;
 
 	cmdQueuePtr->next = voclProxyCmdQueuePtr;
@@ -53,6 +55,22 @@ vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_queue
 	}
 
 	return cmdQueuePtr;
+}
+
+void voclProxySetCommandQueueMigStatus(cl_command_queue commmand_queue, char migStatus)
+{
+	vocl_proxy_command_queue *cmdQueuePtr;
+	cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
+	cmdQueuePtr->migStatus = migStatus;
+
+	return;
+}
+
+char voclProxyGetCommandQueueMigStatus(cl_command_queue commmand_queue, char migStatus)
+{
+	vocl_proxy_command_queue *cmdQueuePtr;
+	cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
+	return cmdQueuePtr->migStatus;
 }
 
 void voclProxyReleaseCommandQueue(cl_command_queue command_queue)

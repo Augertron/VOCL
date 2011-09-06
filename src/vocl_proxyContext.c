@@ -32,6 +32,8 @@ void voclProxyAddContext(cl_context context, cl_uint deviceNum, cl_device_id *de
 	contextPtr->programPtr = (vocl_proxy_program **)malloc(sizeof(vocl_proxy_program *) * contextPtr->programNum);
 	memset(contextPtr->programPtr, 0, sizeof(vocl_proxy_program *) * contextPtr->programNum);
 
+	contextPtr->migStatus = 0;
+
 	contextPtr->next = voclProxyContextPtr;
 	voclProxyContextPtr = contextPtr;
 
@@ -440,5 +442,30 @@ void voclProxyRemoveCommandQueueFromContextSimple(cl_context context, vocl_proxy
 	}
 
 	return;
+}
+
+void voclProxySetContextMigStatus(cl_context context, char migStatus)
+{
+	vocl_proxy_context *contextPtr;
+	contextPtr = voclProxyGetContextPtr(context);
+	contextPtr->migStatus = migStatus;
+	return;
+}
+
+/* add the migration status by one and return the new migration status */
+char voclProxyUpdateContextMigStatus(cl_context context)
+{
+	vocl_proxy_context *contextPtr;
+	contextPtr = voclProxyGetContextPtr(context);
+	contextPtr->migStatus++;
+
+	return contextPtr->migStatus;
+}
+
+char voclProxyGetContextMigStatus(cl_context context)
+{
+	vocl_proxy_context *contextPtr;
+	contextPtr = voclProxyGetContextPtr(context);
+	return contextPtr->migStatus;
 }
 

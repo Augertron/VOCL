@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "vocl_proxyStructures.h"
+#include "vocl_proxyKernelArgProc.h"
 
 static vocl_proxy_kernel *voclProxyKernelPtr = NULL;
 
@@ -17,6 +18,8 @@ void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program)
 	kernelPtr->kernelName[kernelPtr->nameLen-1] = '\0';
 	kernelPtr->argNum = 0;
 	kernelPtr->argFlag = NULL;
+	kernelPtr->args = NULL;
+	kernelPtr->migStatus = 0;
 
     kernelPtr->next = voclProxyKernelPtr;
     voclProxyKernelPtr = kernelPtr;
@@ -49,18 +52,25 @@ vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel)
 void voclProxySetKernelArgFlag(cl_kernel kernel, int argNum, char *argFlag)
 {
 	vocl_proxy_kernel *kernelPtr;
+	int i;
 	kernelPtr = voclProxyGetKernelPtr(kernel);
 	kernelPtr->argNum = argNum;
 	if (argNum > 0)
 	{
 		kernelPtr->argFlag = (char *)malloc(argNum * sizeof(char));
 		memcpy(kernelPtr->argFlag, argFlag, argNum * sizeof(char));
+		kernelPtr->args = (kernel_args *)malloc(sizeof(kernel_args) * argNum);
+		memset(kernelPtr->args, 0, sizeof(kernel_args) * argNum);
+		for (i = 0; i < argNum; i++)
+		{
+			kernelPtr->args[i].arg_index = -1;
+		}
 	}
 
 	return;
 }
 
-char *voclProxyGetKernelArgFlag(cl_kernel kernel, int *argNum)
+char *voclProxyGetKernelArgFlagAll(cl_kernel kernel, int *argNum)
 {
 	vocl_proxy_kernel *kernelPtr;
 	char *argFlag = NULL;
@@ -74,6 +84,52 @@ char *voclProxyGetKernelArgFlag(cl_kernel kernel, int *argNum)
 	}
 
 	return argFlag;
+}
+
+char voclProxyKernelArgIsDeviceMem(cl_kernel kernel, int index)
+{
+	vocl_proxy_kernel *kernelPtr;
+	kernelPtr = voclProxyGetKernelPtr(kernel);
+
+	return kernelPtr->argFlag[index];
+}
+
+void voclProxyStoreKernelArgs(cl_kernel kernel, int argNum, kernel_args *args)
+{
+	cl_uint i, argIndex;
+	vocl_proxy_kernel *kernelPtr;
+	kernelPtr = voclProxyGetKernelPtr(kernel);
+
+	for (i = 0; i < argNum; i++)
+	{
+		argIndex = args[i].arg_index;
+		memcpy(&kernelPtr->args[argIndex], &args[i], sizeof(kernel_args));
+	}
+
+	return;
+}
+
+kernel_args *voclProxyGetKernelArg(cl_kernel kernel, cl_uint argIndex)
+{
+	vocl_proxy_kernel *kernelPtr;
+	kernelPtr = voclProxyGetKernelPtr(kernel);
+
+	return &kernelPtr->args[argIndex];
+}
+
+void voclProxySetKernelMigStatus(cl_kernel kernel, char migStatus)
+{
+	vocl_proxy_kernel *kernelPtr;
+	kernelPtr = voclProxyGetKernelPtr(kernel);
+	kernelPtr->migStatus = migStatus;
+	return;
+}
+
+char voclProxyGetKernelMigStatus(cl_kernel kernel)
+{
+	vocl_proxy_kernel *kernelPtr;
+	kernelPtr = voclProxyGetKernelPtr(kernel);
+	return kernelPtr->migStatus;
 }
 
 void voclProxyReleaseKernel(cl_kernel kernel)
@@ -93,6 +149,7 @@ void voclProxyReleaseKernel(cl_kernel kernel)
 			if (kernelPtr->argNum > 0)
 			{
 				free(kernelPtr->argFlag);
+				free(kernelPtr->args);
 			}
 			free(kernelPtr);
 			return;
@@ -123,6 +180,7 @@ void voclProxyReleaseKernel(cl_kernel kernel)
 	if(kernelPtr->argNum > 0)
 	{
 		free(kernelPtr->argFlag);
+		free(kernelPtr->args);
 	}
     free(kernelPtr);
 
@@ -141,6 +199,7 @@ void voclProxyReleaseAllKernels()
 		if(kernelPtr->argNum > 0)
 		{
 			free(kernelPtr->argFlag);
+			free(kernelPtr->args);
 		}
         free(kernelPtr);
         kernelPtr = nextKernelPtr;
