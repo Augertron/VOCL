@@ -12,18 +12,22 @@ typedef struct strVoclProxyMemory {
 	/* for migration */
 	int            isWritten;
 	cl_command_queue cmdQueue;
+	char migStatus;
 
 	struct strVoclProxyMemory *next;
 } vocl_proxy_mem;
 
 typedef struct strVoclKernel {
 	cl_kernel      kernel;
-	cl_program     program;
 	size_t         nameLen;
-	int            argNum;
 	char           *kernelName;
-	char           *argFlag;
+	/* indicate whether an argument is device memory*/
+	int            argNum;
+	char           *argFlag; 
+	kernel_args    *args;
+	char migStatus;
 
+	cl_program     program;
 	struct strVoclKernel *next;
 } vocl_proxy_kernel;
 
@@ -41,8 +45,11 @@ typedef struct strVoclProgram {
 	cl_uint       deviceNum;
 	cl_device_id  *device_list;
 
+
 	cl_uint       kernelNo, kernelNum;
 	vocl_proxy_kernel **kernelPtr;
+
+	char migStatus;
 
 	struct strVoclProgram *next;
 } vocl_proxy_program;
@@ -62,6 +69,8 @@ typedef struct strVoclProxyCommandQueue {
 	/* number of kernels launched, but not finished execution */
 	cl_uint  kernelNumInCmdQueue;
 
+	char migStatus;
+
 	struct strVoclProxyCommandQueue *next;
 } vocl_proxy_command_queue;
 
@@ -79,6 +88,8 @@ typedef struct strVoclProxyContext {
 	cl_uint programNum, programNo;
 	vocl_proxy_program **programPtr;
 
+	char migStatus;
+
 	struct strVoclProxyContext *next;
 } vocl_proxy_context;
 
@@ -92,6 +103,8 @@ typedef struct strVoclVirtualGPU {
 
     cl_uint cmdQueueNum, cmdQueueNo; /*buffer size and number of cmdQueue created */
     vocl_proxy_command_queue **cmdQueuePtr;
+
+	char migStatus;
 
 	struct strVoclVirtualGPU *next;
 } vocl_virtual_gpu;

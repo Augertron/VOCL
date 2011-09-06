@@ -13,6 +13,7 @@ void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context con
 	memPtr->size = size;
 	memPtr->flags = flags;
 	memPtr->context = context;
+	memPtr->migStatus = 0;
 
     memPtr->next = voclProxyMemPtr;
     voclProxyMemPtr = memPtr;
@@ -41,6 +42,22 @@ vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem)
     }
 
     return memPtr;
+}
+
+void voclProxySetMemMigStatus(cl_mem mem, char migStatus)
+{
+	vocl_proxy_mem *memPtr;
+	memPtr = voclProxyGetMemPtr(mem);
+	memPtr->migStatus = migStatus;
+
+	return;
+}
+
+char voclProxyGetMemMigStatus(cl_mem mem)
+{
+	vocl_proxy_mem *memPtr;
+	memPtr = voclProxyGetMemPtr(mem);
+	return memPtr->migStatus;
 }
 
 void voclProxySetMemWritten(cl_mem mem, int isWritten)

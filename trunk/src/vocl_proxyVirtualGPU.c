@@ -22,6 +22,7 @@ void voclProxyAddVirtualGPU(int appIndex, int proxyRank, cl_device_id deviceID)
 	vgpuPtr->cmdQueueNum = 100;
 	vgpuPtr->cmdQueueNo = 0;
 	vgpuPtr->cmdQueuePtr = (vocl_proxy_command_queue **)malloc(sizeof(vocl_proxy_command_queue*) * vgpuPtr->cmdQueueNum);
+	vgpuPtr->migStatus = 0;  /* 0 means no migration, 1: migration once, 2: migratoin twice, and so on ... */
 
 	vgpuPtr->next = virtualGPUPtr;
 	virtualGPUPtr = vgpuPtr;
@@ -82,6 +83,29 @@ vocl_virtual_gpu *voclProxyGetVirtualGPUPtr(int appIndex, cl_device_id deviceID)
 	return vgpuPtr;
 }
 
+void voclProxySetVGPUMigStatus(int appIndex, cl_device_id deviceID, char migStatus)
+{
+	vocl_virtual_gpu *vgpuPtr;
+	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+	vgpuPtr->migStatus = migStatus;
+}
+
+char voclProxyUpdateVGPUMigStatus(int appIndex, cl_device_id deviceID)
+{
+	vocl_virtual_gpu *vgpuPtr;
+	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+	vgpuptr->migStatus++;
+
+	return vgpuPtr->migStatus;
+}
+
+char voclProxyGetVGPUMigStatus(int appIndex, cl_device_id deviceID)
+{
+	vocl_virtual_gpu *vgpuPtr;
+	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+	return vgpuPtr->migStatus;
+}
+
 void voclProxyGetDeviceIDs()
 {
 	cl_platform_id *platformIDs;
@@ -139,19 +163,15 @@ void voclProxyGetDeviceIDs()
 }
 
 /* pack the message for migration of virtual GPU */
-//void voclProxyGetMessageSizeForVGPU(int appIndex, cl_device_id deviceID, vocl_vgpu_msg *msgPtr)
 void voclProxyGetMessageSizeForVGPU(vocl_virtual_gpu *vgpuPtr, vocl_vgpu_msg *msgPtr)
-/*return the message buffer */
 {
     size_t msgSize;
     int i, j, k;
-//    vocl_virtual_gpu *vgpuPtr;
     vocl_proxy_context **contextPtr;
     vocl_proxy_command_queue **cmdQueuePtr;
     vocl_proxy_program **programPtr;
     vocl_proxy_mem **memPtr;
     vocl_proxy_kernel **kernelPtr;
-//    vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
 
     msgPtr->contextNum = vgpuPtr->contextNo;
     msgPtr->cmdQueueNum = 0;
@@ -179,6 +199,9 @@ void voclProxyGetMessageSizeForVGPU(vocl_virtual_gpu *vgpuPtr, vocl_vgpu_msg *ms
             for (k = 0; k < programPtr[j]->kernelNo; k++)
             {
                 msgSize += kernelPtr[k]->nameLen;
+				/* add the size of kernel arg flag and kernel args */
+				msgSize += kernelPtr[k]->argNum * sizeof(char);
+				msgsize += kernelPtr[k]->argNum * sizeof(kernel_args);
             }
         }
 
@@ -260,6 +283,14 @@ void voclProxyPackMessageForVGPU(vocl_virtual_gpu *vgpuPtr, char *bufPtr)
                 /* pack the kernel name */
                 memcpy(bufPtr+offset, kernelPtr[k]->kernelName, kernelPtr[k]->nameLen);
                 offset += kernelPtr[k]->nameLen;
+
+				/* pack the kernel arg flag */
+				memcpy(bufPtr+offset, kernelPtr[k]->argFlag, kernelPtr[k]->argNum * sizeof(char));
+				offset += kernelPtr[k]->argNum * sizeof(char);
+
+				/* pack the kernel argments */
+				memcpy(bufPtr+offset, kernelPtr[k]->args, kernelPtr[k]->argNum * sizeof(kernel_args));
+				offset += kernelPtr[k]->argNum * sizeof(kernel_args);
             }
         }
 

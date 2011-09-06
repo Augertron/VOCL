@@ -15,6 +15,7 @@ typedef struct strKernelArgs {
     char      arg_value[32];
     cl_char   arg_null_flag;
 	cl_int    isGlobalMemory;
+	char      migStatus;
     cl_mem    memory;              /* used for migration */
 	size_t    globalSize;
 } kernel_args;
