@@ -58,9 +58,12 @@ extern int voclMigRWGetNextBufferIndex(int rank);
 extern struct strMigRWBufferSameNode *voclMigRWGetBufferInfoPtr(int rank, int index);
 extern void voclMigSetRWBufferFlag(int rank, int index, int flag);
 extern int voclMigFinishDataRWOnSameNode(int rank);
+extern void voclProxyUpdateMigStatus(int appIndex, int destProxyIndex);
+
 
 void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo, MPI_Comm migComm, MPI_Comm migCommData);
 void voclProxyMigSendRecvDeviceMemoryData(vocl_virtual_gpu *sourceVGPUPtr, vocl_virtual_gpu *destVGPUPtr);
+
 
 extern MPI_Comm *appComm, *appCommData;
 
@@ -427,7 +430,11 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr)
 		MPI_Irecv(&vgpuMigrationMsg, sizeof(struct strVGPUMigration), MPI_BYTE, 
 				  destRankNo, VOCL_MIGRATION, commData, request+(requestNo++));
 		MPI_Waitall(requestNo, request, status);
+		/* finish data transfer for migration */
 		voclProxyMigSendDeviceMemoryData(vgpuPtr, destRankNo, comm, commData);
+
+		/* update the mapping information in the library size */
+		voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo);
 	}
 	else
 	{
@@ -511,6 +518,8 @@ void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo,
 	}
 
 	voclMigFinishDataRead(appIndex);
+
+	/* update the virtual GPU mapping */
 
 	return;
 }

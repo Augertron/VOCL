@@ -9,15 +9,18 @@
 struct strVoclWinInfo {
     char serviceName[SERVICE_NAME_LEN];
     int  proxyRank; /* rank no within the proxy comm_world */
-	int  appIndex;
-    MPI_Comm commProxy;
+    int  appIndex;  /* index of the app on the proxy process */
+
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
     MPI_Comm commWin;  /* MPI communicator for win creation */
+
+    int migrationStatus;
+    int destProxyIndex;
 };
 
 typedef struct strVoclProxyWinInfoAll {
     int proxyNum;
-	int migrationStatus;
-	int targetProxyIndex;
     struct strVoclWinInfo wins[DEFAULT_PROXY_NUM];
 } vocl_proxy_wins;
 

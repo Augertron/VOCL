@@ -8,9 +8,11 @@ extern "C" {
 #endif
 
 	struct strGetProxyCommInfo {
+		int proxyIndexInApp;
 		int proxyRank;
-		MPI_Comm comm;
 		int appIndex;
+		MPI_Comm comm;
+		MPI_Comm commData;
 	};
 
     struct strGetPlatformIDs {

@@ -238,7 +238,7 @@ extern int voclGetTaskMigrationCondition();
 
 extern void voclWinInfoInitialize();
 extern void voclWinInfoFinalize();
-extern void voclAddWinInfo(MPI_Comm comm, int proxyRank, char *serviceName);
+extern void voclAddWinInfo(MPI_Comm comm, int proxyRank, int proxyIndex, char *serviceName);
 extern void voclWinInfoFree(int proxyIndex);
 extern void voclPrintWinInfo();
 
@@ -462,7 +462,7 @@ static void checkSlaveProc()
                 voclProxyRank[i] = 0;
 
 				/* create a window for data access by the proxy process */
-				voclAddWinInfo(voclProxyComm[i], voclProxyRank[i], serviceName);
+				voclAddWinInfo(voclProxyComm[i], voclProxyRank[i], i, serviceName);
             }
         }
 

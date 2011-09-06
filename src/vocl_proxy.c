@@ -265,7 +265,7 @@ extern void voclProxyReleaseProxyMsgReceive();
 /* for MPI window management */
 extern void voclProxyWinInitialize();
 extern void voclProxyWinFinalize();
-extern void voclProxyCreateWin(MPI_Comm comm, int appIndex);
+extern void voclProxyCreateWin(MPI_Comm comm, int appIndex, int proxyIndexInApp);
 extern void voclProxyFreeWin(int appIndex);
 extern void voclProxyPrintWinInfo();
 
@@ -462,15 +462,19 @@ int main(int argc, char *argv[])
               rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
         //-------------------------------------
 		if (status.MPI_TAG == GET_PROXY_COMM_INFO) {
+			memcpy((void *)&tmpGetProxyCommInfo, (const void *) conMsgBuffer[index],
+					sizeof(tmpGetProxyCommInfo));
 			tmpGetProxyCommInfo.proxyRank = rankNo;
-			tmpGetProxyCommInfo.comm = MPI_COMM_WORLD;
+			/* get communicator across different proxy process */
+			tmpGetProxyCommInfo.comm = appComm[0]; 
+			tmpGetProxyCommInfo.commData = appCommData[0];
 			tmpGetProxyCommInfo.appIndex = appIndex;
 
 			MPI_Send(&tmpGetProxyCommInfo, sizeof(struct strGetProxyCommInfo), MPI_BYTE,
 					 appRank, GET_PROXY_COMM_INFO, appComm[commIndex]);
 
 			/* create the win for one-sided data communication */
-			voclProxyCreateWin(appComm[commIndex], appIndex);
+			voclProxyCreateWin(appComm[commIndex], appIndex, tmpGetProxyCommInfo.proxyIndexInApp);
 		}
 
         else if (status.MPI_TAG == GET_PLATFORM_ID_FUNC) {

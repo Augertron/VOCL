@@ -11,9 +11,11 @@
 #include "vocl_proxy_macro.h"
 
 struct strGetProxyCommInfo {
+	int proxyIndexInApp;
     int proxyRank;
-	MPI_Comm comm;
 	int appIndex;
+	MPI_Comm comm;
+	MPI_Comm commData;
 };
 
 struct strGetPlatformIDs {
@@ -409,6 +411,7 @@ struct strKernelNumOnDevice {
 };
 
 union CMSG_UNION {
+	struct strGetProxyCommInfo tmpGetProxyCommInfo;
     struct strGetPlatformIDs tmpGetPlatformID;
     struct strGetDeviceIDs tmpGetDeviceIDs;
     struct strCreateContext tmpCreateContext;
