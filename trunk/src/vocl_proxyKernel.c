@@ -15,6 +15,8 @@ void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program)
 	kernelPtr->kernelName = (char *)malloc(kernelPtr->nameLen);
 	memcpy(kernelPtr->kernelName, kernelName, kernelPtr->nameLen);
 	kernelPtr->kernelName[kernelPtr->nameLen-1] = '\0';
+	kernelPtr->argNum = 0;
+	kernelPtr->argFlag = NULL;
 
     kernelPtr->next = voclProxyKernelPtr;
     voclProxyKernelPtr = kernelPtr;
@@ -44,6 +46,36 @@ vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel)
     return kernelPtr;
 }
 
+void voclProxySetKernelArgFlag(cl_kernel kernel, int argNum, char *argFlag)
+{
+	vocl_proxy_kernel *kernelPtr;
+	kernelPtr = voclProxyGetKernelPtr(kernel);
+	kernelPtr->argNum = argNum;
+	if (argNum > 0)
+	{
+		kernelPtr->argFlag = (char *)malloc(argNum * sizeof(char));
+		memcpy(kernelPtr->argFlag, argFlag, argNum * sizeof(char));
+	}
+
+	return;
+}
+
+char *voclProxyGetKernelArgFlag(cl_kernel kernel, int *argNum)
+{
+	vocl_proxy_kernel *kernelPtr;
+	char *argFlag = NULL;
+
+	kernelPtr = voclProxyGetKernelPtr(kernel);
+	*argNum = kernelPtr->argNum;
+	if (argNum > 0)
+	{
+		argFlag = (char *)malloc(kernelPtr->argNum * sizeof(char));
+		memcpy(argFlag, kernelPtr->argFlag, kernelPtr->argNum * sizeof(char));
+	}
+
+	return argFlag;
+}
+
 void voclProxyReleaseKernel(cl_kernel kernel)
 {
     vocl_proxy_kernel *kernelPtr, *preKernelPtr;
@@ -58,6 +90,10 @@ void voclProxyReleaseKernel(cl_kernel kernel)
 			kernelPtr = voclProxyKernelPtr;
 			voclProxyKernelPtr = kernelPtr->next;
 			free(kernelPtr->kernelName);
+			if (kernelPtr->argNum > 0)
+			{
+				free(kernelPtr->argFlag);
+			}
 			free(kernelPtr);
 			return;
 		}
@@ -84,6 +120,10 @@ void voclProxyReleaseKernel(cl_kernel kernel)
 
     preKernelPtr->next = kernelPtr->next;
 	free(kernelPtr->kernelName);
+	if(kernelPtr->argNum > 0)
+	{
+		free(kernelPtr->argFlag);
+	}
     free(kernelPtr);
 
     return;
@@ -98,6 +138,10 @@ void voclProxyReleaseAllKernels()
     {
         nextKernelPtr = kernelPtr->next;
 		free(kernelPtr->kernelName);
+		if(kernelPtr->argNum > 0)
+		{
+			free(kernelPtr->argFlag);
+		}
         free(kernelPtr);
         kernelPtr = nextKernelPtr;
     }

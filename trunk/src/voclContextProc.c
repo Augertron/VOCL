@@ -94,6 +94,7 @@ vocl_context voclCLContext2VOCLContext(cl_context context, int proxyRank,
     contextPtr->proxyIndex = proxyIndex;
     contextPtr->proxyComm = proxyComm;
     contextPtr->proxyCommData = proxyCommData;
+	contextPtr->migrationStatus = 0;
     contextPtr->voclContext = getVOCLContextValue();
 
     return contextPtr->voclContext;

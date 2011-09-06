@@ -18,7 +18,8 @@ extern "C" {
     cl_int createKernel(cl_kernel kernel);
     kernel_info *getKernelPtr(cl_kernel kernel);
     cl_int releaseKernelPtr(cl_kernel kernel);
-    void createKernelArgInfo(cl_kernel kernel, char *kernel_name, vocl_program program);
+	char* getKernelArgInfo(char *kernel_name, vocl_program program, int *argNum);
+	void setKernelArgInfo(cl_kernel kernel, int argNum, char *argFlag);
 
 #ifdef __cplusplus
 }
@@ -104,14 +105,13 @@ cl_int releaseKernelPtr(cl_kernel kernel)
     return 0;
 }
 
-void createKernelArgInfo(cl_kernel kernel, char *kernel_name, vocl_program program)
+char* getKernelArgInfo(char *kernel_name, vocl_program program, int *argNum)
 {
-    kernel_info *kernelPtr;
     size_t sourceSize, codeSize;
     char *programSource;
     char *codeSource;
+	char *argFlag;
 
-    kernelPtr = getKernelPtr(kernel);
     programSource = voclGetProgramSource(program, &sourceSize);
 
     codeSource = (char *) malloc(sourceSize * sizeof(char));
@@ -120,10 +120,20 @@ void createKernelArgInfo(cl_kernel kernel, char *kernel_name, vocl_program progr
     voclRemoveComments(programSource, sourceSize, codeSource, &codeSize);
 
     /* get argument info of the kernel */
-    kernelPtr->args_flag =
-        voclKernelPrototye(codeSource, kernel_name, &kernelPtr->kernel_arg_num);
+    argFlag =
+        voclKernelPrototye(codeSource, kernel_name, argNum);
 
     free(codeSource);
 
-    return;
+    return argFlag;
+}
+
+void setKernelArgInfo(cl_kernel kernel, int argNum, char *argFlag)
+{
+	kernel_info *kernelPtr;
+	kernelPtr = getKernelPtr(kernel);
+	kernelPtr->kernel_arg_num = argNum;
+	kernelPtr->args_flag = argFlag;
+
+	return;
 }

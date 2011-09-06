@@ -20,7 +20,9 @@ typedef struct strVoclKernel {
 	cl_kernel      kernel;
 	cl_program     program;
 	size_t         nameLen;
+	int            argNum;
 	char           *kernelName;
+	char           *argFlag;
 
 	struct strVoclKernel *next;
 } vocl_proxy_kernel;

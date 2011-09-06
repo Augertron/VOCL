@@ -251,6 +251,7 @@ extern void voclProxyReleaseAllPrograms();
 
 extern void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program);
 extern vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel);
+extern void voclProxySetKernelArgFlag(cl_kernel kernel, int argNum, char *argFlag);
 extern void voclProxyReleaseKernel(cl_kernel kernel);
 extern void voclProxyReleaseAllKernels();
 
@@ -356,10 +357,10 @@ int main(int argc, char *argv[])
 	vocl_proxy_mem *memPtr;
 
     size_t *lengthsArray;
-    size_t fileSize;
+    size_t fileSize, paramBufSize;
     char *fileBuffer;
     char *buildOptionBuffer;
-    char *kernelName;
+    char *kernelName, *paramBuf, *argFlag;
     void *host_ptr;
     void *arg_value;
     int work_dim;
@@ -668,10 +669,17 @@ int main(int argc, char *argv[])
 
         else if (status.MPI_TAG == CREATE_KERNEL) {
             memcpy(&tmpCreateKernel, conMsgBuffer[index], sizeof(tmpCreateKernel));
-            kernelName = (char *) malloc((tmpCreateKernel.kernelNameSize + 1) * sizeof(char));
-            MPI_Irecv(kernelName, tmpCreateKernel.kernelNameSize, MPI_CHAR, appRank,
+
+			paramBufSize = tmpCreateKernel.kernelNameSize + tmpCreateKernel.argNum * sizeof(char);
+			paramBuf = (char *) malloc(paramBufSize);
+            kernelName = (char *) malloc(tmpCreateKernel.kernelNameSize + 1);
+
+            MPI_Irecv(paramBuf, paramBufSize, MPI_BYTE, appRank,
                       CREATE_KERNEL1, appCommData[commIndex], curRequest);
+			memcpy(kernelName, paramBuf, tmpCreateKernel.kernelNameSize);
             kernelName[tmpCreateKernel.kernelNameSize] = '\0';
+			argFlag = (char *)&paramBuf[tmpCreateKernel.kernelNameSize];
+
             MPI_Wait(curRequest, curStatus);
             mpiOpenCLCreateKernel(&tmpCreateKernel, kernelName);
             MPI_Isend(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, appRank,
@@ -685,6 +693,12 @@ int main(int argc, char *argv[])
 			kernelPtr = voclProxyGetKernelPtr(tmpCreateKernel.kernel);
 			voclProxyAddKernelToProgram(tmpCreateKernel.program, kernelPtr);
 
+			/* set the kernel argu flag to indicate whether a parameter is a global memory */
+			voclProxySetKernelArgFlag(tmpCreateKernel.kernel, 
+									  tmpCreateKernel.argNum,
+									  argFlag);
+			
+			free(paramBuf);
             free(kernelName);
             MPI_Wait(curRequest, curStatus);
         }
