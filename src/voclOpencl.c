@@ -150,7 +150,9 @@ extern void voclUpdateSingleKernel(vocl_kernel kernel, vocl_command_queue comman
 extern cl_int createKernel(cl_kernel kernel);
 extern kernel_info *getKernelPtr(cl_kernel kernel);
 extern cl_int releaseKernelPtr(cl_kernel kernel);
-extern void createKernelArgInfo(cl_kernel kernel, char *kernel_name, vocl_program program);
+extern char* getKernelArgInfo(char *kernel_name, vocl_program program, int *argNum);
+extern void setKernelArgInfo(cl_kernel kernel, int argNum, char *argFlag);
+
 
 /* writeBufferPool API functions */
 extern void initializeVoclWriteBufferAll();
@@ -706,6 +708,7 @@ clCreateContext(const cl_context_properties * properties,
 
     /* for the first time a context is created, migration status is 0 */
     voclContextSetMigrationStatus(context, 0);
+
     free(clDevices);
 
     return (cl_context) context;
@@ -959,11 +962,17 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
     vocl_kernel kernel;
     vocl_context context;
     int requestNo = 0;
+	char *argFlag, *paramBuf;
+	size_t paramBufSize;
+	int argNum;
     struct strCreateKernel tmpCreateKernel;
     int kernelNameSize = strlen(kernel_name);
 
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
+
+	/* get the argument info of the kernel */
+	argFlag = getKernelArgInfo(kernel_name, (vocl_program) program, &argNum);
 
     tmpCreateKernel.program = voclVOCLProgram2CLProgramComm((vocl_program) program,
                                                             &proxyRank, &proxyIndex,
@@ -976,11 +985,16 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
     }
     else {
         tmpCreateKernel.kernelNameSize = kernelNameSize;
+		tmpCreateKernel.argNum = argNum;
+		paramBufSize = tmpCreateKernel.kernelNameSize + tmpCreateKernel.argNum * sizeof(char);
+		paramBuf = (char *)malloc(paramBufSize);
+		memcpy(paramBuf, kernel_name, tmpCreateKernel.kernelNameSize);
+		memcpy(&paramBuf[tmpCreateKernel.kernelNameSize], argFlag, tmpCreateKernel.argNum * sizeof(char));
 
         /* send input parameters to remote node */
         MPI_Isend(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, proxyRank,
                   CREATE_KERNEL, proxyComm, request + (requestNo++));
-        MPI_Isend((void *) kernel_name, kernelNameSize, MPI_CHAR, proxyRank, CREATE_KERNEL1,
+        MPI_Isend((void *) paramBuf, paramBufSize, MPI_CHAR, proxyRank, CREATE_KERNEL1,
                   proxyCommData, request + (requestNo++));
         MPI_Irecv(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, proxyRank,
                   CREATE_KERNEL, proxyComm, request + (requestNo++));
@@ -1007,8 +1021,7 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
 
     /* create kernel info on the local node for storing arguments */
     createKernel((cl_kernel) kernel);
-    createKernelArgInfo((cl_kernel) kernel, (char *) kernel_name, (vocl_program) program);
-
+	setKernelArgInfo((cl_kernel) kernel, argNum, argFlag);
 
     return (cl_kernel) kernel;
 }

@@ -72,6 +72,7 @@ struct strBuildProgram {
 
 struct strCreateKernel {
     cl_program program;
+	int argNum;
     size_t kernelNameSize;
     cl_int errcode_ret;
     cl_kernel kernel;
