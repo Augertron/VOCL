@@ -86,9 +86,9 @@ extern cl_command_queue voclVOCLCommandQueue2OldCLCommandQueueComm(vocl_command_
 extern void voclCommandQueueSetMigrationStatus(vocl_command_queue cmdQueue, int status);
 extern void voclCommandQueueSetMigrationStatus(vocl_command_queue cmdQueue, int status);
 extern int voclCommandQueueGetMigrationStatus(vocl_command_queue cmdQueue);
-extern void voclCommandQueueMigration(vocl_command_queue command_queue);
-extern void voclUpdateMemoryInCommandQueue(vocl_command_queue command_queue, vocl_mem mem,
-                                           size_t size);
+//extern void voclCommandQueueMigration(vocl_command_queue command_queue);
+//extern void voclUpdateMemoryInCommandQueue(vocl_command_queue command_queue, vocl_mem mem,
+//                                           size_t size);
 
 /* for program processing */
 extern void voclProgramInitialize();
@@ -680,6 +680,7 @@ clCreateContext(const cl_context_properties * properties,
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         dlCLCreateContext(properties, num_devices, clDevices, pfn_notify,
                           user_data, errcode_ret, &tmpCreateContext.hContext);
+		tmpCreateContext.migStatus = 0;
     }
     else {
         tmpCreateContext.user_data = user_data;
@@ -707,7 +708,7 @@ clCreateContext(const cl_context_properties * properties,
                                   proxyCommData);
 
     /* for the first time a context is created, migration status is 0 */
-    voclContextSetMigrationStatus(context, 0);
+    voclContextSetMigrationStatus(context, tmpCreateContext.migStatus);
 
     free(clDevices);
 
@@ -747,6 +748,7 @@ clCreateCommandQueue(cl_context context,
         dlCLCreateCommandQueue(tmpCreateCommandQueue.context,
                                tmpCreateCommandQueue.device, properties, errcode_ret,
                                &tmpCreateCommandQueue.clCommand);
+		tmpCreateCommandQueue.migStatus = 0;
     }
     else {
         tmpCreateCommandQueue.properties = properties;
@@ -772,8 +774,8 @@ clCreateCommandQueue(cl_context context,
         voclCLCommandQueue2VOCLCommandQueue(tmpCreateCommandQueue.clCommand, proxyRankContext,
                                             proxyIndex, proxyComm, proxyCommData);
     /*set the migration status */
-    voclCommandQueueSetMigrationStatus(command_queue,
-                                       voclContextGetMigrationStatus((vocl_context) context));
+    voclCommandQueueSetMigrationStatus(command_queue, tmpCreateCommandQueue.migStatus);
+
     voclStoreCmdQueueProperties(command_queue, properties, (vocl_context) context,
                                 (vocl_device_id) device);
 
@@ -843,6 +845,7 @@ clCreateProgramWithSource(cl_context context,
         dlCLCreateProgramWithSource(tmpCreateProgramWithSource.context,
                                     count, strings, lengths, errcode_ret,
                                     &tmpCreateProgramWithSource.clProgram);
+		tmpCreateProgramWithSource.migStatus = 0;
     }
     else {
         /* send parameters to remote node */
@@ -868,8 +871,7 @@ clCreateProgramWithSource(cl_context context,
     /* convert opencl program to vocl program */
     program = voclCLProgram2VOCLProgram(tmpCreateProgramWithSource.clProgram,
                                         proxyRank, proxyIndex, proxyComm, proxyCommData);
-    voclProgramSetMigrationStatus(program,
-                                  voclContextGetMigrationStatus((vocl_context) context));
+    voclProgramSetMigrationStatus(program, tmpCreateProgramWithSource.migStatus);
 
     /*store the source code corresponding to the program */
     voclStoreProgramSource(program, allStrings, totalLength);
@@ -982,6 +984,7 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         dlCLCreateKernel(tmpCreateKernel.program, kernel_name, errcode_ret,
                          &tmpCreateKernel.kernel);
+		tmpCreateKernel.migStatus = 0;
     }
     else {
         tmpCreateKernel.kernelNameSize = kernelNameSize;
@@ -1012,8 +1015,7 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
         voclCLKernel2VOCLKernel(tmpCreateKernel.kernel, proxyRank, proxyIndex, proxyComm,
                                 proxyCommData);
     voclStoreKernelName(kernel, (char *) kernel_name);
-    voclKernelSetMigrationStatus(kernel,
-                                 voclProgramGetMigrationStatus((vocl_program) program));
+    voclKernelSetMigrationStatus(kernel, tmpCreateKernel.migStatus);
 
     /* get context from the vocl program */
     context = voclGetContextFromProgram((vocl_program) program);
@@ -1050,6 +1052,7 @@ clCreateBuffer(cl_context context,
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         dlCLCreateBuffer(tmpCreateBuffer.context, flags, size, host_ptr, errcode_ret,
                          &tmpCreateBuffer.deviceMem);
+		tmpCreateBuffer.migStatus = 0;
     }
     else {
         tmpCreateBuffer.flags = flags;
@@ -1079,7 +1082,7 @@ clCreateBuffer(cl_context context,
 
     memory = voclCLMemory2VOCLMemory(tmpCreateBuffer.deviceMem,
                                      proxyRank, proxyIndex, proxyComm, proxyCommData);
-    voclMemSetMigrationStatus(memory, voclContextGetMigrationStatus((vocl_context) context));
+    voclMemSetMigrationStatus(memory, tmpCreateBuffer.migStatus);
     /* store memory parameters for possible migration */
     voclStoreMemoryParameters(memory, flags, size, (vocl_context) context);
 
@@ -1114,8 +1117,8 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
 
-    /* if it is not in the command queue, add it there */
-    voclUpdateMemoryInCommandQueue((vocl_command_queue) command_queue, (vocl_mem) buffer, cb);
+//    /* if it is not in the command queue, add it there */
+//    voclUpdateMemoryInCommandQueue((vocl_command_queue) command_queue, (vocl_mem) buffer, cb);
 
     /* set memory write state for possible migration */
     voclSetMemWrittenFlag((vocl_mem) buffer, 1);
@@ -1279,7 +1282,7 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
                    arg_size);
             /* record if it is a global memory and the size */
             kernelPtr->args_ptr[kernelPtr->args_num].isGlobalMemory = 1;
-			kernelPtr->args_ptr[kernelptr->args_num].migStatus = memMigStatus;
+			kernelPtr->args_ptr[kernelPtr->args_num].migStatus = memMigStatus;
             kernelPtr->args_ptr[kernelPtr->args_num].globalSize = size;
         }
         else {
@@ -1522,7 +1525,7 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     tmpEnqueueReadBuffer.buffer =
         voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
                                     &proxyCommData);
-    voclUpdateMemoryInCommandQueue((vocl_command_queue) command_queue, (vocl_mem) buffer, cb);
+//    voclUpdateMemoryInCommandQueue((vocl_command_queue) command_queue, (vocl_mem) buffer, cb);
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         errCode =
             dlCLEnqueueReadBuffer(tmpEnqueueReadBuffer.command_queue,

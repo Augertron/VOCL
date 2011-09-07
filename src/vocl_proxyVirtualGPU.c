@@ -94,7 +94,7 @@ char voclProxyUpdateVGPUMigStatus(int appIndex, cl_device_id deviceID)
 {
 	vocl_virtual_gpu *vgpuPtr;
 	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
-	vgpuptr->migStatus++;
+	vgpuPtr->migStatus++;
 
 	return vgpuPtr->migStatus;
 }
@@ -201,7 +201,7 @@ void voclProxyGetMessageSizeForVGPU(vocl_virtual_gpu *vgpuPtr, vocl_vgpu_msg *ms
                 msgSize += kernelPtr[k]->nameLen;
 				/* add the size of kernel arg flag and kernel args */
 				msgSize += kernelPtr[k]->argNum * sizeof(char);
-				msgsize += kernelPtr[k]->argNum * sizeof(kernel_args);
+				msgSize += kernelPtr[k]->argNum * sizeof(kernel_args);
             }
         }
 

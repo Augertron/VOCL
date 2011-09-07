@@ -75,7 +75,7 @@ char voclProxyGetProgramMigStatus(cl_program program)
 	return programPtr->migStatus;
 }
 
-void vocProxyStoreOldProgramValue(cl_program program, cl_program oldProgram)
+void voclProxyStoreOldProgramValue(cl_program program, cl_program oldProgram)
 {
     vocl_proxy_program *programPtr;
     programPtr = voclProxyGetProgramPtr(program);
@@ -84,14 +84,14 @@ void vocProxyStoreOldProgramValue(cl_program program, cl_program oldProgram)
     return;
 }
 
-cl_program vocProxyGetOldProgramValue(cl_program program)
+cl_program voclProxyGetOldProgramValue(cl_program program)
 {
     vocl_proxy_program *programPtr;
     programPtr = voclProxyGetProgramPtr(program);
     return programPtr->oldProgram;
 }
 
-cl_program vocProxyGetNewProgramValue(cl_program oldProgram)
+cl_program voclProxyGetNewProgramValue(cl_program oldProgram)
 {
     vocl_proxy_program *programPtr;
 
@@ -107,7 +107,7 @@ cl_program vocProxyGetNewProgramValue(cl_program oldProgram)
 
 	if (programPtr == NULL)
 	{
-		printf("vocProxyGetNewProgramValue, old program %p does not exist!\n",
+		printf("voclProxyGetNewProgramValue, old program %p does not exist!\n",
 				oldProgram);
 		exit (1);
 	}

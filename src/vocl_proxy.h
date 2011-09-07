@@ -42,6 +42,7 @@ struct strCreateContext {
     void *user_data;
     cl_int errcode_ret;
     cl_context hContext;
+	char migStatus;
 };
 
 struct strCreateCommandQueue {
@@ -50,6 +51,7 @@ struct strCreateCommandQueue {
     cl_command_queue_properties properties;
     cl_command_queue clCommand;
     cl_int errcode_ret;
+	char migStatus;
 };
 
 struct strCreateProgramWithSource {
@@ -58,6 +60,7 @@ struct strCreateProgramWithSource {
     size_t lengths;
     cl_program clProgram;
     cl_int errcode_ret;
+	char migStatus;
 };
 
 struct strBuildProgram {
@@ -74,8 +77,9 @@ struct strCreateKernel {
     cl_program program;
 	int argNum;
     size_t kernelNameSize;
-    cl_int errcode_ret;
     cl_kernel kernel;
+    cl_int errcode_ret;
+	char migStatus;
 };
 
 struct strCreateBuffer {
@@ -83,8 +87,9 @@ struct strCreateBuffer {
     cl_mem_flags flags;
     size_t size;
     cl_int host_ptr_flag;
-    cl_int errcode_ret;
     cl_mem deviceMem;
+    cl_int errcode_ret;
+	char migStatus;
 };
 
 struct strEnqueueWriteBuffer {

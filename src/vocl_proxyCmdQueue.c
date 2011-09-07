@@ -58,7 +58,7 @@ vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_queue
 	return cmdQueuePtr;
 }
 
-void voclProxySetCommandQueueMigStatus(cl_command_queue commmand_queue, char migStatus)
+void voclProxySetCommandQueueMigStatus(cl_command_queue command_queue, char migStatus)
 {
 	vocl_proxy_command_queue *cmdQueuePtr;
 	cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
@@ -67,14 +67,14 @@ void voclProxySetCommandQueueMigStatus(cl_command_queue commmand_queue, char mig
 	return;
 }
 
-char voclProxyGetCommandQueueMigStatus(cl_command_queue commmand_queue, char migStatus)
+char voclProxyGetCommandQueueMigStatus(cl_command_queue command_queue, char migStatus)
 {
 	vocl_proxy_command_queue *cmdQueuePtr;
 	cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
 	return cmdQueuePtr->migStatus;
 }
 
-void vocProxyStoreOldCommandQueueValue(cl_command_queue command_queue, cl_command_queue oldCommand_queue)
+void voclProxyStoreOldCommandQueueValue(cl_command_queue command_queue, cl_command_queue oldCommand_queue)
 {
     vocl_proxy_command_queue *cmdQueuePtr;
     cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
@@ -83,14 +83,14 @@ void vocProxyStoreOldCommandQueueValue(cl_command_queue command_queue, cl_comman
     return;
 }
 
-cl_command_queue vocProxyGetOldCommandQueueValue(cl_command_queue command_queue)
+cl_command_queue voclProxyGetOldCommandQueueValue(cl_command_queue command_queue)
 {
     vocl_proxy_command_queue *cmdQueuePtr;
     cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
     return cmdQueuePtr->oldCommand_queue;
 }
 
-cl_command_queue vocProxyGetNewCommandQueueValue(cl_command_queue oldCommand_queue)
+cl_command_queue voclProxyGetNewCommandQueueValue(cl_command_queue oldCommand_queue)
 {
     vocl_proxy_command_queue *cmdQueuePtr;
 	cmdQueuePtr = voclProxyCmdQueuePtr;
@@ -105,7 +105,7 @@ cl_command_queue vocProxyGetNewCommandQueueValue(cl_command_queue oldCommand_que
 
 	if (cmdQueuePtr == NULL)
 	{
-		printf("vocProxyGetNewCommandQueueValue, old command queue %p does not exist!\n",
+		printf("voclProxyGetNewCommandQueueValue, old command queue %p does not exist!\n",
 				oldCommand_queue);
 	}
 

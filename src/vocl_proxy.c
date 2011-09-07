@@ -210,6 +210,8 @@ extern void voclProxyGetDeviceIDs();
 extern void voclProxyAddContext(cl_context context, cl_uint deviceNum, cl_device_id *deviceIDs);
 extern void voclProxyAddCommandQueueToContext(cl_context context, vocl_proxy_command_queue *command_queue);
 extern vocl_proxy_context *voclProxyGetContextPtr(cl_context context);
+extern char voclProxyGetContextMigStatus(cl_context context);
+extern void voclProxySetContextMigStatus(cl_context context, char migStatus);
 extern void voclProxyReleaseContext(cl_context context);
 extern void voclProxyAddMemToContext(cl_context context, vocl_proxy_mem *mem);
 extern void voclProxyRemoveMemFromContext(vocl_proxy_mem *mem);
@@ -220,6 +222,8 @@ extern void voclProxyRemoveCommandQueueFromContext(vocl_proxy_command_queue *com
 
 extern void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queue_properties properties, cl_context context, cl_device_id deviceID);
 extern vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_queue);
+extern void voclProxySetCommandQueueMigStatus(cl_command_queue command_queue, char migStatus);
+extern char voclProxyGetCommandQueueMigStatus(cl_command_queue command_queue);
 extern void voclProxyReleaseCommandQueue(cl_command_queue command_queue);
 extern void voclProxyReleaseAllCommandQueues();
 extern void voclProxyAddMemToCmdQueue(cl_command_queue command_queue, vocl_proxy_mem *mem);
@@ -234,6 +238,8 @@ extern void voclProxyResetKernelNumInCmdQueue(cl_command_queue cmdQueue);
 
 extern void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context context);
 extern vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem);
+extern void voclProxySetMemMigStatus(cl_mem mem, char migStatus);
+extern char voclProxyGetMemMigStatus(cl_mem mem);
 extern void voclProxySetMemWritten(cl_mem mem, int isWritten);
 extern void voclProxySetMemWriteCmdQueue(cl_mem mem, cl_command_queue cmdQueue);
 extern void voclProxyReleaseMem(cl_mem mem);
@@ -242,6 +248,8 @@ extern void voclProxyReleaseAllMems();
 extern void voclProxyAddProgram(cl_program program, char *sourceString, size_t sourceSize, int stringNum, size_t *stringSizeArray, cl_context context);
 extern vocl_proxy_program *voclProxyGetProgramPtr(cl_program program);
 extern void voclProxyAddKernelToProgram(cl_program program, vocl_proxy_kernel *kernel);
+extern void voclProxySetProgramMigStatus(cl_program program, char migStatus);
+extern char voclProxyGetProgramMigStatus(cl_program program);
 extern void voclProxyRemoveKernelFromProgram(vocl_proxy_kernel *kernel);
 extern void voclProxySetProgramBuildOptions(cl_program program, cl_uint deviceNum, cl_device_id *device_list, char *buildOptions);
 extern char* voclProxyGetProgramBuildOptions(cl_program program);
@@ -251,6 +259,8 @@ extern void voclProxyReleaseAllPrograms();
 
 extern void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program);
 extern vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel);
+extern void voclProxySetKernelMigStatus(cl_kernel kernel, char migStatus);
+extern char voclProxyGetKernelMigStatus(cl_kernel kernel);
 extern void voclProxySetKernelArgFlag(cl_kernel kernel, int argNum, char *argFlag);
 extern void voclProxyStoreKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
 extern void voclProxyUpdateKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
@@ -376,6 +386,7 @@ int main(int argc, char *argv[])
     size_t host_buff_size, kernelMsgSize;
     char *kernelMsgBuffer;
 	char *migMsgBuffer;
+	char migStatus;
 
 	/* flag to control the execution of the kernel launch thread */
 	int kernelLaunchThreadExecuting = 0;
@@ -547,18 +558,19 @@ int main(int argc, char *argv[])
 
             mpiOpenCLCreateContext(&tmpCreateContext, devices);
 
-            MPI_Isend(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, appRank,
-                      CREATE_CONTEXT_FUNC, appComm[commIndex], curRequest);
-
 			/* a new virtual GPU is created for each app on each physical GPU. */
 			voclProxyAddContext(tmpCreateContext.hContext, tmpCreateContext.num_devices, devices);
 			contextPtr = voclProxyGetContextPtr(tmpCreateContext.hContext);
+			tmpCreateContext.migStatus = contextPtr->migStatus;
 
 			for (i = 0; i < tmpCreateContext.num_devices; i++)
 			{
 				voclProxyAddVirtualGPU(appIndex, rankNo, devices[i]);
 				voclProxyAddContextToVGPU(appIndex, devices[i], contextPtr);
 			}
+
+            MPI_Isend(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, appRank,
+                      CREATE_CONTEXT_FUNC, appComm[commIndex], curRequest);
 
             MPI_Wait(curRequest, curStatus);
             if (devices != NULL) {
@@ -569,6 +581,7 @@ int main(int argc, char *argv[])
         else if (status.MPI_TAG == CREATE_COMMAND_QUEUE_FUNC) {
             memcpy(&tmpCreateCommandQueue, conMsgBuffer[index], sizeof(tmpCreateCommandQueue));
             mpiOpenCLCreateCommandQueue(&tmpCreateCommandQueue);
+			tmpCreateCommandQueue.migStatus = voclProxyGetContextMigStatus(tmpCreateCommandQueue.context);
             MPI_Isend(&tmpCreateCommandQueue, sizeof(tmpCreateCommandQueue), MPI_BYTE, appRank,
                       CREATE_COMMAND_QUEUE_FUNC, appComm[commIndex], curRequest);
 
@@ -580,6 +593,9 @@ int main(int argc, char *argv[])
 
 			/* add the cmdQueue to the proxy */
 			cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpCreateCommandQueue.clCommand);
+			voclProxySetCommandQueueMigStatus(tmpCreateCommandQueue.clCommand, 
+											  tmpCreateCommandQueue.migStatus);
+
 			voclProxyAddCommandQueueToContext(tmpCreateCommandQueue.context, cmdQueuePtr);
 			voclProxyAddCommandQueueToVGPU(appIndex, tmpCreateCommandQueue.device, cmdQueuePtr);
 
@@ -605,6 +621,8 @@ int main(int argc, char *argv[])
 
             mpiOpenCLCreateProgramWithSource(&tmpCreateProgramWithSource, fileBuffer,
                                              lengthsArray);
+			tmpCreateProgramWithSource.migStatus = voclProxyGetContextMigStatus(tmpCreateProgramWithSource.context);
+
             MPI_Isend(&tmpCreateProgramWithSource, sizeof(tmpCreateProgramWithSource),
                       MPI_BYTE, appRank, CREATE_PROGRMA_WITH_SOURCE, appComm[commIndex],
                       curRequest);
@@ -615,6 +633,9 @@ int main(int argc, char *argv[])
 								tmpCreateProgramWithSource.count, 
 								lengthsArray, 
 								tmpCreateProgramWithSource.context);
+
+			/* set program migration status */
+			voclProxySetProgramMigStatus(tmpCreateProgramWithSource.clProgram, tmpCreateProgramWithSource.migStatus);
 
 			/* add the program to context */
 			programPtr = voclProxyGetProgramPtr(tmpCreateProgramWithSource.clProgram);
@@ -684,6 +705,8 @@ int main(int argc, char *argv[])
 
             MPI_Wait(curRequest, curStatus);
             mpiOpenCLCreateKernel(&tmpCreateKernel, kernelName);
+			tmpCreateKernel.migStatus = voclProxyGetProgramMigStatus(tmpCreateKernel.program);
+
             MPI_Isend(&tmpCreateKernel, sizeof(tmpCreateKernel), MPI_BYTE, appRank,
                       CREATE_KERNEL, appComm[commIndex], curRequest);
 
@@ -691,6 +714,10 @@ int main(int argc, char *argv[])
 			voclProxyAddKernel(tmpCreateKernel.kernel,
 							   kernelName,
 							   tmpCreateKernel.program);
+
+			/* set kernel migration status */
+			voclProxySetKernelMigStatus(tmpCreateKernel.kernel, tmpCreateKernel.migStatus);
+
 			/* get the kernel pointer and add it to the program */
 			kernelPtr = voclProxyGetKernelPtr(tmpCreateKernel.kernel);
 			voclProxyAddKernelToProgram(tmpCreateKernel.program, kernelPtr);
@@ -715,6 +742,8 @@ int main(int argc, char *argv[])
                 MPI_Wait(curRequest, curStatus);
             }
             mpiOpenCLCreateBuffer(&tmpCreateBuffer, host_ptr);
+			tmpCreateBuffer.migStatus = voclProxyGetContextMigStatus(tmpCreateBuffer.context);
+
             MPI_Isend(&tmpCreateBuffer, sizeof(tmpCreateBuffer), MPI_BYTE, appRank,
                       CREATE_BUFFER_FUNC, appComm[commIndex], curRequest);
 
@@ -723,6 +752,10 @@ int main(int argc, char *argv[])
 							tmpCreateBuffer.flags,
 							tmpCreateBuffer.size,
 							tmpCreateBuffer.context);
+
+			/* set memory migration status */
+			voclProxySetMemMigStatus(tmpCreateBuffer.deviceMem, tmpCreateBuffer.migStatus);
+
 			/* store the memory in the context */
 			memPtr = voclProxyGetMemPtr(tmpCreateBuffer.deviceMem);
 			voclProxyAddMemToContext(tmpCreateBuffer.context, memPtr);

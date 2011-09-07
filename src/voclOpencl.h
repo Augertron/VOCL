@@ -37,8 +37,9 @@ extern "C" {
         cl_device_id *devices;
         /* CL_CALLBACK *              pfn_notify; */
         void *user_data;
-        cl_int errcode_ret;
         cl_context hContext;
+        cl_int errcode_ret;
+		char migStatus;
     };
 
     struct strCreateCommandQueue {
@@ -47,6 +48,7 @@ extern "C" {
         cl_command_queue_properties properties;
         cl_command_queue clCommand;
         cl_int errcode_ret;
+		char migStatus;
     };
 
     struct strCreateProgramWithSource {
@@ -55,6 +57,7 @@ extern "C" {
         size_t lengths;
         cl_program clProgram;
         cl_int errcode_ret;
+		char migStatus;
     };
 
     struct strBuildProgram {
@@ -71,8 +74,9 @@ extern "C" {
         cl_program program;
 		int argNum;
         size_t kernelNameSize;
-        cl_int errcode_ret;
         cl_kernel kernel;
+        cl_int errcode_ret;
+		char migStatus;
     };
 
 /* Memory Object APIs */
@@ -81,8 +85,9 @@ extern "C" {
         cl_mem_flags flags;
         size_t size;
         cl_int host_ptr_flag;
-        cl_int errcode_ret;
         cl_mem deviceMem;
+        cl_int errcode_ret;
+		char migStatus;
     };
 
     struct strEnqueueWriteBuffer {
