@@ -244,7 +244,7 @@ char voclProxyGetKernelMigStatus(cl_kernel kernel)
 	return kernelPtr->migStatus;
 }
 
-void vocProxyStoreOldKernelValue(cl_kernel kernel, cl_kernel oldKernel)
+void voclProxyStoreOldKernelValue(cl_kernel kernel, cl_kernel oldKernel)
 {
     vocl_proxy_kernel *kernelPtr;
     kernelPtr = voclProxyGetKernelPtr(kernel);
@@ -253,14 +253,14 @@ void vocProxyStoreOldKernelValue(cl_kernel kernel, cl_kernel oldKernel)
     return;
 }
 
-cl_kernel vocProxyGetOldKernelValue(cl_kernel kernel)
+cl_kernel voclProxyGetOldKernelValue(cl_kernel kernel)
 {
     vocl_proxy_kernel *kernelPtr;
     kernelPtr = voclProxyGetKernelPtr(kernel);
     return kernelPtr->oldKernel;
 }
 
-cl_kernel vocProxyGetNewKernelValue(cl_kernel oldKernel)
+cl_kernel voclProxyGetNewKernelValue(cl_kernel oldKernel)
 {
     vocl_proxy_kernel *kernelPtr;
 	kernelPtr = voclProxyKernelPtr;
@@ -274,7 +274,7 @@ cl_kernel vocProxyGetNewKernelValue(cl_kernel oldKernel)
 
 	if (kernelPtr == NULL)
 	{
-		printf("vocProxyGetNewKernelValue, old kernel %p does not exist!\n", oldKernel);
+		printf("voclProxyGetNewKernelValue, old kernel %p does not exist!\n", oldKernel);
 		exit (1);
 	}
 

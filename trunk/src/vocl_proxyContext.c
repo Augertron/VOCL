@@ -88,7 +88,7 @@ char voclProxyGetContextMigStatus(cl_context context)
 	return contextPtr->migStatus;
 }
 
-void vocProxyStoreOldContextValue(cl_context context, cl_context oldContext)
+void voclProxyStoreOldContextValue(cl_context context, cl_context oldContext)
 {
 	vocl_proxy_context *contextPtr;
 	contextPtr = voclProxyGetContextPtr(context);
@@ -97,7 +97,7 @@ void vocProxyStoreOldContextValue(cl_context context, cl_context oldContext)
 	return;
 }
 
-cl_context vocProxyGetOldContextValue(cl_context context)
+cl_context voclProxyGetOldContextValue(cl_context context)
 {
 	vocl_proxy_context *contextPtr;
 	contextPtr = voclProxyGetContextPtr(context);
@@ -106,7 +106,7 @@ cl_context vocProxyGetOldContextValue(cl_context context)
 
 cl_context voclProxyGetNewContextValue(cl_context oldContext)
 {
-	vocl_proxy_contex *contextPtr;
+	vocl_proxy_context *contextPtr;
 	contextPtr = voclProxyContextPtr;
 	while (contextPtr != NULL)
 	{
@@ -506,30 +506,5 @@ void voclProxyRemoveCommandQueueFromContextSimple(cl_context context, vocl_proxy
 	}
 
 	return;
-}
-
-void voclProxySetContextMigStatus(cl_context context, char migStatus)
-{
-	vocl_proxy_context *contextPtr;
-	contextPtr = voclProxyGetContextPtr(context);
-	contextPtr->migStatus = migStatus;
-	return;
-}
-
-/* add the migration status by one and return the new migration status */
-char voclProxyUpdateContextMigStatus(cl_context context)
-{
-	vocl_proxy_context *contextPtr;
-	contextPtr = voclProxyGetContextPtr(context);
-	contextPtr->migStatus++;
-
-	return contextPtr->migStatus;
-}
-
-char voclProxyGetContextMigStatus(cl_context context)
-{
-	vocl_proxy_context *contextPtr;
-	contextPtr = voclProxyGetContextPtr(context);
-	return contextPtr->migStatus;
 }
 

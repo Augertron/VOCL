@@ -101,7 +101,7 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 
 /* default number of applications supported by each proxy */
 #define VOCL_PROXY_APP_NUM 4
-#define MAX_DEVICE_NUM_PER_NODE 10
+#define MAX_DEVICE_NUM_PER_NODE 8
 
 /* flags for helper thread */
 #define GPU_MEM_READ        0

@@ -2,6 +2,7 @@
 #define __VOCL_PROXY_STRUCTURE_H__
 
 #include <CL/opencl.h>
+#include "vocl_proxyKernelArgProc.h"
 
 typedef struct strVoclProxyMemory {
 	cl_mem         mem, oldMem;
