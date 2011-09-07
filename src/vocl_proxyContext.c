@@ -9,6 +9,7 @@ void voclProxyAddContext(cl_context context, cl_uint deviceNum, cl_device_id *de
 	vocl_proxy_context *contextPtr;
 	contextPtr = (vocl_proxy_context *)malloc(sizeof(vocl_proxy_context));
 	contextPtr->context = context;
+	contextPtr->oldContext = NULL;
 	contextPtr->deviceNum = deviceNum;
 	contextPtr->devices = NULL;
 	if (deviceNum > 0)
@@ -60,6 +61,69 @@ vocl_proxy_context *voclProxyGetContextPtr(cl_context context)
 	}
 
 	return contextPtr;
+}
+
+void voclProxySetContextMigStatus(cl_context context, char migStatus)
+{
+	vocl_proxy_context *contextPtr;
+	contextPtr = voclProxyGetContextPtr(context);
+	contextPtr->migStatus = migStatus;
+	return;
+}
+
+/* add the migration status by one and return the new migration status */
+char voclProxyUpdateContextMigStatus(cl_context context)
+{
+	vocl_proxy_context *contextPtr;
+	contextPtr = voclProxyGetContextPtr(context);
+	contextPtr->migStatus++;
+
+	return contextPtr->migStatus;
+}
+
+char voclProxyGetContextMigStatus(cl_context context)
+{
+	vocl_proxy_context *contextPtr;
+	contextPtr = voclProxyGetContextPtr(context);
+	return contextPtr->migStatus;
+}
+
+void vocProxyStoreOldContextValue(cl_context context, cl_context oldContext)
+{
+	vocl_proxy_context *contextPtr;
+	contextPtr = voclProxyGetContextPtr(context);
+	contextPtr->oldContext = oldContext;
+
+	return;
+}
+
+cl_context vocProxyGetOldContextValue(cl_context context)
+{
+	vocl_proxy_context *contextPtr;
+	contextPtr = voclProxyGetContextPtr(context);
+	return contextPtr->oldContext;
+}
+
+cl_context voclProxyGetNewContextValue(cl_context oldContext)
+{
+	vocl_proxy_contex *contextPtr;
+	contextPtr = voclProxyContextPtr;
+	while (contextPtr != NULL)
+	{
+		if (contextPtr->oldContext == oldContext)
+		{
+			break;
+		}
+		contextPtr = contextPtr->next;
+	}
+
+	if (contextPtr == NULL)
+	{
+		printf("voclProxyGetNewContextValue, old context %p does not exist!\n", oldContext);
+		exit (1);
+	}
+
+	return contextPtr->context;
 }
 
 cl_device_id *voclProxyGetDeviceIDsFromContext(cl_context context, cl_uint *deviceNum)

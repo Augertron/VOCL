@@ -9,6 +9,7 @@ void voclProxyAddProgram(cl_program program, char *sourceString, size_t sourceSi
     vocl_proxy_program *programPtr;
     programPtr = (vocl_proxy_program *)malloc(sizeof(vocl_proxy_program));
 	programPtr->program = program;
+	programPtr->oldProgram = NULL;
 	programPtr->sourceSize = sourceSize;
 	programPtr->context = context;
 	programPtr->sourceString = (char *)malloc(sourceSize);
@@ -72,6 +73,46 @@ char voclProxyGetProgramMigStatus(cl_program program)
 	vocl_proxy_program *programPtr;
 	programPtr = voclProxyGetProgramPtr(program);
 	return programPtr->migStatus;
+}
+
+void vocProxyStoreOldProgramValue(cl_program program, cl_program oldProgram)
+{
+    vocl_proxy_program *programPtr;
+    programPtr = voclProxyGetProgramPtr(program);
+    programPtr->oldProgram = oldProgram;
+
+    return;
+}
+
+cl_program vocProxyGetOldProgramValue(cl_program program)
+{
+    vocl_proxy_program *programPtr;
+    programPtr = voclProxyGetProgramPtr(program);
+    return programPtr->oldProgram;
+}
+
+cl_program vocProxyGetNewProgramValue(cl_program oldProgram)
+{
+    vocl_proxy_program *programPtr;
+
+	programPtr = voclProxyProgramPtr;
+	while (programPtr != NULL)
+	{
+		if (programPtr->oldProgram == oldProgram)
+		{
+			break;
+		}
+		programPtr = programPtr->next;
+	}
+
+	if (programPtr == NULL)
+	{
+		printf("vocProxyGetNewProgramValue, old program %p does not exist!\n",
+				oldProgram);
+		exit (1);
+	}
+
+    return programPtr->program;
 }
 
 void voclProxyAddKernelToProgram(cl_program program, vocl_proxy_kernel *kernel)

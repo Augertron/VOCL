@@ -4,7 +4,7 @@
 #include <CL/opencl.h>
 
 typedef struct strVoclProxyMemory {
-	cl_mem         mem;
+	cl_mem         mem, oldMem;
 	cl_context     context;
 	cl_mem_flags   flags;
 	size_t         size;
@@ -18,7 +18,7 @@ typedef struct strVoclProxyMemory {
 } vocl_proxy_mem;
 
 typedef struct strVoclKernel {
-	cl_kernel      kernel;
+	cl_kernel      kernel, oldKernel;
 	size_t         nameLen;
 	char           *kernelName;
 	/* indicate whether an argument is device memory*/
@@ -32,7 +32,7 @@ typedef struct strVoclKernel {
 } vocl_proxy_kernel;
 
 typedef struct strVoclProgram {
-	cl_program    program;
+	cl_program    program, oldProgram;
 	cl_context    context;
 	char          *sourceString;
 	size_t        sourceSize;
@@ -55,7 +55,7 @@ typedef struct strVoclProgram {
 } vocl_proxy_program;
 
 typedef struct strVoclProxyCommandQueue {
-	cl_command_queue command_queue;
+	cl_command_queue command_queue, oldCommand_queue;
 	cl_context       context;
 	cl_device_id     deviceID;
 	cl_command_queue_properties properties;
@@ -75,7 +75,7 @@ typedef struct strVoclProxyCommandQueue {
 } vocl_proxy_command_queue;
 
 typedef struct strVoclProxyContext {
-	cl_context       context;
+	cl_context       context, oldContext;
 	cl_uint          deviceNum;
 	cl_device_id     *devices;
 	

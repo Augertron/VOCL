@@ -10,6 +10,7 @@ void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context con
 
     memPtr = (vocl_proxy_mem *)malloc(sizeof(vocl_proxy_mem));
 	memPtr->mem = mem;
+	memPtr->oldMem = NULL;
 	memPtr->size = size;
 	memPtr->flags = flags;
 	memPtr->context = context;
@@ -58,6 +59,44 @@ char voclProxyGetMemMigStatus(cl_mem mem)
 	vocl_proxy_mem *memPtr;
 	memPtr = voclProxyGetMemPtr(mem);
 	return memPtr->migStatus;
+}
+
+void voclProxyStoreOldMemValue(cl_mem mem, cl_mem oldMem)
+{
+	vocl_proxy_mem *memPtr;
+	memPtr = voclProxyGetMemPtr(mem);
+	memPtr->oldMem = oldMem;
+
+	return;
+}
+
+cl_mem voclProxyGetOldMemValue(cl_mem mem)
+{
+	vocl_proxy_mem *memPtr;
+	memPtr = voclProxyGetMemPtr(mem);
+	return memPtr->oldMem;
+}
+
+cl_mem voclProxyGetNewMemValue(cl_mem oldMem)
+{
+	vocl_proxy_mem *memPtr;
+	memPtr = voclProxyMemPtr;
+	while (memPtr != NULL)
+	{
+		if (memPtr->oldMem == oldMem)
+		{
+			break;
+		}
+		memPtr = memPtr->next;
+	}
+
+	if (memPtr == NULL)
+	{
+		printf("voclProxyGetNewMemValue, old mem %p does not exist!\n", oldMem);
+		exit (1);
+	}
+
+	return memPtr->mem;
 }
 
 void voclProxySetMemWritten(cl_mem mem, int isWritten)
