@@ -253,6 +253,7 @@ extern void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program pr
 extern vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel);
 extern void voclProxySetKernelArgFlag(cl_kernel kernel, int argNum, char *argFlag);
 extern void voclProxyStoreKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
+extern void voclProxyUpdateKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
 extern void voclProxyReleaseKernel(cl_kernel kernel);
 extern void voclProxyReleaseAllKernels();
 
@@ -943,6 +944,12 @@ int main(int argc, char *argv[])
 				args_ptr = (kernel_args *) (kernelMsgBuffer + paramOffset);
 				paramOffset += (sizeof(kernel_args) * tmpEnqueueNDRangeKernel.args_num);
 			}
+
+			/* if migration is performed, check whether parameters */
+			/* should be updated to the new values in the virtual GPU */
+			voclProxyUpdateKernelArgs(tmpEnqueueNDRangeKernel.kernel, 
+									  tmpEnqueueNDRangeKernel.args_num,
+									  args_ptr);
 
 			/* store the kernel arguments */
 			voclProxyStoreKernelArgs(tmpEnqueueNDRangeKernel.kernel, 

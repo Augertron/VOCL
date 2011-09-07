@@ -3,6 +3,8 @@
 #include "vocl_proxyStructures.h"
 #include "vocl_proxyKernelArgProc.h"
 
+extern cl_mem voclProxyGetNewMemValue(cl_mem oldMem);
+
 static vocl_proxy_kernel *voclProxyKernelPtr = NULL;
 
 void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program)
@@ -109,6 +111,116 @@ void voclProxyStoreKernelArgs(cl_kernel kernel, int argNum, kernel_args *args)
 	return;
 }
 
+/* if migration is performed, check whether kernel arguments */
+/* should be updated to the new value */
+void voclProxyUpdateKernelArgs(cl_kernel kernel, int argNum, kernel_args *args)
+{
+	cl_uint i, argIndex;
+	char kernelMigStatus, memMigStatus;
+	cl_mem oldMem, newMem;
+	vocl_proxy_kernel *kernelPtr;
+	
+	kernelPtr = voclProxyGetKernelPtr(kernel);
+	kernelMigStatus = kernelPtr->migStatus;
+
+	/* no migration is performed, return directly */
+	if (kernelMigStatus == 0)
+	{
+		return;
+	}
+
+	for (i = 0; i < argNum; i++)
+	{
+		argIndex = args[i].arg_index;
+		/* device memory */
+		if (kernelPtr->argFlag[argIndex] == 1)
+		{
+			/* migration is performed, but memory value is not update. */
+			if (args[i].migStatus < kernelMigStatus)
+			{
+				oldMem = *((cl_mem *)args[i].arg_value);
+				newMem = voclProxyGetNewMemValue(oldMem);
+				memcpy(args[i].arg_value, &newMem, args[i].arg_size);
+				args[i].migStatus = kernelMigStatus;
+			}
+		}
+	}
+
+	return;
+}
+
+/* if migration is performed, set the kernel args on the new proxy process */
+void voclProxySetKernelArgs(cl_kernel kernel)
+{
+	cl_uint i;
+	cl_int retCode;
+	char kernelMigStatus;
+	cl_mem oldMem, newMem;
+	vocl_proxy_kernel *kernelPtr;
+	kernelPtr = voclProxyGetKernelPtr(kernel);
+	kernelMigStatus = kernelPtr->migStatus;
+
+	for (i = 0; i < kernelPtr->argNum; i++)
+	{
+		/* if this argument is also set */
+		if (kernelPtr->args[i].arg_index != -1)
+		{
+			/* the current argument is a device memory */
+			if (kernelPtr->argFlag[i] == 1)
+			{
+				/* migration is performed */
+				if (kernelPtr->args[i].migStatus < kernelMigStatus)
+				{
+					oldMem = *((cl_mem *)kernelPtr->args[i].arg_value);
+					newMem = voclProxyGetNewMemValue(oldMem);
+					retCode = clSetKernelArg(kernel, 
+											 kernelPtr->args[i].arg_index, 
+											 kernelPtr->args[i].arg_size,
+											 (const void *)&newMem);
+
+					/* update the kernel argument and the migration status */
+					kernelPtr->args[i].migStatus = kernelMigStatus;
+					memcpy((void *)kernelPtr->args[i].arg_value, &newMem, kernelPtr->args[i].arg_size);
+				}
+				else
+				{
+					retCode = clSetKernelArg(kernel, 
+											 kernelPtr->args[i].arg_index, 
+											 kernelPtr->args[i].arg_size,
+											 kernelPtr->args[i].arg_value);
+				}
+			}
+			else /* other types of kernel arguments */
+			{
+				/* argument value is NULL */
+				if (kernelPtr->args[i].arg_null_flag == 1)
+				{
+					retCode = clSetKernelArg(kernel, 
+											 kernelPtr->args[i].arg_index, 
+											 kernelPtr->args[i].arg_size,
+											 NULL);
+				}
+				else
+				{
+					retCode = clSetKernelArg(kernel, 
+											 kernelPtr->args[i].arg_index, 
+											 kernelPtr->args[i].arg_size,
+											 kernelPtr->args[i].arg_value);
+				}
+			}
+		}
+
+		if (retCode != CL_SUCCESS)
+		{
+			printf("voclProxySetKernelArgs, set kernel argument %d error, %d\n",
+					i, retCode);
+			exit (1);
+		}
+	}
+
+	return;
+}
+
 kernel_args *voclProxyGetKernelArg(cl_kernel kernel, cl_uint argIndex)
 {
 	vocl_proxy_kernel *kernelPtr;
@@ -130,6 +242,43 @@ char voclProxyGetKernelMigStatus(cl_kernel kernel)
 	vocl_proxy_kernel *kernelPtr;
 	kernelPtr = voclProxyGetKernelPtr(kernel);
 	return kernelPtr->migStatus;
+}
+
+void vocProxyStoreOldKernelValue(cl_kernel kernel, cl_kernel oldKernel)
+{
+    vocl_proxy_kernel *kernelPtr;
+    kernelPtr = voclProxyGetKernelPtr(kernel);
+    kernelPtr->oldKernel = oldKernel;
+
+    return;
+}
+
+cl_kernel vocProxyGetOldKernelValue(cl_kernel kernel)
+{
+    vocl_proxy_kernel *kernelPtr;
+    kernelPtr = voclProxyGetKernelPtr(kernel);
+    return kernelPtr->oldKernel;
+}
+
+cl_kernel vocProxyGetNewKernelValue(cl_kernel oldKernel)
+{
+    vocl_proxy_kernel *kernelPtr;
+	kernelPtr = voclProxyKernelPtr;
+	while (kernelPtr != NULL)
+	{
+		if (kernelPtr->oldKernel == oldKernel)
+		{
+			break;
+		}
+	}
+
+	if (kernelPtr == NULL)
+	{
+		printf("vocProxyGetNewKernelValue, old kernel %p does not exist!\n", oldKernel);
+		exit (1);
+	}
+
+    return kernelPtr->kernel;
 }
 
 void voclProxyReleaseKernel(cl_kernel kernel)

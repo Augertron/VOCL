@@ -36,6 +36,7 @@ extern vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel);
 extern void voclProxySetKernelMigStatus(cl_kernel kernel, char migStatus);
 extern void voclProxySetKernelArgFlag(cl_kernel kernel, int argNum, char *argFlag);
 extern void voclProxyStoreKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
+extern void voclProxySetKernelArgs(cl_kernel kernel);
 extern void voclProxyReleaseKernel(cl_kernel kernel);
 
 extern void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queue_properties properties, cl_context context, cl_device_id deviceID);
@@ -223,6 +224,9 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 				/* set the argument flag and arguments */
 				voclProxySetKernelArgFlag(kernel, argNum, argFlag);
 				voclProxyStoreKernelArgs(kernel, argNum, args);
+
+				/* set the arguments for the kernel in the new virtual GPU */
+				voclProxySetKernelArgs(kernel);
 			}
 		}
 

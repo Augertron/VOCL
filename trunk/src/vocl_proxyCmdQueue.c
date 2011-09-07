@@ -10,6 +10,7 @@ void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queue_prope
 	vocl_proxy_command_queue *cmdQueuePtr;
 	cmdQueuePtr = (vocl_proxy_command_queue *)malloc(sizeof(vocl_proxy_command_queue));
 	cmdQueuePtr->command_queue = command_queue;
+	cmdQueuePtr->oldCommand_queue = NULL;
 	cmdQueuePtr->properties = properties;
 	cmdQueuePtr->context = context;
 	cmdQueuePtr->deviceID = deviceID;
@@ -71,6 +72,44 @@ char voclProxyGetCommandQueueMigStatus(cl_command_queue commmand_queue, char mig
 	vocl_proxy_command_queue *cmdQueuePtr;
 	cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
 	return cmdQueuePtr->migStatus;
+}
+
+void vocProxyStoreOldCommandQueueValue(cl_command_queue command_queue, cl_command_queue oldCommand_queue)
+{
+    vocl_proxy_command_queue *cmdQueuePtr;
+    cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
+    cmdQueuePtr->oldCommand_queue = oldCommand_queue;
+
+    return;
+}
+
+cl_command_queue vocProxyGetOldCommandQueueValue(cl_command_queue command_queue)
+{
+    vocl_proxy_command_queue *cmdQueuePtr;
+    cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
+    return cmdQueuePtr->oldCommand_queue;
+}
+
+cl_command_queue vocProxyGetNewCommandQueueValue(cl_command_queue oldCommand_queue)
+{
+    vocl_proxy_command_queue *cmdQueuePtr;
+	cmdQueuePtr = voclProxyCmdQueuePtr;
+	while (cmdQueuePtr != NULL)
+	{
+		if (cmdQueuePtr->oldCommand_queue == oldCommand_queue)
+		{
+			break;
+		}
+		cmdQueuePtr = cmdQueuePtr->next;
+	}
+
+	if (cmdQueuePtr == NULL)
+	{
+		printf("vocProxyGetNewCommandQueueValue, old command queue %p does not exist!\n",
+				oldCommand_queue);
+	}
+
+    return cmdQueuePtr->command_queue;
 }
 
 void voclProxyReleaseCommandQueue(cl_command_queue command_queue)
