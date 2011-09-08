@@ -224,6 +224,7 @@ extern void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queu
 extern vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_queue);
 extern void voclProxySetCommandQueueMigStatus(cl_command_queue command_queue, char migStatus);
 extern char voclProxyGetCommandQueueMigStatus(cl_command_queue command_queue);
+extern cl_command_queue voclProxyGetNewCommandQueueValue(cl_command_queue oldCommand_queue);
 extern void voclProxyReleaseCommandQueue(cl_command_queue command_queue);
 extern void voclProxyReleaseAllCommandQueues();
 extern void voclProxyAddMemToCmdQueue(cl_command_queue command_queue, vocl_proxy_mem *mem);
@@ -240,6 +241,7 @@ extern void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_cont
 extern vocl_proxy_mem *voclProxyGetMemPtr(cl_mem mem);
 extern void voclProxySetMemMigStatus(cl_mem mem, char migStatus);
 extern char voclProxyGetMemMigStatus(cl_mem mem);
+extern cl_mem voclProxyGetNewMemValue(cl_mem oldMem);
 extern void voclProxySetMemWritten(cl_mem mem, int isWritten);
 extern void voclProxySetMemWriteCmdQueue(cl_mem mem, cl_command_queue cmdQueue);
 extern void voclProxyReleaseMem(cl_mem mem);
@@ -260,6 +262,7 @@ extern void voclProxyReleaseAllPrograms();
 extern void voclProxyAddKernel(cl_kernel kernel, char *kernelName, cl_program program);
 extern vocl_proxy_kernel *voclProxyGetKernelPtr(cl_kernel kernel);
 extern void voclProxySetKernelMigStatus(cl_kernel kernel, char migStatus);
+extern cl_kernel voclProxyGetNewKernelValue(cl_kernel oldKernel);
 extern char voclProxyGetKernelMigStatus(cl_kernel kernel);
 extern void voclProxySetKernelArgFlag(cl_kernel kernel, int argNum, char *argFlag);
 extern void voclProxyStoreKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
@@ -386,7 +389,7 @@ int main(int argc, char *argv[])
     size_t host_buff_size, kernelMsgSize;
     char *kernelMsgBuffer;
 	char *migMsgBuffer;
-	char migStatus;
+	char migStatus, migOperation;
 
 	/* flag to control the execution of the kernel launch thread */
 	int kernelLaunchThreadExecuting = 0;
@@ -792,6 +795,23 @@ int main(int argc, char *argv[])
 				MPI_Irecv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
 						  MPI_BYTE, appRank, tmpEnqueueWriteBuffer.tag, appCommData[commIndex],
 						  curRequest + (requestNo++));
+				MPI_Waitall(requestNo, curRequest, curStatus);
+				requestNo = 0;
+			}
+
+			migOperation = VOCL_MIG_NOUPDATE;
+			if (tmpEnqueueWriteBuffer.cmdQueueMigStatus == VOCL_MIG_UPDATE)
+			{
+				tmpEnqueueWriteBuffer.command_queue = voclProxyGetNewCommandQueueValue(tmpEnqueueWriteBuffer.command_queue);
+				tmpEnqueueWriteBuffer.cmdQueueMigStatus = voclProxyGetCommandQueueMigStatus(tmpEnqueueWriteBuffer.command_queue);
+				migOperation = VOCL_MIG_UPDATE;
+			}
+
+			if (tmpEnqueueWriteBuffer.memMigStatus == VOCL_MIG_UPDATE)
+			{
+				tmpEnqueueWriteBuffer.buffer = voclProxyGetNewMemValue(tmpEnqueueWriteBuffer.buffer);
+				tmpEnqueueWriteBuffer.memMigStatus = voclProxyGetMemMigStatus(tmpEnqueueWriteBuffer.buffer);
+				migOperation = VOCL_MIG_UPDATE;
 			}
 
 			/* issue MPI data receive */
@@ -858,11 +878,25 @@ int main(int argc, char *argv[])
 							  appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
 							  curRequest + (requestNo++));
 				}
+				else if (migOperation == VOCL_MIG_UPDATE)
+				{
+					MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE,
+							  appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
+							  curRequest + (requestNo++));
+				}
 			}
 
 			if (requestNo > 0) {
 				MPI_Wait(curRequest, curStatus);
 			}
+
+			//debug, for migration test------------------------------------------------
+			if (1)
+			{
+				cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpEnqueueWriteBuffer.command_queue);
+				voclProxyMigrationOneVGPUOverload(appIndex, cmdQueuePtr->deviceID);
+			}
+			//end of debug----------------------------------------------------------
         }
 
         else if (status.MPI_TAG == SET_KERNEL_ARG) {
@@ -933,11 +967,6 @@ int main(int argc, char *argv[])
 						  curRequest + (requestNo++));
 			}
 
-			//debug, for migration test------------------------------------------------
-			cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpEnqueueNDRangeKernel.command_queue);
-			voclProxyMigrationOneVGPUOverload(appIndex, cmdQueuePtr->deviceID);
-			//end of debug----------------------------------------------------------
-
 			work_dim = tmpEnqueueNDRangeKernel.work_dim;
 			args_ptr = NULL;
 			global_work_offset = NULL;
@@ -956,6 +985,23 @@ int main(int argc, char *argv[])
 			}
 
 			MPI_Waitall(requestNo, curRequest, curStatus);
+
+			migOperation = VOCL_MIG_NOUPDATE;
+			if (tmpEnqueueNDRangeKernel.cmdQueueMigStatus == VOCL_MIG_UPDATE)
+			{
+				tmpEnqueueNDRangeKernel.command_queue = voclProxyGetNewCommandQueueValue(tmpEnqueueNDRangeKernel.command_queue);
+				kernelLaunchReply.command_queue = tmpEnqueueNDRangeKernel.command_queue;
+				kernelLaunchReply.cmdQueueMigStatus = voclProxyGetCommandQueueMigStatus(tmpEnqueueNDRangeKernel.command_queue);
+				migOperation = VOCL_MIG_UPDATE;
+			}
+
+			if (tmpEnqueueNDRangeKernel.kernelMigStatus == VOCL_MIG_UPDATE)
+			{
+				tmpEnqueueNDRangeKernel.kernel = voclProxyGetNewKernelValue(tmpEnqueueNDRangeKernel.kernel);
+				kernelLaunchReply.kernel = tmpEnqueueNDRangeKernel.kernel;
+				kernelLaunchReply.kernelMigStatus = voclProxyGetKernelMigStatus(tmpEnqueueNDRangeKernel.kernel);
+				migOperation = VOCL_MIG_UPDATE;
+			}
 
 			paramOffset = 0;
 			if (tmpEnqueueNDRangeKernel.global_work_offset_flag == 1) {
@@ -1010,7 +1056,8 @@ int main(int argc, char *argv[])
 			/* increase the number of kernels in the command queue by 1 */
 			voclProxyIncreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 1);
 
-			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
+			if (tmpEnqueueNDRangeKernel.event_null_flag == 0 ||
+				migOperation == VOCL_MIG_UPDATE)
 			{
 				MPI_Isend(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply),
 					  MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL, appComm[commIndex],

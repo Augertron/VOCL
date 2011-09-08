@@ -10,8 +10,8 @@ extern cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxy
 										 MPI_Comm * proxyCommData);
 
 vocl_context voclMemGetContext(vocl_mem mem);
-void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
-                          MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context);
+void voclUpdateVOCLMemory(vocl_mem voclMemory, cl_mem newMem, int proxyRank, int proxyIndex,
+                          MPI_Comm proxyComm, MPI_Comm proxyCommData);
 
 static struct strVOCLMemory *voclMemoryPtr = NULL;
 static vocl_mem voclMemory;
@@ -154,26 +154,26 @@ cl_mem voclVOCLMemory2CLMemory(vocl_mem memory)
     return memoryPtr->clMemory;
 }
 
-void voclUpdateSingleMemory(vocl_mem mem)
-{
-	int proxyRank, proxyIndex;
-	MPI_Comm proxyComm, proxyCommData;
-	vocl_context voclContext;
-	cl_context clContext;
-	int err;
+//void voclUpdateSingleMemory(vocl_mem mem)
+//{
+//	int proxyRank, proxyIndex;
+//	MPI_Comm proxyComm, proxyCommData;
+//	vocl_context voclContext;
+//	cl_context clContext;
+//	int err;
+//
+//	voclContext = voclMemGetContext(mem);
+//	clContext = voclVOCLContext2CLContextComm(voclContext, &proxyRank,
+//				&proxyIndex, &proxyComm, &proxyCommData);
+//	
+//	voclUpdateVOCLMemory(mem, proxyRank, proxyIndex, proxyComm, proxyCommData,
+//		voclContext);
+//
+//	return;
+//}
 
-	voclContext = voclMemGetContext(mem);
-	clContext = voclVOCLContext2CLContextComm(voclContext, &proxyRank,
-				&proxyIndex, &proxyComm, &proxyCommData);
-	
-	voclUpdateVOCLMemory(mem, proxyRank, proxyIndex, proxyComm, proxyCommData,
-		voclContext);
-
-	return;
-}
-
-void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
-                          MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context)
+void voclUpdateVOCLMemory(vocl_mem voclMemory, cl_mem newMem, int proxyRank, int proxyIndex,
+                          MPI_Comm proxyComm, MPI_Comm proxyCommData) 
 {
     struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(voclMemory);
     int err;
@@ -192,9 +192,10 @@ void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
     memoryPtr->proxyComm = proxyComm;
     memoryPtr->proxyCommData = proxyCommData;
 
-    memoryPtr->clMemory = voclMigCreateBuffer(context, memoryPtr->flags,
-                                              memoryPtr->size, NULL, &err);
-	memoryPtr->migrationStatus = voclContextGetMigrationStatus(context);
+    memoryPtr->clMemory = newMem;
+//  memoryPtr->clMemory = voclMigCreateBuffer(context, memoryPtr->flags,
+//                                            memoryPtr->size, NULL, &err);
+//	memoryPtr->migrationStatus = voclContextGetMigrationStatus(context);
 
     return;
 }
