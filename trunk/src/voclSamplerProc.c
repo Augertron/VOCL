@@ -86,14 +86,14 @@ vocl_sampler voclCLSampler2VOCLSampler(cl_sampler sampler, int proxyRank,
     return samplerPtr->voclSampler;
 }
 
-void voclSamplerSetMigrationStatus(vocl_sampler sampler, int status)
+void voclSamplerSetMigrationStatus(vocl_sampler sampler, char status)
 {
 	struct strVOCLSampler *samplerPtr = getVOCLSamplerPtr(sampler);
 	samplerPtr->migrationStatus = status;
 	return;
 }
 
-int voclSamplerGetMigrationStatus(vocl_sampler sampler)
+char voclSamplerGetMigrationStatus(vocl_sampler sampler)
 {
 	struct strVOCLSampler *samplerPtr = getVOCLSamplerPtr(sampler);
 	return samplerPtr->migrationStatus;

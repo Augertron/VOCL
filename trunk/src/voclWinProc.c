@@ -18,7 +18,8 @@ struct strVoclWinInfo {
 	MPI_Comm proxyCommData;
 	MPI_Comm commWin;  /* MPI communicator for win creation */
 
-	int migrationStatus;
+	char migrationStatus;
+	char padding[3];
 	int destProxyIndex;
 };
 
@@ -137,7 +138,7 @@ void voclPrintWinInfo()
 	return;
 }
 
-int voclGetMigrationStatus(int proxyIndex)
+char voclGetMigrationStatus(int proxyIndex)
 {
 	int migStatus;
 	vocl_wins *winPtr;
@@ -154,6 +155,25 @@ int voclGetMigrationStatus(int proxyIndex)
 	free(winPtr);
 
 	return migWin.migrationStatus;
+}
+
+int voclGetMigrationDestProxyIndex(int proxyIndex)
+{
+	int migStatus;
+	vocl_wins *winPtr;
+	int offset;
+	struct strVoclWinInfo migWin;
+
+	winPtr = (vocl_wins *)malloc(sizeof(vocl_wins));
+	offset = ((char *)&winPtr->wins[proxyIndex]) - ((char*)winPtr);
+
+	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, voclWinPtr[proxyIndex]);
+	MPI_Get(&migWin, sizeof(struct strVoclWinInfo), MPI_BYTE, 0, offset,
+			sizeof(struct strVoclWinInfo), MPI_BYTE, voclWinPtr[proxyIndex]);
+	MPI_Win_unlock(0, voclWinPtr[proxyIndex]);
+	free(winPtr);
+
+	return migWin.destProxyIndex;
 }
 
 void voclMigrationMutexLock(int proxyIndex)

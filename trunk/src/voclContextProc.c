@@ -71,14 +71,14 @@ void voclContextFinalize()
     voclContext = 0;
 }
 
-void voclContextSetMigrationStatus(vocl_context context, int status)
+void voclContextSetMigrationStatus(vocl_context context, char status)
 {
 	struct strVOCLContext *contextPtr = getVOCLContextPtr(context);
 	contextPtr->migrationStatus = status;
 	return;
 }
 
-int voclContextGetMigrationStatus(vocl_context context)
+char voclContextGetMigrationStatus(vocl_context context)
 {
 	struct strVOCLContext *contextPtr = getVOCLContextPtr(context);
 	return contextPtr->migrationStatus;

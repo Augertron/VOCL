@@ -4,8 +4,8 @@
 
 extern cl_kernel voclMigCreateKernel(vocl_program program, const char *kernel_name,
                               cl_int * errcode_ret);
-extern int voclProgramGetMigrationStatus(vocl_program program);
-extern int voclContextGetMigrationStatus(vocl_context context);
+extern char voclProgramGetMigrationStatus(vocl_program program);
+extern char voclContextGetMigrationStatus(vocl_context context);
 extern cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyRank,
 					int *proxyIndex, MPI_Comm * proxyComm,
 					MPI_Comm * proxyCommData);
@@ -125,14 +125,14 @@ vocl_context voclGetContextFromKernel(vocl_kernel kernel)
     return kernelPtr->context;
 }
 
-void voclKernelSetMigrationStatus(vocl_kernel kernel, int status)
+void voclKernelSetMigrationStatus(vocl_kernel kernel, char status)
 {
 	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
 	kernelPtr->migrationStatus = status;
 	return;
 }
 
-int voclKernelGetMigrationStatus(vocl_kernel kernel)
+char voclKernelGetMigrationStatus(vocl_kernel kernel)
 {
 	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
 	return kernelPtr->migrationStatus;
