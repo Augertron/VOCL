@@ -52,6 +52,9 @@ extern "C" {
 #define VOCL_MIG_LOCAL_RW_BUF_RDGPUMEM  7
 #define VOCL_MIG_LOCAL_RW_BUF_WTGPUMEM  8
 
+#define VOCL_MIG_UPDATE -100
+#define VOCL_MIG_NOUPDATE -101
+
 /* for api function identification */
 #define GET_PROXY_COMM_INFO         9
 #define GET_PLATFORM_ID_FUNC        10

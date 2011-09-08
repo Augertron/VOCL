@@ -207,9 +207,8 @@ cl_command_queue voclVOCLCommandQueue2CLCommandQueue(vocl_command_queue command_
     return commandQueuePtr->clCommandQueue;
 }
 
-void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, int proxyRank, int proxyIndex,
-                                MPI_Comm comm, MPI_Comm commData, vocl_context context,
-                                vocl_device_id device)
+void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, cl_command_queue newCmdQueue, 
+								int proxyRank, int proxyIndex, MPI_Comm comm, MPI_Comm commData)
 {
     struct strVOCLCommandQueue *cmdQueuePtr = getVOCLCommandQueuePtr(voclCmdQueue);
     int err, migrationStatus;
@@ -227,11 +226,11 @@ void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, int proxyRank, 
     cmdQueuePtr->proxyIndex = proxyIndex;
     cmdQueuePtr->proxyComm = comm;
     cmdQueuePtr->proxyCommData = commData;
-	cmdQueuePtr->deviceID = device;
-    cmdQueuePtr->clCommandQueue = voclMigCreateCommandQueue(context, device,
-                                                            cmdQueuePtr->properties, &err);
-	cmdQueuePtr->migrationStatus = voclContextGetMigrationStatus(context);
-
+//	cmdQueuePtr->deviceID = device;
+//	cmdQueuePtr->clCommandQueue = voclMigCreateCommandQueue(context, device,
+//															cmdQueuePtr->properties, &err);
+	cmdQueuePtr->clCommandQueue = newCmdQueue;
+								
     return;
 }
 

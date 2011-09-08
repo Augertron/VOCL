@@ -146,6 +146,8 @@ struct strEnqueueNDRangeKernel {
 };
 
 struct strEnqueueNDRangeKernelReply {
+	cl_command_queue command_queue;
+	cl_kernel kernel;
 	cl_event event;
 	cl_int res;
 	char cmdQueueMigStatus;
