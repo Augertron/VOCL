@@ -57,8 +57,8 @@ extern cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxy
                                                 int *proxyIndex, MPI_Comm * proxyComm,
                                                 MPI_Comm * proxyCommData);
 extern int voclReleaseContext(vocl_context context);
-extern void voclContextSetMigrationStatus(vocl_context context, int status);
-extern int voclContextGetMigrationStatus(vocl_context context);
+extern void voclContextSetMigrationStatus(vocl_context context, char status);
+extern char voclContextGetMigrationStatus(vocl_context context);
 
 /* for command queue processing */
 extern void voclCommandQueueInitialize();
@@ -83,9 +83,8 @@ extern cl_command_queue voclVOCLCommandQueue2OldCLCommandQueueComm(vocl_command_
                                                                    int *proxyIndex,
                                                                    MPI_Comm * proxyComm,
                                                                    MPI_Comm * proxyCommData);
-extern void voclCommandQueueSetMigrationStatus(vocl_command_queue cmdQueue, int status);
-extern void voclCommandQueueSetMigrationStatus(vocl_command_queue cmdQueue, int status);
-extern int voclCommandQueueGetMigrationStatus(vocl_command_queue cmdQueue);
+extern void voclCommandQueueSetMigrationStatus(vocl_command_queue cmdQueue, char status);
+extern char voclCommandQueueGetMigrationStatus(vocl_command_queue cmdQueue);
 //extern void voclCommandQueueMigration(vocl_command_queue command_queue);
 //extern void voclUpdateMemoryInCommandQueue(vocl_command_queue command_queue, vocl_mem mem,
 //                                           size_t size);
@@ -103,8 +102,8 @@ extern int voclReleaseProgram(vocl_program program);
 extern void voclStoreProgramSource(vocl_program program, char *source, size_t sourceSize);
 extern void voclStoreProgramContext(vocl_program program, vocl_context context);
 extern vocl_context voclGetContextFromProgram(vocl_program program);
-extern void voclProgramSetMigrationStatus(vocl_program program, int status);
-extern int voclProgramGetMigrationStatus(vocl_program program);
+extern void voclProgramSetMigrationStatus(vocl_program program, char status);
+extern char voclProgramGetMigrationStatus(vocl_program program);
 
 /* for program processing */
 extern void voclMemoryInitialize();
@@ -125,8 +124,8 @@ extern cl_mem voclVOCLMemory2OldCLMemoryComm(vocl_mem memory, int *proxyRank,
                                              int *proxyIndex, MPI_Comm * proxyComm,
                                              MPI_Comm * proxyCommData);
 extern cl_mem voclVOCLMemory2CLMemory(vocl_mem memory);
-extern void voclMemSetMigrationStatus(vocl_mem mem, int status);
-extern int voclMemGetMigrationStatus(vocl_mem mem);
+extern void voclMemSetMigrationStatus(vocl_mem mem, char status);
+extern char voclMemGetMigrationStatus(vocl_mem mem);
 extern void voclUpdateSingleMemory(vocl_mem mem);
 extern cl_int clMigReleaseOldMemObject(vocl_mem memobj);
 
@@ -142,8 +141,8 @@ extern cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
 extern int voclReleaseKernel(vocl_kernel kernel);
 extern void voclStoreKernelProgramContext(vocl_kernel kernel, vocl_program program,
                                           vocl_context context);
-extern void voclKernelSetMigrationStatus(vocl_kernel kernel, int status);
-extern int voclKernelGetMigrationStatus(vocl_kernel kernel);
+extern void voclKernelSetMigrationStatus(vocl_kernel kernel, char status);
+extern char voclKernelGetMigrationStatus(vocl_kernel kernel);
 extern void voclUpdateSingleKernel(vocl_kernel kernel, vocl_command_queue command_queue);
 
 /* kernel argument processing functions */
@@ -210,7 +209,7 @@ extern cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxy
                                                 int *proxyIndex, MPI_Comm * proxyComm,
                                                 MPI_Comm * proxyCommData);
 extern int voclReleaseSampler(vocl_sampler sampler);
-extern void voclSamplerSetMigrationStatus(vocl_sampler sampler, int status);
+extern void voclSamplerSetMigrationStatus(vocl_sampler sampler, char status);
 
 /* kernel number management */
 //void voclLibIncreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
@@ -237,12 +236,16 @@ extern void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_que
 extern void voclSetTaskMigrationCondition();
 extern int voclGetTaskMigrationCondition();
 
-
 extern void voclWinInfoInitialize();
 extern void voclWinInfoFinalize();
 extern void voclAddWinInfo(MPI_Comm comm, int proxyRank, int proxyIndex, char *serviceName);
 extern void voclWinInfoFree(int proxyIndex);
+extern char voclGetMigrationStatus(int proxyIndex);
+extern int voclGetMigrationDestProxyIndex(int proxyIndex);
 extern void voclPrintWinInfo();
+
+extern void voclMigrationMutexLock(int proxyIndex);
+extern void voclMigrationMutexUnlock(int proxyIndex);
 
 /*******************************************************************/
 /* for Opencl object count processing */
@@ -1113,6 +1116,8 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     /* for migration check */
     int isMigrationNeeded = 0;
     struct strMigrationCheck tmpMigrationCheck;
+	char vgpuMigStatus, cmdQueueMigStatus, memMigStatus;
+	int deskProxyIndex;
 
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
@@ -1136,13 +1141,49 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
                                 num_events_in_wait_list);
     }
 
-    tmpEnqueueWriteBuffer.command_queue =
-        voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
-                                                &proxyIndex, &proxyComm, &proxyCommData);
+	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
+	memMigStatus = (char)voclMemGetMigrationStatus((vocl_mem)buffer);
 
-    tmpEnqueueWriteBuffer.buffer =
-        voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
-                                    &proxyCommData);
+	/* acquire the locker to send out message */
+	voclMigrationMutexLock(proxyIndex);
+	/* obtain the vritual GPU migration status */
+	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
+	if (cmdQueueMigStatus < memMigStatus)
+	{
+		tmpEnqueueWriteBuffer.command_queue =
+			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
+													&proxyIndex, &proxyComm, &proxyCommData);
+		tmpEnqueueWriteBuffer.buffer =
+			voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
+										&proxyCommData);
+	}
+	else if (memMigStatus < cmdQueueMigStatus)
+	{	
+		tmpEnqueueWriteBuffer.buffer =
+			voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
+										&proxyCommData);
+		tmpEnqueueWriteBuffer.command_queue =
+			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
+													&proxyIndex, &proxyComm, &proxyCommData);
+	}
+	else
+	{
+		tmpEnqueueWriteBuffer.buffer =
+			voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
+										&proxyCommData);
+		tmpEnqueueWriteBuffer.command_queue =
+			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
+													&proxyIndex, &proxyComm, &proxyCommData);
+		if (memMigStatus < vgpuMigStatus)
+		{	
+			destProxyIndex = voclGetMigrationDestProxyIndex(proxyIndex);
+			/* update the proxy the message is sent to */
+			proxyIndex = destProxyIndex;
+			proxyRank = voclProxyRank[proxyIndex];
+			proxyComm = voclProxyComm[proxyIndex];
+			proxyCommData = voclProxyCommData[proxyIndex];
+		}
+	}
 
     /* local GPU, call native opencl function */
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
@@ -1163,6 +1204,8 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
         return errCode;
     }
 
+	tmpEnqueueWriteBuffer.cmdQueueMigStatus = cmdQueueMigStatus;
+	tmpEnqueueWriteBuffer.memMigStatus = memMigStatus;
     tmpEnqueueWriteBuffer.blocking_write = blocking_write;
     tmpEnqueueWriteBuffer.offset = offset;
     tmpEnqueueWriteBuffer.cb = cb;
@@ -1241,7 +1284,7 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
 {
     cl_mem deviceMem;
     int proxyRank, proxyIndex;
-    int kernelMigStatus, memMigStatus;
+    char kernelMigStatus, memMigStatus;
     MPI_Comm proxyComm, proxyCommData;
     size_t size;
     cl_kernel clKernel =
@@ -1329,7 +1372,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
     MPI_Request request[7];
     int requestNo = 0;
     int proxyRank, proxyIndex, i, rankNo;
-    int cmdQueueMigStatus, kernelMigStatus;
+    char cmdQueueMigStatus, kernelMigStatus;
     MPI_Comm proxyComm, proxyCommData;
     cl_event *eventList = NULL;
     int taskMigrationCheck, isMigrationNeeded = 0;

@@ -40,6 +40,7 @@ extern "C" {
         cl_context hContext;
         cl_int errcode_ret;
 		char migStatus;
+		char padding[3];
     };
 
     struct strCreateCommandQueue {
@@ -49,6 +50,7 @@ extern "C" {
         cl_command_queue clCommand;
         cl_int errcode_ret;
 		char migStatus;
+		char padding[3];
     };
 
     struct strCreateProgramWithSource {
@@ -58,6 +60,7 @@ extern "C" {
         cl_program clProgram;
         cl_int errcode_ret;
 		char migStatus;
+		char padding[3];
     };
 
     struct strBuildProgram {
@@ -77,6 +80,7 @@ extern "C" {
         cl_kernel kernel;
         cl_int errcode_ret;
 		char migStatus;
+		char padding[3];
     };
 
 /* Memory Object APIs */
@@ -88,6 +92,7 @@ extern "C" {
         cl_mem deviceMem;
         cl_int errcode_ret;
 		char migStatus;
+		char padding[3];
     };
 
     struct strEnqueueWriteBuffer {
@@ -101,6 +106,9 @@ extern "C" {
         cl_int event_null_flag; /* 1, flag is NULL, 0, is NOT NULL */
         cl_event event;
         cl_int res;
+		char cmdQueueMigStatus;
+		char memMigStatus;
+		char padding[2];
     };
 
     struct strSetKernelArg {
@@ -131,11 +139,17 @@ extern "C" {
 		size_t dataSize;
         cl_uint num_events_in_wait_list;
         cl_int event_null_flag;
+		char cmdQueueMigStatus;
+		char kernelMigStatus;
+		char padding[2];
     };
 
 	struct strEnqueueNDRangeKernelReply {
 		cl_event event;
 		cl_int res;
+		char cmdQueueMigStatus;
+		char kernelMigStatus;
+		char padding[2];
 	};
 
     struct strEnqueueReadBuffer {
@@ -149,6 +163,9 @@ extern "C" {
         cl_int event_null_flag; /* 1: the event point is NULL. 0: the event point is NOT NULL */
         cl_event event;
         cl_int res;
+		char cmdQueueMigStatus;
+		char memMigStatus;
+		char padding[2];
     };
 
     struct strReleaseMemObject {

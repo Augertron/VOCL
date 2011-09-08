@@ -45,14 +45,14 @@ extern void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, int prox
                                        vocl_context context, vocl_device_id device);
 extern cl_command_queue voclVOCLCommandQueue2CLCommandQueue(vocl_command_queue command_queue);
 extern cl_int clMigReleaseOldCommandQueue(vocl_command_queue command_queue);
-extern int voclCommandQueueGetMigrationStatus(vocl_command_queue cmdQueue);
+extern char voclCommandQueueGetMigrationStatus(vocl_command_queue cmdQueue);
 
 extern vocl_program voclGetProgramFromKernel(vocl_kernel kernel);
 extern void voclUpdateVOCLKernel(vocl_kernel voclKernel, int proxyRank, int proxyIndex,
                                  MPI_Comm proxyComm, MPI_Comm proxyCommData,
                                  vocl_program program);
 extern cl_kernel voclVOCLKernel2CLKernel(vocl_kernel kernel);
-extern int voclKernelGetMigrationStatus(vocl_kernel kernel);
+extern char voclKernelGetMigrationStatus(vocl_kernel kernel);
 
 extern cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyRank,
                                                     int *proxyIndex, MPI_Comm * proxyComm,
@@ -73,7 +73,7 @@ extern void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIn
                                  MPI_Comm proxyComm, MPI_Comm proxyCommData,
                                  vocl_context context);
 extern cl_int clMigReleaseOldMemObject(vocl_mem memobj);
-extern int voclMemGetMigrationStatus(vocl_mem mem);
+extern char voclMemGetMigrationStatus(vocl_mem mem);
 extern cl_command_queue voclVOCLCommandQueue2OldCLCommandQueueComm(vocl_command_queue command_queue,
                                                             int *proxyRank, int *proxyIndex,
                                                             MPI_Comm * proxyComm,
@@ -83,7 +83,7 @@ extern int voclGetMemWrittenFlag(vocl_mem memory);
 extern void voclMigLocalToLocal(cl_command_queue oldCmdQueue, cl_mem oldMem,
                          cl_command_queue newCmdQueue, cl_mem newMem, size_t size);
 extern char *voclGetProgramBuildOptions(vocl_program program);
-extern int voclProgramGetMigrationStatus(vocl_program program);
+extern char voclProgramGetMigrationStatus(vocl_program program);
 extern cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
                                       int *proxyIndex, MPI_Comm * proxyComm,
                                       MPI_Comm * proxyCommData);
