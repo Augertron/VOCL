@@ -56,7 +56,8 @@ typedef struct strVoclProgram {
 } vocl_proxy_program;
 
 typedef struct strVoclProxyCommandQueue {
-	cl_command_queue command_queue, oldCommand_queue;
+	cl_command_queue command_queue;
+	cl_command_queue oldCommand_queue;
 	cl_context       context;
 	cl_device_id     deviceID;
 	cl_command_queue_properties properties;

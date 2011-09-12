@@ -18,7 +18,7 @@ extern "C" {
     cl_int createKernel(cl_kernel kernel);
     kernel_info *getKernelPtr(cl_kernel kernel);
     cl_int releaseKernelPtr(cl_kernel kernel);
-	char* getKernelArgInfo(char *kernel_name, vocl_program program, int *argNum);
+	char* getKernelArgInfo(const char *kernel_name, vocl_program program, int *argNum);
 	void setKernelArgInfo(cl_kernel kernel, int argNum, char *argFlag);
 
 #ifdef __cplusplus
@@ -105,7 +105,7 @@ cl_int releaseKernelPtr(cl_kernel kernel)
     return 0;
 }
 
-char* getKernelArgInfo(char *kernel_name, vocl_program program, int *argNum)
+char* getKernelArgInfo(const char *kernel_name, vocl_program program, int *argNum)
 {
     size_t sourceSize, codeSize;
     char *programSource;

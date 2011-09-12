@@ -21,6 +21,7 @@ struct strVoclWinInfo {
 	char migrationStatus;
 	char padding[3];
 	int destProxyIndex;
+	int destProxyRank;
 };
 
 typedef struct strVoclWinInfoAll {
@@ -103,8 +104,10 @@ void voclAddWinInfo(MPI_Comm comm, int proxyRank, int proxyIndex, char *serviceN
 	voclWinInfoPtr->wins[proxyIndex].proxyComm = msgGetProxyCommInfo.comm;
 	voclWinInfoPtr->wins[proxyIndex].proxyCommData = msgGetProxyCommInfo.commData;
 	voclWinInfoPtr->wins[proxyIndex].appIndex = msgGetProxyCommInfo.appIndex;
+	printf("voclAddWin,AppIndex = %d\n", msgGetProxyCommInfo.appIndex);
 	voclWinInfoPtr->wins[proxyIndex].migrationStatus = 0;
 	voclWinInfoPtr->wins[proxyIndex].destProxyIndex = -1;
+	voclWinInfoPtr->wins[proxyIndex].destProxyRank = -1;
 
 	/* create the locker in the lib size */
 	voclLockers[proxyIndex] = MPIX_Mutex_create(1, winComm);
@@ -147,12 +150,13 @@ char voclGetMigrationStatus(int proxyIndex)
 
 	winPtr = (vocl_wins *)malloc(sizeof(vocl_wins));
 	offset = ((char *)&winPtr->wins[proxyIndex]) - ((char*)winPtr);
-
+	printf("getGPUMigStatus, offset = %ld, proxyIndex =%d\n", offset, proxyIndex);
 	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, voclWinPtr[proxyIndex]);
 	MPI_Get(&migWin, sizeof(struct strVoclWinInfo), MPI_BYTE, 0, offset,
 			sizeof(struct strVoclWinInfo), MPI_BYTE, voclWinPtr[proxyIndex]);
 	MPI_Win_unlock(0, voclWinPtr[proxyIndex]);
 	free(winPtr);
+	printf("getGPUMigStatus, migStatus = %d\n", migWin.migrationStatus);
 
 	return migWin.migrationStatus;
 }
@@ -161,19 +165,39 @@ int voclGetMigrationDestProxyIndex(int proxyIndex)
 {
 	int migStatus;
 	vocl_wins *winPtr;
-	int offset;
+	int destProxyRank, destProxyIndex, i;
 	struct strVoclWinInfo migWin;
 
 	winPtr = (vocl_wins *)malloc(sizeof(vocl_wins));
-	offset = ((char *)&winPtr->wins[proxyIndex]) - ((char*)winPtr);
-
 	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, voclWinPtr[proxyIndex]);
-	MPI_Get(&migWin, sizeof(struct strVoclWinInfo), MPI_BYTE, 0, offset,
-			sizeof(struct strVoclWinInfo), MPI_BYTE, voclWinPtr[proxyIndex]);
+//	MPI_Get(&migWin, sizeof(struct strVoclWinInfo), MPI_BYTE, 0, offset,
+//			sizeof(struct strVoclWinInfo), MPI_BYTE, voclWinPtr[proxyIndex]);
+	/* get all the window info */
+	MPI_Get(winPtr, sizeof(vocl_wins), MPI_BYTE, 0, 0,
+			sizeof(vocl_wins), MPI_BYTE, voclWinPtr[proxyIndex]);
 	MPI_Win_unlock(0, voclWinPtr[proxyIndex]);
+
+	/* get the dest proxy rank */
+	destProxyRank = winPtr->wins[proxyIndex].destProxyRank;
+	destProxyIndex = -1;
+	for (i = 0; i < winPtr->proxyNum; i++)
+	{
+		if (destProxyRank == winPtr->wins[i].proxyRank)
+		{
+			destProxyIndex = i;
+			break;
+		}
+	}
+
+	if (destProxyIndex == -1)
+	{
+		printf("voclGetMigrationDestProxyIndex, destProxyRank %d does not exist!\n");
+		exit (1);
+	}
+
 	free(winPtr);
 
-	return migWin.destProxyIndex;
+	return destProxyIndex;
 }
 
 void voclMigrationMutexLock(int proxyIndex)

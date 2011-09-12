@@ -173,16 +173,22 @@ extern "C" {
     struct strReleaseMemObject {
         cl_mem memobj;
         cl_int res;
+		char migStatus;
+		char padding[3];
     };
 
     struct strReleaseKernel {
         cl_kernel kernel;
         cl_int res;
+		char migStatus;
+		char padding[3];
     };
 
     struct strFinish {
         cl_command_queue command_queue;
         cl_int res;
+		char migStatus;
+		char padding[3];
     };
 
     struct strGetContextInfo {
@@ -216,16 +222,22 @@ extern "C" {
     struct strReleaseProgram {
         cl_program program;
         cl_int res;
+		char migStatus;
+		char padding[3];
     };
 
     struct strReleaseCommandQueue {
         cl_command_queue command_queue;
         cl_int res;
+		char migStatus;
+		char padding[3];
     };
 
     struct strReleaseContext {
         cl_context context;
         cl_int res;
+		char migStatus;
+		char padding[3];
     };
 
     struct strGetDeviceInfo {
