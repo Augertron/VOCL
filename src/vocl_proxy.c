@@ -466,7 +466,6 @@ int main(int argc, char *argv[])
 
     while (1) {
         /* wait for any msg from the master process */
-		printf("Before waitany!\n");
         MPI_Waitany(voclCommUsedSize, conMsgRequestForWait, &commIndex, &status);
         appRank = status.MPI_SOURCE;
         appIndex = commIndex;
@@ -802,7 +801,6 @@ int main(int argc, char *argv[])
 				requestNo = 0;
 			}
 
-			printf("proxyEnqueueWriteBuffer1\n");
 			migOperation = VOCL_MIG_NOUPDATE;
 			if (tmpEnqueueWriteBuffer.cmdQueueMigStatus == VOCL_MIG_UPDATE)
 			{
@@ -810,7 +808,6 @@ int main(int argc, char *argv[])
 				tmpEnqueueWriteBuffer.cmdQueueMigStatus = voclProxyGetCommandQueueMigStatus(tmpEnqueueWriteBuffer.command_queue);
 				migOperation = VOCL_MIG_UPDATE;
 			}
-			printf("proxyEnqueueWriteBuffer2\n");
 
 			if (tmpEnqueueWriteBuffer.memMigStatus == VOCL_MIG_UPDATE)
 			{
@@ -819,7 +816,6 @@ int main(int argc, char *argv[])
 				migOperation = VOCL_MIG_UPDATE;
 			}
 
-			printf("proxyEnqueueWriteBuffer3\n");
 			/* issue MPI data receive */
 			bufferSize = VOCL_PROXY_WRITE_BUFFER_SIZE;
 			bufferNum = (tmpEnqueueWriteBuffer.cb - 1) / bufferSize;
@@ -864,7 +860,6 @@ int main(int argc, char *argv[])
 				voclProxyMigrationOneVGPUOverload(appIndex, cmdQueuePtr->deviceID);
 			}
 			//end of debug----------------------------------------------------------
-
 
 			if (tmpEnqueueWriteBuffer.blocking_write == CL_TRUE) {
 				if (requestNo > 0) {
@@ -1379,9 +1374,7 @@ int main(int argc, char *argv[])
 
 			if (tmpReleaseContext.migStatus == VOCL_MIG_UPDATE)
 			{
-				printf("proxyRelaseContext1,context=%p\n", tmpReleaseContext.context);
 				tmpReleaseContext.context = voclProxyGetNewContextValue(tmpReleaseContext.context);
-				printf("proxyRelaseContext2,context=%p\n", tmpReleaseContext.context);
 			}
 
 			/* release context */
@@ -1891,7 +1884,6 @@ int main(int argc, char *argv[])
             /* cancel the corresponding requests */
             requestOffset = commIndex * CMSG_NUM;
             for (requestNo = 0; requestNo < CMSG_NUM; requestNo++) {
-                //if (requestOffset + requestNo != index)
                 if (conMsgRequest[requestOffset + requestNo] != MPI_REQUEST_NULL) {
                     MPI_Cancel(&conMsgRequest[requestOffset + requestNo]);
                     MPI_Request_free(&conMsgRequest[requestOffset + requestNo]);

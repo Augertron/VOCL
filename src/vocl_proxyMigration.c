@@ -74,6 +74,7 @@ extern struct strMigRWBufferSameNode *voclMigRWGetBufferInfoPtr(int rank, int in
 extern void voclMigSetRWBufferFlag(int rank, int index, int flag);
 extern int voclMigFinishDataRWOnSameNode(int rank);
 extern void voclProxyUpdateMigStatus(int appIndex, int destProxyIndex);
+extern void voclProxySetMigStatus(int appIndex, char migStatus);
 
 extern void voclProxyMigrationMutexLock(int appIndex);
 extern void voclProxyMigrationMutexUnlock(int appIndex);
@@ -106,10 +107,10 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 	vocl_proxy_mem *memPtr, *mmPtr;
 	
 	/* add the new virtual to the target proxy process */
-	printf("MigCreateVirtualGPU, appindex = %d, deviceID = %p\n",
-			appIndex, deviceID);
 	voclProxyAddVirtualGPU(appIndex, proxyRank, deviceID);
 	migStatus = voclProxyUpdateVGPUMigStatus(appIndex, deviceID);
+	voclProxySetMigStatus(appIndex, migStatus);
+
 
 	/* unpack the received message and create corresponding */
 	/* resources on the new virtual GPU */
@@ -123,7 +124,6 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 		offset += sizeof(vocl_proxy_context);
 	
 		context = clCreateContext(NULL, 1, &deviceID, NULL, NULL, &retCode);
-		printf("migration,NewContextValue = %p\n", context);
 
 		voclProxyAddContext(context, 1, &deviceID);
 		/* set the new migration status to that of the virtual GPU */
@@ -212,50 +212,39 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 
 			for (k = 0; k < programPtr->kernelNo; k++)
 			{
-				printf("migCreateVGPU1\n");
 				kernelPtr = (vocl_proxy_kernel *)(bufPtr + offset);
 				offset += sizeof(vocl_proxy_kernel);
 				kernelPtr->kernelName = (char *)(bufPtr + offset);
 				offset += kernelPtr->nameLen;
 				kernel = clCreateKernel(program, kernelPtr->kernelName, &retCode);
-				printf("migCreateVGPU2\n");
 
 				argNum = kernelPtr->argNum;
 				/*unpack the argument flag */
 				argFlag = (char *)(bufPtr + offset);
 				offset += argNum * sizeof(char);
-				printf("migCreateVGPU3\n");
 				
 				/* unpack the arguments */
 				args = (kernel_args *)(bufPtr + offset);
 				offset += argNum * sizeof(kernel_args);
-				printf("migCreateVGPU4\n");
 
 				/* store the kernel */
 				voclProxyAddKernel(kernel, kernelPtr->kernelName, program);
-				printf("migCreateVGPU5\n");
 
 				/* set the kernel migration status */
 				voclProxySetKernelMigStatus(kernel, migStatus);
-				printf("migCreateVGPU6\n");
 
 				/* store the kernel value before migration */
 				voclProxyStoreOldKernelValue(kernel, kernelPtr->kernel);
-				printf("migCreateVGPU7\n");
 
 				knPtr = voclProxyGetKernelPtr(kernel);
 				voclProxyAddKernelToProgram(program, knPtr);
-				printf("migCreateVGPU8, argNum = %d\n", argNum);
 
 				/* set the argument flag and arguments */
 				voclProxySetKernelArgFlag(kernel, argNum, argFlag);
-				printf("migCreateVGPU8.1, argNum = %d\n", argNum);
 				voclProxyStoreKernelArgs(kernel, argNum, args);
-				printf("migCreateVGPU9\n");
 
 				/* set the arguments for the kernel in the new virtual GPU */
 				voclProxySetKernelArgs(kernel);
-				printf("migCreateVGPU10\n");
 			}
 		}
 
@@ -273,7 +262,6 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 			voclProxySetCommandQueueMigStatus(cmdQueue, migStatus);
 
 			/* store the command queue value before migration */
-			printf("oldCommandQueue = %p\n", cmdQueuePtr->command_queue);
 			voclProxyStoreOldCommandQueueValue(cmdQueue, cmdQueuePtr->command_queue);
 
 			cqPtr = voclProxyGetCmdQueuePtr(cmdQueue);
@@ -423,14 +411,15 @@ struct strKernelNumOnDevice *voclProxyMigQueryLoadOnGPUs(int appIndex, int *prox
 		{
 			vocl_proxyGetKernelNumsOnGPUs(&loadPtr[j]);
 		}
-		printf("QueryLoad, appindex = %d\n", winBufPtr->wins[j].appIndex);
-		loadPtr[j].appIndex = winBufPtr->wins[j].appIndex;
-
 	}
-
 	if (requestNo > 0)
 	{
 		MPI_Waitall(requestNo, request, status);
+	}
+
+	for (j = 0; j < winBufPtr->proxyNum; j++)
+	{
+		loadPtr[j].appIndex = winBufPtr->wins[j].appIndex;
 	}
 
 	*proxyNum = winBufPtr->proxyNum;
@@ -440,7 +429,6 @@ struct strKernelNumOnDevice *voclProxyMigQueryLoadOnGPUs(int appIndex, int *prox
 	free(status);
 	return loadPtr;
 }
-
 
 /* find the physical gpu that has the least load. If all gpus have */
 /* the same amount of load, select the first device */
@@ -455,7 +443,6 @@ cl_device_id voclProxyMigFindTargetGPU(struct strKernelNumOnDevice *gpuKernelNum
 	cl_device_id deviceID;
 	for (i = 1; i < proxyNum; i++)
 	{
-	printf("FindTargetGPU, appIndex = %d\n", gpuKernelNum[i].appIndex);
 		for (j = 0; j < gpuKernelNum[i].deviceNum; j++)
 		{
 			if (minKernelNumInWaiting > gpuKernelNum[i].kernelNums[j])
@@ -522,7 +509,6 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr)
 		voclProxyMigSendDeviceMemoryData(vgpuPtr, destRankNo, comm, commData);
 
 		/* update the mapping information in the library size */
-		printf("migOneVGPU, destRankNo = %d\n", destRankNo);
 		voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo);
 	}
 	else
@@ -537,8 +523,6 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr)
 		}
 		else {   } /* same device, no migration is needed */
 	}
-
-	
 
 	/* After data transfer and kernel launch are migrated, this function */
 	/* will be called to release the virtual GPU on the original proxy */
