@@ -31,6 +31,7 @@ void voclProxyAddCmdQueue(cl_command_queue command_queue, cl_command_queue_prope
 
 	cmdQueuePtr->next = voclProxyCmdQueuePtr;
 	voclProxyCmdQueuePtr = cmdQueuePtr;
+	printf("createCmdQueuePtr=%p\n", voclProxyCmdQueuePtr);
 
 	return;
 }
@@ -39,8 +40,10 @@ vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_queue
 {
 	vocl_proxy_command_queue *cmdQueuePtr;
 	cmdQueuePtr = voclProxyCmdQueuePtr;
+	printf("GetCmdQueuePtr, pointer = %p\n", voclProxyCmdQueuePtr);
 	while (cmdQueuePtr != NULL)
 	{
+		printf("GetPointer, cmdQueuePtr = %p\n", cmdQueuePtr);
 		if (cmdQueuePtr->command_queue == command_queue)
 		{
 			break;
@@ -79,6 +82,7 @@ void voclProxyStoreOldCommandQueueValue(cl_command_queue command_queue, cl_comma
     vocl_proxy_command_queue *cmdQueuePtr;
     cmdQueuePtr = voclProxyGetCmdQueuePtr(command_queue);
     cmdQueuePtr->oldCommand_queue = oldCommand_queue;
+	printf("cmdQueue = %p, cmdQueue->oldCmdQueue = %p\n", cmdQueuePtr, cmdQueuePtr->oldCommand_queue);
 
     return;
 }
@@ -93,9 +97,12 @@ cl_command_queue voclProxyGetOldCommandQueueValue(cl_command_queue command_queue
 cl_command_queue voclProxyGetNewCommandQueueValue(cl_command_queue oldCommand_queue)
 {
     vocl_proxy_command_queue *cmdQueuePtr;
+	printf("GetNewCmdQueue, pointer = %p\n", voclProxyCmdQueuePtr);
 	cmdQueuePtr = voclProxyCmdQueuePtr;
 	while (cmdQueuePtr != NULL)
 	{
+		printf("cmdQueuePtr = %p, newCmdQueue = %p, oldStored = %p, compared = %p\n", 
+				cmdQueuePtr, cmdQueuePtr->command_queue, cmdQueuePtr->oldCommand_queue, oldCommand_queue);
 		if (cmdQueuePtr->oldCommand_queue == oldCommand_queue)
 		{
 			break;
@@ -107,6 +114,7 @@ cl_command_queue voclProxyGetNewCommandQueueValue(cl_command_queue oldCommand_qu
 	{
 		printf("voclProxyGetNewCommandQueueValue, old command queue %p does not exist!\n",
 				oldCommand_queue);
+		exit (1);
 	}
 
     return cmdQueuePtr->command_queue;

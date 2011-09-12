@@ -17,6 +17,7 @@ struct strVoclWinInfo {
 
     int migrationStatus;
     int destProxyIndex;
+	int destProxyRank;
 };
 
 typedef struct strVoclProxyWinInfoAll {

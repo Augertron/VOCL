@@ -201,6 +201,7 @@ extern void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, vocl_
 extern void voclProxyRemoveContextFromVGPU(int appIndex, vocl_proxy_context *context);
 extern void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_command_queue *command_queue);
 extern void voclProxyRemoveCommandQueueFromVGPU(int appIndex, vocl_proxy_command_queue *command_queue);
+extern cl_context voclProxyGetNewContextValue(cl_context oldContext);
 extern void voclProxyReleaseVirtualGPU(int appIndex, cl_device_id deviceID);
 extern void voclProxyReleaseAllVirtualGPU();
 extern void voclProxyPrintVirtualGPUs();
@@ -255,6 +256,7 @@ extern char voclProxyGetProgramMigStatus(cl_program program);
 extern void voclProxyRemoveKernelFromProgram(vocl_proxy_kernel *kernel);
 extern void voclProxySetProgramBuildOptions(cl_program program, cl_uint deviceNum, cl_device_id *device_list, char *buildOptions);
 extern char* voclProxyGetProgramBuildOptions(cl_program program);
+extern cl_program voclProxyGetNewProgramValue(cl_program oldProgram);
 extern cl_device_id* voclProxyGetProgramDevices(cl_program program, cl_uint *deviceNum);
 extern void voclProxyReleaseProgram(cl_program program);
 extern void voclProxyReleaseAllPrograms();
@@ -391,6 +393,10 @@ int main(int argc, char *argv[])
 	char *migMsgBuffer;
 	char migStatus, migOperation;
 
+	//debug--------------------
+	int migrationStatus = 0;
+	//-----------------------------
+
 	/* flag to control the execution of the kernel launch thread */
 	int kernelLaunchThreadExecuting = 0;
 
@@ -437,19 +443,15 @@ int main(int argc, char *argv[])
 	/*initialize the internal command queue in the proxy process */
 	//voclProxyCmdQueueInit();
 
-//    //debug-------------------
-//	cl_platform_id platformIDDebug;
-//	cl_device_id deviceIDDebug[2];
-//	cl_int retDebug;
-//
-//	retDebug = clGetPlatformIDs(1, &platformIDDebug, NULL);
-//	retDebug = clGetDeviceIDs(platformIDDebug, CL_DEVICE_TYPE_GPU, 2, deviceIDDebug, NULL);
-//	printf("rank = %d, deviceIDs = %p, %p\n", rankNo, deviceIDDebug[0], deviceIDDebug[1]);
-//	//-----------------------------------------------
+    //debug-------------------
+	if (rankNo == 0)
+	{
+		migrationStatus = 1;
+	}
+	//-----------------------------------------------
 
 	/* issue non-blocking receiving for messages from other processes */
 	voclProxyAcceptProxyMessages();
-
 
     /* wait for one app to issue connection request */
     voclProxyAcceptOneApp();
@@ -464,6 +466,7 @@ int main(int argc, char *argv[])
 
     while (1) {
         /* wait for any msg from the master process */
+		printf("Before waitany!\n");
         MPI_Waitany(voclCommUsedSize, conMsgRequestForWait, &commIndex, &status);
         appRank = status.MPI_SOURCE;
         appIndex = commIndex;
@@ -571,7 +574,6 @@ int main(int argc, char *argv[])
 				voclProxyAddVirtualGPU(appIndex, rankNo, devices[i]);
 				voclProxyAddContextToVGPU(appIndex, devices[i], contextPtr);
 			}
-
             MPI_Isend(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, appRank,
                       CREATE_CONTEXT_FUNC, appComm[commIndex], curRequest);
 
@@ -702,11 +704,12 @@ int main(int argc, char *argv[])
 
             MPI_Irecv(paramBuf, paramBufSize, MPI_BYTE, appRank,
                       CREATE_KERNEL1, appCommData[commIndex], curRequest);
+            MPI_Wait(curRequest, curStatus);
+
 			memcpy(kernelName, paramBuf, tmpCreateKernel.kernelNameSize);
             kernelName[tmpCreateKernel.kernelNameSize] = '\0';
 			argFlag = (char *)&paramBuf[tmpCreateKernel.kernelNameSize];
 
-            MPI_Wait(curRequest, curStatus);
             mpiOpenCLCreateKernel(&tmpCreateKernel, kernelName);
 			tmpCreateKernel.migStatus = voclProxyGetProgramMigStatus(tmpCreateKernel.program);
 
@@ -799,6 +802,7 @@ int main(int argc, char *argv[])
 				requestNo = 0;
 			}
 
+			printf("proxyEnqueueWriteBuffer1\n");
 			migOperation = VOCL_MIG_NOUPDATE;
 			if (tmpEnqueueWriteBuffer.cmdQueueMigStatus == VOCL_MIG_UPDATE)
 			{
@@ -806,6 +810,7 @@ int main(int argc, char *argv[])
 				tmpEnqueueWriteBuffer.cmdQueueMigStatus = voclProxyGetCommandQueueMigStatus(tmpEnqueueWriteBuffer.command_queue);
 				migOperation = VOCL_MIG_UPDATE;
 			}
+			printf("proxyEnqueueWriteBuffer2\n");
 
 			if (tmpEnqueueWriteBuffer.memMigStatus == VOCL_MIG_UPDATE)
 			{
@@ -814,6 +819,7 @@ int main(int argc, char *argv[])
 				migOperation = VOCL_MIG_UPDATE;
 			}
 
+			printf("proxyEnqueueWriteBuffer3\n");
 			/* issue MPI data receive */
 			bufferSize = VOCL_PROXY_WRITE_BUFFER_SIZE;
 			bufferNum = (tmpEnqueueWriteBuffer.cb - 1) / bufferSize;
@@ -848,6 +854,17 @@ int main(int argc, char *argv[])
 			voclProxySetMemWritten(tmpEnqueueWriteBuffer.buffer, 1);
 			voclProxySetMemWriteCmdQueue(tmpEnqueueWriteBuffer.buffer,
 										 tmpEnqueueWriteBuffer.command_queue);
+
+			//debug, for migration test------------------------------------------------
+			if (migrationStatus == 0)
+			{
+				processAllWrites(appIndex);
+				migrationStatus = 1;
+				cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpEnqueueWriteBuffer.command_queue);
+				voclProxyMigrationOneVGPUOverload(appIndex, cmdQueuePtr->deviceID);
+			}
+			//end of debug----------------------------------------------------------
+
 
 			if (tmpEnqueueWriteBuffer.blocking_write == CL_TRUE) {
 				if (requestNo > 0) {
@@ -884,19 +901,17 @@ int main(int argc, char *argv[])
 							  appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
 							  curRequest + (requestNo++));
 				}
+				else
+				{
+					MPI_Isend(NULL, 0, MPI_BYTE, appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
+							  curRequest + (requestNo++));
+				}
 			}
 
 			if (requestNo > 0) {
 				MPI_Wait(curRequest, curStatus);
 			}
 
-			//debug, for migration test------------------------------------------------
-			if (1)
-			{
-				cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpEnqueueWriteBuffer.command_queue);
-				voclProxyMigrationOneVGPUOverload(appIndex, cmdQueuePtr->deviceID);
-			}
-			//end of debug----------------------------------------------------------
         }
 
         else if (status.MPI_TAG == SET_KERNEL_ARG) {
@@ -1102,6 +1117,21 @@ int main(int argc, char *argv[])
 				MPI_Wait(curRequest, curStatus);
 			}
 
+			migOperation = VOCL_MIG_NOUPDATE;
+            if (tmpEnqueueReadBuffer.cmdQueueMigStatus == VOCL_MIG_UPDATE)
+            {
+                tmpEnqueueReadBuffer.command_queue = voclProxyGetNewCommandQueueValue(tmpEnqueueReadBuffer.command_queue);
+                tmpEnqueueReadBuffer.cmdQueueMigStatus = voclProxyGetCommandQueueMigStatus(tmpEnqueueReadBuffer.command_queue);
+                migOperation = VOCL_MIG_UPDATE;
+            }
+
+            if (tmpEnqueueReadBuffer.memMigStatus == VOCL_MIG_UPDATE)
+            {
+                tmpEnqueueReadBuffer.buffer = voclProxyGetNewMemValue(tmpEnqueueReadBuffer.buffer);
+                tmpEnqueueReadBuffer.memMigStatus = voclProxyGetMemMigStatus(tmpEnqueueReadBuffer.buffer);
+                migOperation = VOCL_MIG_UPDATE;
+            }
+
 			bufferSize = VOCL_PROXY_READ_BUFFER_SIZE;
 			bufferNum = (tmpEnqueueReadBuffer.cb - 1) / VOCL_PROXY_READ_BUFFER_SIZE;
 			remainingSize = tmpEnqueueReadBuffer.cb - bufferSize * bufferNum;
@@ -1131,7 +1161,8 @@ int main(int argc, char *argv[])
 			voclResetReadBufferCoveredFlag(appIndex);
 
 			if (tmpEnqueueReadBuffer.blocking_read == CL_FALSE) {
-				if (tmpEnqueueReadBuffer.event_null_flag == 0) {
+				if (tmpEnqueueReadBuffer.event_null_flag == 0 ||
+					migOperation == VOCL_MIG_UPDATE) {
 					tmpEnqueueReadBuffer.event = readBufferInfoPtr->event;
 					MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE,
 							  appRank, ENQUEUE_READ_BUFFER, appComm[commIndex], curRequest);
@@ -1152,6 +1183,11 @@ int main(int argc, char *argv[])
         else if (status.MPI_TAG == RELEASE_MEM_OBJ) {
             memcpy(&tmpReleaseMemObject, conMsgBuffer[index], sizeof(tmpReleaseMemObject));
 
+			if (tmpReleaseMemObject.migStatus == VOCL_MIG_UPDATE)
+			{
+				tmpReleaseMemObject.memobj = voclProxyGetNewMemValue(tmpReleaseMemObject.memobj);
+			}
+
 			/*release the memory */
 			memPtr = voclProxyGetMemPtr(tmpReleaseMemObject.memobj);
 			voclProxyRemoveMemFromContext(memPtr);
@@ -1161,12 +1197,16 @@ int main(int argc, char *argv[])
             MPI_Isend(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE, appRank,
                       RELEASE_MEM_OBJ, appComm[commIndex], curRequest);
 
-
             MPI_Wait(curRequest, curStatus);
         }
 
         else if (status.MPI_TAG == CL_RELEASE_KERNEL_FUNC) {
             memcpy(&tmpReleaseKernel, conMsgBuffer[index], sizeof(tmpReleaseKernel));
+
+			if (tmpReleaseKernel.migStatus == VOCL_MIG_UPDATE)
+			{
+				tmpReleaseKernel.kernel = voclProxyGetNewKernelValue(tmpReleaseKernel.kernel);
+			}
 
 			/* release kernel */
 			kernelPtr = voclProxyGetKernelPtr(tmpReleaseKernel.kernel);
@@ -1197,6 +1237,14 @@ int main(int argc, char *argv[])
 //			}
 
             memcpy(&tmpFinish, conMsgBuffer[index], sizeof(tmpFinish));
+
+			migOperation = VOCL_MIG_NOUPDATE;
+			if (tmpFinish.migStatus == VOCL_MIG_UPDATE)
+			{
+				tmpFinish.command_queue = voclProxyGetNewCommandQueueValue(tmpFinish.command_queue);
+				migOperation = VOCL_MIG_UPDATE;
+			}
+
             processAllWrites(appIndex);
             processAllReads(appIndex);
             mpiOpenCLFinish(&tmpFinish);
@@ -1289,6 +1337,11 @@ int main(int argc, char *argv[])
         else if (status.MPI_TAG == REL_PROGRAM_FUNC) {
             memcpy(&tmpReleaseProgram, conMsgBuffer[index], sizeof(tmpReleaseProgram));
 
+			if (tmpReleaseProgram.migStatus == VOCL_MIG_UPDATE)
+			{
+				tmpReleaseProgram.program = voclProxyGetNewProgramValue(tmpReleaseProgram.program);
+			}
+
 			/* release program */
 			programPtr = voclProxyGetProgramPtr(tmpReleaseProgram.program);
 			voclProxyRemoveProgramFromContext(programPtr);
@@ -1304,6 +1357,11 @@ int main(int argc, char *argv[])
             memcpy(&tmpReleaseCommandQueue, conMsgBuffer[index],
                    sizeof(tmpReleaseCommandQueue));
 
+			if (tmpReleaseCommandQueue.migStatus == VOCL_MIG_UPDATE)
+			{
+				tmpReleaseCommandQueue.command_queue = voclProxyGetNewCommandQueueValue(tmpReleaseCommandQueue.command_queue);
+			}
+
 			/* release command queue */
 			cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpReleaseCommandQueue.command_queue);
 			voclProxyRemoveCommandQueueFromContext(cmdQueuePtr);
@@ -1318,6 +1376,13 @@ int main(int argc, char *argv[])
 
         else if (status.MPI_TAG == REL_CONTEXT_FUNC) {
             memcpy(&tmpReleaseContext, conMsgBuffer[index], sizeof(tmpReleaseContext));
+
+			if (tmpReleaseContext.migStatus == VOCL_MIG_UPDATE)
+			{
+				printf("proxyRelaseContext1,context=%p\n", tmpReleaseContext.context);
+				tmpReleaseContext.context = voclProxyGetNewContextValue(tmpReleaseContext.context);
+				printf("proxyRelaseContext2,context=%p\n", tmpReleaseContext.context);
+			}
 
 			/* release context */
 			contextPtr = voclProxyGetContextPtr(tmpReleaseContext.context);

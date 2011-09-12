@@ -54,9 +54,10 @@ void voclProxyCreateWin(MPI_Comm comm, int appIndex, int proxyIndexInApp)
 	MPI_Intercomm_merge(comm, 1, &winComm);
 	voclProxyWinComm[appIndex] = winComm;
 
+	voclProxyLockers[appIndex] = MPIX_Mutex_create(0, winComm);
+
 	/* create the window, window home rank is 0 */
 	MPI_Win_create(NULL, 0, 1, MPI_INFO_NULL, winComm, &voclProxyWinPtr[appIndex]);
-	voclProxyLockers[appIndex] = MPIX_Mutex_create(0, winComm);
 	voclProxyProxyIndexInApp[appIndex] = proxyIndexInApp;
 }
 
@@ -116,7 +117,7 @@ void voclProxyMigrationMutexUnlock(int appIndex)
 	return;
 }
 
-void voclProxyUpdateMigStatus(int appIndex, int destProxyIndex)
+void voclProxyUpdateMigStatus(int appIndex, int destProxyRank)
 {
 	struct strVoclWinInfo win;
 	vocl_proxy_wins *tmpWins;
@@ -132,12 +133,16 @@ void voclProxyUpdateMigStatus(int appIndex, int destProxyIndex)
 	MPI_Win_unlock(0, voclProxyWinPtr[appIndex]);
 
 	/* update the migration status and target proxy index */
+	printf("Here1\n");
 	win.migrationStatus++;
-	win.destProxyIndex = destProxyIndex;
+	win.destProxyRank = destProxyRank;
+	printf("Here2\n");
 
 	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, voclProxyWinPtr[appIndex]);
+	printf("Here3\n");
 	MPI_Put(&win, sizeof(struct strVoclWinInfo), MPI_BYTE, 0, offset,
 			sizeof(struct strVoclWinInfo), MPI_BYTE, voclProxyWinPtr[appIndex]);
+	printf("Here4\n");
 	MPI_Win_unlock(0, voclProxyWinPtr[appIndex]);
 
 	free(tmpWins);
