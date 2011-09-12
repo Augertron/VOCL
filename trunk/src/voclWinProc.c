@@ -19,7 +19,8 @@ struct strVoclWinInfo {
 	MPI_Comm commWin;  /* MPI communicator for win creation */
 
 	char migrationStatus;
-	char padding[3];
+	char preMigStatus;
+	char padding[2];
 	int destProxyIndex;
 	int destProxyRank;
 };
@@ -36,6 +37,8 @@ static MPIX_Mutex *voclLockers = NULL;
 static int totalVoclWinInfoNum;
 static int voclWinInfoNo;
 
+extern void processAllWrites(int proxyIndex);
+extern void processAllReads(int proxyIndex);
 
 void voclWinInfoInitialize()
 {
@@ -106,6 +109,7 @@ void voclAddWinInfo(MPI_Comm comm, int proxyRank, int proxyIndex, char *serviceN
 	voclWinInfoPtr->wins[proxyIndex].appIndex = msgGetProxyCommInfo.appIndex;
 	printf("voclAddWin,AppIndex = %d\n", msgGetProxyCommInfo.appIndex);
 	voclWinInfoPtr->wins[proxyIndex].migrationStatus = 0;
+	voclWinInfoPtr->wins[proxyIndex].preMigStatus = 0;
 	voclWinInfoPtr->wins[proxyIndex].destProxyIndex = -1;
 	voclWinInfoPtr->wins[proxyIndex].destProxyRank = -1;
 
@@ -150,13 +154,22 @@ char voclGetMigrationStatus(int proxyIndex)
 
 	winPtr = (vocl_wins *)malloc(sizeof(vocl_wins));
 	offset = ((char *)&winPtr->wins[proxyIndex]) - ((char*)winPtr);
-	printf("getGPUMigStatus, offset = %ld, proxyIndex =%d\n", offset, proxyIndex);
 	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, voclWinPtr[proxyIndex]);
 	MPI_Get(&migWin, sizeof(struct strVoclWinInfo), MPI_BYTE, 0, offset,
 			sizeof(struct strVoclWinInfo), MPI_BYTE, voclWinPtr[proxyIndex]);
 	MPI_Win_unlock(0, voclWinPtr[proxyIndex]);
 	free(winPtr);
-	printf("getGPUMigStatus, migStatus = %d\n", migWin.migrationStatus);
+
+	if (migWin.preMigStatus < migWin.migrationStatus)
+	{
+		printf("proxyIndex = %d\n", proxyIndex);
+		migWin.preMigStatus = migWin.migrationStatus;
+		if (proxyIndex == 0)
+		{
+			processAllWrites(proxyIndex);
+			processAllReads(proxyIndex);
+		}
+	}
 
 	return migWin.migrationStatus;
 }

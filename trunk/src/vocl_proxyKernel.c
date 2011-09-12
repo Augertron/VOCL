@@ -55,29 +55,29 @@ void voclProxySetKernelArgFlag(cl_kernel kernel, int argNum, char *argFlag)
 {
 	vocl_proxy_kernel *kernelPtr;
 	int i;
-	printf("kernelSetFlag1\n");
+//	printf("kernelSetFlag1\n");
 	kernelPtr = voclProxyGetKernelPtr(kernel);
-	printf("kernelSetFlag2\n");
+//	printf("kernelSetFlag2\n");
 	kernelPtr->argNum = argNum;
 	if (argNum > 0)
 	{
-	printf("kernelSetFlag3\n");
+//	printf("kernelSetFlag3\n");
 		kernelPtr->argFlag = (char *)malloc(argNum * sizeof(char));
-	printf("kernelSetFlag4\n");
+//	printf("kernelSetFlag4\n");
 		memcpy(kernelPtr->argFlag, argFlag, argNum * sizeof(char));
-	printf("kernelSetFlag5\n");
+//	printf("kernelSetFlag5\n");
 		kernelPtr->args = (kernel_args *)malloc(sizeof(kernel_args) * argNum);
-	printf("kernelSetFlag6\n");
+//	printf("kernelSetFlag6\n");
 		memset(kernelPtr->args, 0, sizeof(kernel_args) * argNum);
-	printf("kernelSetFlag7\n");
+//	printf("kernelSetFlag7\n");
 		for (i = 0; i < argNum; i++)
 		{
 			kernelPtr->args[i].arg_index = -1;
 		}
-	printf("kernelSetFlag8\n");
+//	printf("kernelSetFlag8\n");
 	}
 
-	printf("kernelSetFlag9\n");
+//	printf("kernelSetFlag9\n");
 	return;
 }
 
@@ -169,26 +169,26 @@ void voclProxySetKernelArgs(cl_kernel kernel)
 	char kernelMigStatus;
 	cl_mem oldMem, newMem;
 	vocl_proxy_kernel *kernelPtr;
-	printf("proxySetKernelArg0\n");
+//	printf("proxySetKernelArg0\n");
 	kernelPtr = voclProxyGetKernelPtr(kernel);
 	kernelMigStatus = kernelPtr->migStatus;
 
-	printf("proxySetKernelArg1\n");
+//	printf("proxySetKernelArg1\n");
 	for (i = 0; i < kernelPtr->argNum; i++)
 	{
 		/* if this argument is also set */
-	printf("proxySetKernelArg2\n");
+//	printf("proxySetKernelArg2\n");
 		if (kernelPtr->args[i].arg_index != -1)
 		{
 			/* the current argument is a device memory */
-	printf("proxySetKernelArg3\n");
+//	printf("proxySetKernelArg3\n");
 			if (kernelPtr->argFlag[i] == 1)
 			{
-	printf("proxySetKernelArg4\n");
+//	printf("proxySetKernelArg4\n");
 				/* migration is performed */
 				if (kernelPtr->args[i].migStatus < kernelMigStatus)
 				{
-	printf("proxySetKernelArg5\n");
+//	printf("proxySetKernelArg5\n");
 					oldMem = *((cl_mem *)kernelPtr->args[i].arg_value);
 					newMem = voclProxyGetNewMemValue(oldMem);
 					retCode = clSetKernelArg(kernel, 
@@ -199,21 +199,21 @@ void voclProxySetKernelArgs(cl_kernel kernel)
 					/* update the kernel argument and the migration status */
 					kernelPtr->args[i].migStatus = kernelMigStatus;
 					memcpy((void *)kernelPtr->args[i].arg_value, &newMem, kernelPtr->args[i].arg_size);
-	printf("proxySetKernelArg6\n");
+//	printf("proxySetKernelArg6\n");
 				}
 				else
 				{
-	printf("proxySetKernelArg7\n");
+//	printf("proxySetKernelArg7\n");
 					retCode = clSetKernelArg(kernel, 
 											 kernelPtr->args[i].arg_index, 
 											 kernelPtr->args[i].arg_size,
 											 kernelPtr->args[i].arg_value);
-	printf("proxySetKernelArg8\n");
+//	printf("proxySetKernelArg8\n");
 				}
 			}
 			else /* other types of kernel arguments */
 			{
-	printf("proxySetKernelArg9\n");
+//	printf("proxySetKernelArg9\n");
 				/* argument value is NULL */
 				if (kernelPtr->args[i].arg_null_flag == 1)
 				{

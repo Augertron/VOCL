@@ -15,7 +15,9 @@ struct strVoclWinInfo {
     MPI_Comm proxyCommData;
     MPI_Comm commWin;  /* MPI communicator for win creation */
 
-    int migrationStatus;
+    char migrationStatus;
+	char preMigStatus;
+	char padding[2];
     int destProxyIndex;
 	int destProxyRank;
 };

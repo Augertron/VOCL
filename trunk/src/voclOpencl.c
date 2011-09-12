@@ -321,15 +321,23 @@ void voclFinalize()
         if (voclIsOnLocalNode(i) == VOCL_FALSE) {
             MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
 			/* free the window */
+			printf("Here1,Finalize, i = %d\n", i);
 			voclWinInfoFree(i);
+			printf("Here2,Finalize, i = %d\n", i);
             MPI_Comm_disconnect(&voclProxyComm[i]);
+			printf("Here3,Finalize, i = %d\n", i);
             MPI_Comm_disconnect(&voclProxyCommData[i]);
+			printf("Here4,Finalize, i = %d\n", i);
         }
     }
 
+	
+	printf("Here5,Finalize, i = %d\n", i);
     if (MPIexternalInit == 0) {
         MPI_Finalize();
     }
+	printf("Here6,Finalize, i = %d\n", i);
+
 
     /* free buffer for MPI communicator and proxy ID */
     free(voclProxyComm);
@@ -1129,12 +1137,10 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
 
-	printf("libWriteBuffer1=================================\n");
     /* set memory write state for possible migration */
     voclSetMemWrittenFlag((vocl_mem) buffer, 1);
     /* save the host memory pointer for possible migration */
     voclSetMemHostPtr((vocl_mem) buffer, (void *) ptr);
-	printf("libWriteBuffer2\n");
 
     if (num_events_in_wait_list > 0) {
         eventList = (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
@@ -1148,15 +1154,12 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     }
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
-	printf("libWriteBuffer3\n");
 	memMigStatus = voclMemGetMigrationStatus((vocl_mem)buffer);
-	printf("libWriteBuffer4\n");
 	tmpEnqueueWriteBuffer.memMigStatus = memMigStatus; 
 	tmpEnqueueWriteBuffer.cmdQueueMigStatus = cmdQueueMigStatus; 
 	cmdQueueMigOperation = VOCL_MIG_NOUPDATE;
 	memMigOperation = VOCL_MIG_NOUPDATE;
 
-	printf("libWriteBuffer5\n");
 	if (cmdQueueMigStatus < memMigStatus)
 	{
 		tmpEnqueueWriteBuffer.command_queue =
@@ -1168,7 +1171,6 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 		cmdQueueMigOperation = VOCL_MIG_UPDATE;
 		tmpEnqueueWriteBuffer.cmdQueueMigStatus = VOCL_MIG_UPDATE; 
 		vgpuMigStatus = memMigStatus;
-	printf("libWriteBuffer6\n");
 	}
 	else if (memMigStatus < cmdQueueMigStatus)
 	{	
@@ -1181,7 +1183,6 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 		memMigOperation = VOCL_MIG_UPDATE;
 		tmpEnqueueWriteBuffer.memMigStatus = VOCL_MIG_UPDATE; 
 		vgpuMigStatus = cmdQueueMigStatus;
-	printf("libWriteBuffer7\n");
 	}
 	else /* memMigStatus == cmdQueueMigStatus */
 	{
@@ -1194,10 +1195,8 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 
 		/* obtain the vritual GPU migration status */
 		vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
-	printf("libWriteBuffer8, vgpuMigStatus = %d, memMigStatus = %d\n", vgpuMigStatus, memMigStatus);
 		if ((memMigStatus == 0) && (memMigStatus < vgpuMigStatus))
 		{	
-	printf("libWriteBuffer9, proxyIndex = %d\n", proxyIndex);
 			cmdQueueMigOperation = VOCL_MIG_UPDATE;
 			memMigOperation = VOCL_MIG_UPDATE;
 			tmpEnqueueWriteBuffer.cmdQueueMigStatus = VOCL_MIG_UPDATE; 
@@ -1209,14 +1208,12 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 			proxyRank = voclProxyRank[proxyIndex];
 			proxyComm = voclProxyComm[proxyIndex];
 			proxyCommData = voclProxyCommData[proxyIndex];
-	printf("libWriteBuffer10, proxyIndex = %d\n", proxyIndex);
 		}
 	}
 
 	/* acquire the locker to send out message */
 //	voclMigrationMutexLock(proxyIndex);
 
-	printf("libWriteBuffer11\n");
     /* local GPU, call native opencl function */
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         errCode = dlCLEnqueueWriteBuffer(tmpEnqueueWriteBuffer.command_queue,
@@ -1248,12 +1245,10 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
         tmpEnqueueWriteBuffer.event_null_flag = 0;
     }
 
-	printf("libWriteBuffer12, proxyIndex = %d\n", proxyIndex);
     /* send parameters to remote node */
     MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(struct strEnqueueWriteBuffer), MPI_BYTE,
               proxyRank, ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
 
-	printf("libWriteBuffer13\n");
     if (num_events_in_wait_list > 0) {
         MPI_Isend((void *) eventList, sizeof(cl_event) * num_events_in_wait_list,
                   MPI_BYTE, proxyRank, tmpEnqueueWriteBuffer.tag, proxyCommData,
@@ -1298,12 +1293,10 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
             setWriteBufferEvent(proxyIndex, bufferIndex, voclEvent);
             *event = (cl_event) voclEvent;
         }
-	printf("libWriteBuffer13\n");
         return tmpEnqueueWriteBuffer.res;
     }
 	else /* need updating local opencl resources */
 	{
-	printf("libWriteBuffer14\n");
 		if (cmdQueueMigOperation == VOCL_MIG_UPDATE || memMigOperation == VOCL_MIG_UPDATE)
 		{
 			MPI_Irecv(&tmpEnqueueWriteBuffer, sizeof(struct strEnqueueWriteBuffer), MPI_BYTE,
@@ -1315,13 +1308,11 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 					  proxyRank, ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
 		}
 		MPI_Waitall(requestNo, request, status);
-	printf("libWriteBuffer15\n");
 	}
 
     /* release the locker */
 //	voclMigrationMutexUnlock(proxyIndex);
 
-	printf("libWriteBuffer16\n");
 	/* command queue is the value before the migration, so local update is needed */
 	if (cmdQueueMigOperation = VOCL_MIG_UPDATE)
 	{	
