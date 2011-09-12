@@ -30,7 +30,6 @@ static struct strVOCLMemory *createVOCLMemory()
     struct strVOCLMemory *memPtr;
     memPtr = (struct strVOCLMemory *) malloc(sizeof(struct strVOCLMemory));
     memPtr->isWritten = 0;
-    memPtr->isOldValid = 0;
     memPtr->next = voclMemoryPtr;
     voclMemoryPtr = memPtr;
 
@@ -122,69 +121,17 @@ cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyRank,
     return memoryPtr->clMemory;
 }
 
-cl_mem voclVOCLMemory2OldCLMemoryComm(vocl_mem memory, int *proxyRank,
-                                      int *proxyIndex, MPI_Comm * proxyComm,
-                                      MPI_Comm * proxyCommData)
-{
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
-    *proxyRank = memoryPtr->oldProxyRank;
-    *proxyIndex = memoryPtr->oldProxyIndex;
-    *proxyComm = memoryPtr->oldProxyComm;
-    *proxyCommData = memoryPtr->oldProxyCommData;
-
-    return memoryPtr->oldMemory;
-}
-
-void voclSetOldMemoryReleased(vocl_mem memory)
-{
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
-    memoryPtr->isOldValid = 0;
-    return;
-}
-
-int voclIsOldMemoryValid(vocl_mem memory)
-{
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
-    return memoryPtr->isOldValid;
-}
-
 cl_mem voclVOCLMemory2CLMemory(vocl_mem memory)
 {
     struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
     return memoryPtr->clMemory;
 }
 
-//void voclUpdateSingleMemory(vocl_mem mem)
-//{
-//	int proxyRank, proxyIndex;
-//	MPI_Comm proxyComm, proxyCommData;
-//	vocl_context voclContext;
-//	cl_context clContext;
-//	int err;
-//
-//	voclContext = voclMemGetContext(mem);
-//	clContext = voclVOCLContext2CLContextComm(voclContext, &proxyRank,
-//				&proxyIndex, &proxyComm, &proxyCommData);
-//	
-//	voclUpdateVOCLMemory(mem, proxyRank, proxyIndex, proxyComm, proxyCommData,
-//		voclContext);
-//
-//	return;
-//}
-
 void voclUpdateVOCLMemory(vocl_mem voclMemory, cl_mem newMem, int proxyRank, int proxyIndex,
                           MPI_Comm proxyComm, MPI_Comm proxyCommData) 
 {
     struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(voclMemory);
     int err;
-
-    /* store old cl memory info */
-    memoryPtr->oldMemory = memoryPtr->clMemory;
-    memoryPtr->oldProxyRank = memoryPtr->proxyRank;
-    memoryPtr->oldProxyIndex = memoryPtr->proxyIndex;
-    memoryPtr->oldProxyComm = memoryPtr->proxyComm;
-    memoryPtr->oldProxyCommData = memoryPtr->proxyCommData;
-    memoryPtr->isOldValid = 1;
 
     /* update the cl_mem corresponding to the vocl_mem */
     memoryPtr->proxyRank = proxyRank;
@@ -193,9 +140,6 @@ void voclUpdateVOCLMemory(vocl_mem voclMemory, cl_mem newMem, int proxyRank, int
     memoryPtr->proxyCommData = proxyCommData;
 
     memoryPtr->clMemory = newMem;
-//  memoryPtr->clMemory = voclMigCreateBuffer(context, memoryPtr->flags,
-//                                            memoryPtr->size, NULL, &err);
-//	memoryPtr->migrationStatus = voclContextGetMigrationStatus(context);
 
     return;
 }
