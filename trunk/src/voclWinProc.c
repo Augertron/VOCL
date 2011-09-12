@@ -107,7 +107,6 @@ void voclAddWinInfo(MPI_Comm comm, int proxyRank, int proxyIndex, char *serviceN
 	voclWinInfoPtr->wins[proxyIndex].proxyComm = msgGetProxyCommInfo.comm;
 	voclWinInfoPtr->wins[proxyIndex].proxyCommData = msgGetProxyCommInfo.commData;
 	voclWinInfoPtr->wins[proxyIndex].appIndex = msgGetProxyCommInfo.appIndex;
-	printf("voclAddWin,AppIndex = %d\n", msgGetProxyCommInfo.appIndex);
 	voclWinInfoPtr->wins[proxyIndex].migrationStatus = 0;
 	voclWinInfoPtr->wins[proxyIndex].preMigStatus = 0;
 	voclWinInfoPtr->wins[proxyIndex].destProxyIndex = -1;
@@ -117,7 +116,6 @@ void voclAddWinInfo(MPI_Comm comm, int proxyRank, int proxyIndex, char *serviceN
 	voclLockers[proxyIndex] = MPIX_Mutex_create(1, winComm);
 
 	voclWinInfoPtr->proxyNum++;
-	printf("voclLib, proxyNum = %d\n", voclWinInfoPtr->proxyNum);
 
 	/* create the window for passive data communication */
 	MPI_Win_create(voclWinInfoPtr, sizeof(vocl_wins), 
@@ -162,7 +160,6 @@ char voclGetMigrationStatus(int proxyIndex)
 
 	if (migWin.preMigStatus < migWin.migrationStatus)
 	{
-		printf("proxyIndex = %d\n", proxyIndex);
 		migWin.preMigStatus = migWin.migrationStatus;
 		if (proxyIndex == 0)
 		{
@@ -183,8 +180,6 @@ int voclGetMigrationDestProxyIndex(int proxyIndex)
 
 	winPtr = (vocl_wins *)malloc(sizeof(vocl_wins));
 	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, voclWinPtr[proxyIndex]);
-//	MPI_Get(&migWin, sizeof(struct strVoclWinInfo), MPI_BYTE, 0, offset,
-//			sizeof(struct strVoclWinInfo), MPI_BYTE, voclWinPtr[proxyIndex]);
 	/* get all the window info */
 	MPI_Get(winPtr, sizeof(vocl_wins), MPI_BYTE, 0, 0,
 			sizeof(vocl_wins), MPI_BYTE, voclWinPtr[proxyIndex]);

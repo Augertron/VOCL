@@ -321,23 +321,16 @@ void voclFinalize()
         if (voclIsOnLocalNode(i) == VOCL_FALSE) {
             MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
 			/* free the window */
-			printf("Here1,Finalize, i = %d\n", i);
 			voclWinInfoFree(i);
-			printf("Here2,Finalize, i = %d\n", i);
             MPI_Comm_disconnect(&voclProxyComm[i]);
-			printf("Here3,Finalize, i = %d\n", i);
             MPI_Comm_disconnect(&voclProxyCommData[i]);
-			printf("Here4,Finalize, i = %d\n", i);
         }
     }
 
 	
-	printf("Here5,Finalize, i = %d\n", i);
     if (MPIexternalInit == 0) {
         MPI_Finalize();
     }
-	printf("Here6,Finalize, i = %d\n", i);
-
 
     /* free buffer for MPI communicator and proxy ID */
     free(voclProxyComm);
@@ -1396,10 +1389,7 @@ clSetKernelArg(cl_kernel kernel, cl_uint arg_index, size_t arg_size, const void 
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         if (kernelPtr->args_flag[arg_index] == 1) {     /*device memory */
             /* only if no migration happened, set the argument */
-//            if (kernelMigStatus == memMigStatus) {
-                /* add gpu memory usage */
-                return dlCLSetKernelArg(clKernel, arg_index, arg_size, (void *) &deviceMem);
-//            }
+            return dlCLSetKernelArg(clKernel, arg_index, arg_size, (void *) &deviceMem);
         }
         else {
             return dlCLSetKernelArg(clKernel, arg_index, arg_size, arg_value);
