@@ -1,13 +1,6 @@
 #include <stdio.h>
 #include "voclStructures.h"
 
-extern cl_sampler
-voclMigCreateSampler(cl_context context,
-                     cl_bool normalized_coords,
-                     cl_addressing_mode addressing_mode,
-                     cl_filter_mode filter_mode, cl_int * errcode_ret);
-
-
 static struct strVOCLSampler *voclSamplerPtr = NULL;
 static vocl_sampler voclSampler;
 static int voclSamplerNo;

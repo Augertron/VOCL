@@ -1,14 +1,6 @@
 #include <stdio.h>
 #include "voclStructures.h"
 
-extern cl_mem voclMigCreateBuffer(vocl_context context,
-        cl_mem_flags flags, size_t size, 
-		void *host_ptr, cl_int * errcode_ret);
-extern char voclContextGetMigrationStatus(vocl_context context);
-extern cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyRank,
-                                         int *proxyIndex, MPI_Comm * proxyComm,
-										 MPI_Comm * proxyCommData);
-
 vocl_context voclMemGetContext(vocl_mem mem);
 void voclUpdateVOCLMemory(vocl_mem voclMemory, cl_mem newMem, int proxyRank, int proxyIndex,
                           MPI_Comm proxyComm, MPI_Comm proxyCommData);
