@@ -54,15 +54,6 @@ struct strVOCLContext {
     struct strVOCLContext *next;
 };
 
-///* record the device memory corresponding to */
-///* the current command */
-//struct strVOCLMemInfo {
-//	vocl_mem memory;
-//	size_t   size;
-//	int      migrationStatus;
-//	struct strVOCLMemInfo *next;
-//};
-
 struct strVOCLCommandQueue {
     vocl_command_queue voclCommandQueue;
     cl_command_queue clCommandQueue;
@@ -72,15 +63,6 @@ struct strVOCLCommandQueue {
     MPI_Comm proxyCommData;
     vocl_device_id deviceID;
 
-    /* old cl command queue information for migration */
-    int isOldValid;
-    cl_command_queue oldCommandQueue;
-    int oldProxyRank;
-    int oldProxyIndex;
-    MPI_Comm oldProxyComm;
-    MPI_Comm oldProxyCommData;
-	vocl_device_id oldDeviceID;
-
     /* properties used for migration */
     cl_command_queue_properties properties;
     vocl_context context;
@@ -88,8 +70,6 @@ struct strVOCLCommandQueue {
 	/* command queue state */
 	char migrationStatus;
 	char padding[3];
-//	size_t deviceMemSize;
-//	struct strVOCLMemInfo *memPtr;
 
     struct strVOCLCommandQueue *next;
 };
@@ -101,14 +81,6 @@ struct strVOCLMemory {
     int proxyIndex;
     MPI_Comm proxyComm;
     MPI_Comm proxyCommData;
-
-    /* old memory info is migration exists */
-    int isOldValid;
-    cl_mem oldMemory;
-    int oldProxyRank;
-    int oldProxyIndex;
-    MPI_Comm oldProxyComm;
-    MPI_Comm oldProxyCommData;
 
     /* used for migration */
 	char migrationStatus;

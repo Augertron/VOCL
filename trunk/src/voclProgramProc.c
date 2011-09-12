@@ -195,31 +195,18 @@ cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyRank,
     return programPtr->clProgram;
 }
 
-void voclUpdateVOCLProgram(vocl_program voclProgram, int proxyRank, int proxyIndex,
-                           MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context)
+void voclUpdateVOCLProgram(vocl_program voclProgram, cl_program newProgram, int proxyRank, int proxyIndex,
+                           MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
     struct strVOCLProgram *programPtr = getVOCLProgramPtr(voclProgram);
-    char *cSource;
-    size_t sourceSize;
-    int err;
-
-    /*release previous program */
-    clReleaseProgram((cl_program)voclProgram);
 
     programPtr->proxyRank = proxyRank;
     programPtr->proxyIndex = proxyIndex;
     programPtr->proxyComm = proxyComm;
     programPtr->proxyCommData = proxyCommData;
 
-    cSource = voclGetProgramSource(voclProgram, &sourceSize);
+    programPtr->clProgram = newProgram;
 
-    programPtr->clProgram = voclMigCreateProgramWithSource(context, 1,
-                                                           &cSource, &sourceSize, &err);
-    if (err != CL_SUCCESS) {
-        printf("create program error, %d!\n", err);
-    }
-
-	programPtr->migrationStatus = voclContextGetMigrationStatus(context);
     return;
 }
 

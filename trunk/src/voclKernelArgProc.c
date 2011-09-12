@@ -9,7 +9,7 @@
 static kernel_info *kernelInfo = NULL;
 extern char *voclGetProgramSource(vocl_program program, size_t * sourceSize);
 extern void voclRemoveComments(char *sourceIn, size_t inLen, char *sourceOut, size_t * outLen);
-extern char *voclKernelPrototye(char *sourceIn, char *kernelName, unsigned int *kernelArgNum);
+extern char *voclKernelPrototye(char *sourceIn, const char *kernelName, unsigned int *kernelArgNum);
 
 #ifdef __cplusplus
 extern "C" {

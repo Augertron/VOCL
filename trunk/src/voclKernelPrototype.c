@@ -68,7 +68,7 @@ void voclRemoveComments(char *sourceIn, size_t inLen, char *sourceOut, size_t * 
 }
 
 /* get indexes of global memeory arguments */
-char *voclKernelPrototye(char *sourceIn, char *kernelName, unsigned int *kernelArgNum)
+char *voclKernelPrototye(char *sourceIn, const char *kernelName, unsigned int *kernelArgNum)
 {
     char *tokenStart, *tokenEnd, *args, *arg, *sourcePtr, *kernelNamePtr;
     char *argFlag;
