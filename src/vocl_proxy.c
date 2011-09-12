@@ -1066,21 +1066,22 @@ int main(int argc, char *argv[])
 			/* increase the number of kernels in the command queue by 1 */
 			voclProxyIncreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 1);
 
+			requestNo = 0;
 			if (tmpEnqueueNDRangeKernel.event_null_flag == 0 ||
 				migOperation == VOCL_MIG_UPDATE)
 			{
 				MPI_Isend(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply),
 					  MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL, appComm[commIndex],
-					  curRequest);
+					  curRequest+(requestNo++));
 			}
 
 			if (num_events_in_wait_list > 0) {
 				free(event_wait_list);
 			}
 
-			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
+			if (requestNo > 0)
 			{
-				MPI_Wait(curRequest, curStatus);
+				MPI_Waitall(requestNo, curRequest, curStatus);
 			}
         }
 
