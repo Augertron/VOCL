@@ -2,13 +2,6 @@
 #include <string.h>
 #include "voclStructures.h"
 
-extern cl_program
-voclMigCreateProgramWithSource(vocl_context context,
-                               cl_uint count,
-                               const char **strings, const size_t * lengths,
-                               cl_int * errcode_ret);
-extern char voclContextGetMigrationStatus(vocl_context context);
-
 static struct strVOCLProgram *voclProgramPtr = NULL;
 static vocl_program voclProgram;
 static int voclProgramNo;

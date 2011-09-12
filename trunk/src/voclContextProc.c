@@ -1,13 +1,6 @@
 #include <stdio.h>
 #include "voclStructures.h"
 
-extern cl_context voclMigCreateContext(const cl_context_properties * properties,
-                     cl_uint num_devices,
-                     vocl_device_id * devices,
-                     void (CL_CALLBACK * pfn_notify) (const char *, const void *, size_t,
-                                                      void *), void *user_data,
-                     cl_int * errcode_ret);
-
 static struct strVOCLContext *voclContextPtr = NULL;
 static vocl_context voclContext;
 static int voclContextNo;
@@ -119,25 +112,18 @@ cl_context voclVOCLContext2CLContext(vocl_context context)
     return contextPtr->clContext;
 }
 
-void voclUpdateVOCLContext(vocl_context voclContext, int proxyRank, int proxyIndex,
-                           MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_device_id deviceID)
+void voclUpdateVOCLContext(vocl_context voclContext, cl_context newContext, int proxyRank, 
+						   int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
     struct strVOCLContext *contextPtr = getVOCLContextPtr(voclContext);
     int err;
-
-    /* release previous context */
-    clReleaseContext((cl_context)voclContext);
 
     contextPtr->proxyRank = proxyRank;
     contextPtr->proxyIndex = proxyIndex;
     contextPtr->proxyComm = proxyComm;
     contextPtr->proxyCommData = proxyCommData;
 
-    contextPtr->clContext = voclMigCreateContext(0, 1, &deviceID, NULL, NULL, &err);
-
-	/* context is the higheest-level object to be migrated, each time */
-	/* a migration is performed, migration status is increased by one */
-	contextPtr->migrationStatus++;
+    contextPtr->clContext = newContext;
 
     return;
 }

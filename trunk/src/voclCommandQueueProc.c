@@ -3,40 +3,6 @@
 #include "voclOpencl.h"
 #include "voclStructures.h"
 
-extern cl_command_queue voclMigCreateCommandQueue(vocl_context context,
-                          vocl_device_id device,
-                          cl_command_queue_properties properties, cl_int * errcode_ret);
-extern char voclContextGetMigrationStatus(vocl_context context);
-extern cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyRank,
-                                             int *proxyIndex, MPI_Comm * proxyComm,
-                                             MPI_Comm * proxyCommData);
-extern void voclUpdateVOCLContext(vocl_context voclContext, int proxyRank, int proxyIndex,
-                           MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_device_id deviceID);
-extern size_t voclGetVOCLMemorySize(vocl_mem memory);
-extern int voclGetMemWrittenFlag(vocl_mem memory);
-extern cl_mem voclVOCLMemory2CLMemory(vocl_mem memory);
-extern void voclUpdateVOCLMemory(vocl_mem voclMemory, int proxyRank, int proxyIndex,
-                          MPI_Comm proxyComm, MPI_Comm proxyCommData, vocl_context context);
-extern cl_int clMigReleaseOldMemObject(vocl_mem memobj);
-
-extern void voclMigrationOnSameRemoteNode(MPI_Comm comm, int rank, cl_command_queue oldCmdQueue,
-        cl_mem oldMem, cl_command_queue newCmdQueue, cl_mem newMem, size_t size);
-extern int voclMigIssueGPUMemoryRead(MPI_Comm oldComm, int oldRank, MPI_Comm newComm,
-                              MPI_Comm newCommData, int newRank, int newIndex, int isFromLocal,
-                              int isToLocal, cl_command_queue command_queue, cl_mem mem, size_t size);
-extern int voclMigIssueGPUMemoryWrite(MPI_Comm oldComm, MPI_Comm oldCommData, int oldRank, int oldIndex,
-                               MPI_Comm newComm, int newRank, int isFromLocal, int isToLocal,
-                               cl_command_queue command_queue, cl_mem mem, size_t size);
-extern void voclMigLocalToLocal(cl_command_queue oldCmdQueue, cl_mem oldMem,
-                         cl_command_queue newCmdQueue, cl_mem newMem, size_t size);
-extern void voclMigFinishDataTransfer(MPI_Comm oldComm, int oldRank, int oldIndex, cl_command_queue oldCmdQueue,
-                               MPI_Comm newComm, int newRank, int newIndex, cl_command_queue newCmdQueue,
-                               int proxySourceRank, int proxyDestRank, int isFromLocal, int isToLocal);
-
-
-extern int voclIsOnLocalNode(int index);
-extern vocl_device_id voclSearchTargetGPU(size_t size);
-
 static struct strVOCLCommandQueue *voclCommandQueuePtr = NULL;
 static vocl_command_queue voclCommandQueue;
 static int voclCommandQueueNo;
