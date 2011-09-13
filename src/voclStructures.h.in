@@ -21,7 +21,7 @@ typedef @vocl_sampler@ vocl_sampler;
 /* the size as required */
 #define VOCL_BUFF_NUM        200
 
-struct strVOCLPlatformID {
+typedef struct strVOCLPlatformID {
     cl_platform_id clPlatformID;
     vocl_platform_id voclPlatformID;
     int proxyRank;
@@ -29,9 +29,9 @@ struct strVOCLPlatformID {
     MPI_Comm proxyComm;
     MPI_Comm proxyCommData;
     struct strVOCLPlatformID *next;
-};
+} vocl_platform_id_str;
 
-struct strVOCLDeviceID {
+typedef struct strVOCLDeviceID {
     vocl_device_id voclDeviceID;
     cl_device_id clDeviceID;
     int proxyRank;
@@ -40,21 +40,9 @@ struct strVOCLDeviceID {
     MPI_Comm proxyCommData;
 
     struct strVOCLDeviceID *next;
-};
+} vocl_device_id_str;
 
-struct strVOCLContext {
-    vocl_context voclContext;
-    cl_context clContext;
-    int proxyRank;
-    int proxyIndex;
-	char migrationStatus;
-	char padding[3];
-    MPI_Comm proxyComm;
-    MPI_Comm proxyCommData;
-    struct strVOCLContext *next;
-};
-
-struct strVOCLCommandQueue {
+typedef struct strVOCLCommandQueue {
     vocl_command_queue voclCommandQueue;
     cl_command_queue clCommandQueue;
     int proxyRank;
@@ -72,9 +60,9 @@ struct strVOCLCommandQueue {
 	char padding[3];
 
     struct strVOCLCommandQueue *next;
-};
+} vocl_command_queue_str;
 
-struct strVOCLMemory {
+typedef struct strVOCLMemory {
     vocl_mem voclMemory;
     cl_mem clMemory;
     int proxyRank;
@@ -92,27 +80,9 @@ struct strVOCLMemory {
     vocl_context context;
 
     struct strVOCLMemory *next;
-};
+} vocl_mem_str;
 
-struct strVOCLProgram {
-    vocl_program voclProgram;
-    cl_program clProgram;
-    int proxyRank;
-    int proxyIndex;
-    MPI_Comm proxyComm;
-    MPI_Comm proxyCommData;
-    /* to store source code for migration */
-	char migrationStatus;
-	char padding[3];
-    char *voclSourceString;
-    size_t sourceSize;
-    char *buildOptions;
-    vocl_context context;
-
-    struct strVOCLProgram *next;
-};
-
-struct strVOCLKernel {
+typedef struct strVOCLKernel {
     vocl_kernel voclKernel;
     cl_kernel clKernel;
     int proxyRank;
@@ -128,9 +98,30 @@ struct strVOCLKernel {
     vocl_context context;
 
     struct strVOCLKernel *next;
-};
+} vocl_kernel_str;
 
-struct strVOCLEvent {
+typedef struct strVOCLProgram {
+    vocl_program voclProgram;
+    cl_program clProgram;
+    int proxyRank;
+    int proxyIndex;
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
+    /* to store source code for migration */
+	char migrationStatus;
+	char padding[3];
+    char *voclSourceString;
+    size_t sourceSize;
+    char *buildOptions;
+    vocl_context context;
+
+	cl_uint kernelNum, kernelNo;
+	vocl_kernel_str **kernelPtr;
+
+    struct strVOCLProgram *next;
+} vocl_program_str;
+
+typedef struct strVOCLEvent {
     vocl_event voclEvent;
     cl_event clEvent;
     int proxyRank;
@@ -138,9 +129,9 @@ struct strVOCLEvent {
     MPI_Comm proxyComm;
     MPI_Comm proxyCommData;
     struct strVOCLEvent *next;
-};
+} vocl_event_str;
 
-struct strVOCLSampler {
+typedef struct strVOCLSampler {
     vocl_sampler voclSampler;
     cl_sampler clSampler;
     int proxyRank;
@@ -150,8 +141,50 @@ struct strVOCLSampler {
     MPI_Comm proxyComm;
     MPI_Comm proxyCommData;
     struct strVOCLSampler *next;
-};
+} vocl_sampler_str;
 
+typedef struct strVOCLContext {
+    vocl_context voclContext;
+    cl_context clContext;
+    int proxyRank;
+    int proxyIndex;
+	char migrationStatus;
+	char padding[3];
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
+
+	cl_uint cmdQueueNum, cmdQueueNo;
+	vocl_command_queue_str **cmdQueuePtr;
+
+	cl_uint memNum, memNo;
+	vocl_mem_str **memPtr;
+
+	cl_uint programNum, programNo;
+	vocl_program_str **programPtr;
+
+	cl_uint samplerNum, samplerNo;
+	vocl_sampler_str **samplerPtr;
+
+    struct strVOCLContext *next;
+} vocl_context_str;
+
+/* vritual GPU structure */
+typedef struct strVOCLGPU {
+	int proxyIndex;
+	int proxyRank;
+	vocl_device_id deviceID;
+
+	cl_uint contextNum, contextNo;
+	vocl_context_str **contextPtr;
+
+	cl_uint cmdQueueNum, cmdQueueNo;
+	vocl_command_queue_str **cmdQueuePtr;
+
+	char migStatus;
+	char padding[3];
+
+	struct strVOCLGPU *next;
+} vocl_gpu_str;
 
 #define VOCL_EVENT_NULL -1
 

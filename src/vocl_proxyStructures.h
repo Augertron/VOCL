@@ -107,6 +107,7 @@ typedef struct strVoclVirtualGPU {
     vocl_proxy_command_queue **cmdQueuePtr;
 
 	char migStatus;
+	char padding[3];
 
 	struct strVoclVirtualGPU *next;
 } vocl_virtual_gpu;
