@@ -199,7 +199,7 @@ void voclAddContextToVGPU(int proxyIndex, vocl_device_id deviceID, vocl_context_
     return;
 }
 
-void voclProxyRemoveContextFromVGPU(int proxyIndex, vocl_context_str *contextPtr)
+void voclRemoveContextFromVGPU(int proxyIndex, vocl_context_str *contextPtr)
 {
     vocl_gpu_str *vgpuPtr;
     int i, j;

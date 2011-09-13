@@ -452,6 +452,7 @@ void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_pr
 {
 	int i;
 	vocl_virtual_gpu *vgpuPtr;
+	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
 
 	for (i = 0; i < vgpuPtr->cmdQueueNo; i++)
 	{
@@ -463,7 +464,6 @@ void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_pr
 
 	if (i == vgpuPtr->cmdQueueNo)
 	{
-		vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
 		vgpuPtr->cmdQueuePtr[vgpuPtr->cmdQueueNo] = command_queue;
 		vgpuPtr->cmdQueueNo++;
 

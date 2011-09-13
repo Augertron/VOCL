@@ -43,6 +43,27 @@ struct strVOCLContext *voclGetContextPtr(vocl_context context)
     return contextPtr;
 }
 
+void voclContextSetDevices(vocl_context context, cl_uint deviceNum, vocl_device_id *devices)
+{
+	vocl_context_str *contextPtr;
+	contextPtr = voclGetContextPtr(context);
+
+	contextPtr->deviceNum = deviceNum;
+	contextPtr->voclDevices = (vocl_device_id *)malloc(sizeof(vocl_device_id) * deviceNum);
+	memcpy(contextPtr->voclDevices, devices, sizeof(vocl_device_id) * deviceNum);
+
+	return;
+}
+
+vocl_device_id * voclContextGetDevices(vocl_context context, cl_uint *deviceNum)
+{
+	vocl_context_str *contextPtr;
+	contextPtr = voclGetContextPtr(context);
+	*deviceNum = contextPtr->deviceNum;
+
+	return contextPtr->voclDevices;
+}
+
 void voclContextInitialize()
 {
     voclContextPtr = NULL;
@@ -56,6 +77,11 @@ void voclContextFinalize()
     contextPtr = voclContextPtr;
     while (contextPtr != NULL) {
         tmpcontextPtr = contextPtr->next;
+
+		if (contextPtr->deviceNum > 0)
+		{
+			free(contextPtr->voclDevices);
+		}
 		free(contextPtr->cmdQueuePtr);
 		free(contextPtr->memPtr);
 		free(contextPtr->programPtr);
@@ -93,6 +119,9 @@ vocl_context voclCLContext2VOCLContext(cl_context context, int proxyRank,
     contextPtr->proxyComm = proxyComm;
     contextPtr->proxyCommData = proxyCommData;
     contextPtr->voclContext = getVOCLContextValue();
+
+	contextPtr->deviceNum = 0;
+	contextPtr->voclDevices = NULL;
 
 	contextPtr->cmdQueueNum = 20;
 	contextPtr->cmdQueueNo = 0;
@@ -161,6 +190,10 @@ int voclReleaseContext(vocl_context context)
     if (context == voclContextPtr->voclContext) {
         contextPtr = voclContextPtr;
         voclContextPtr = voclContextPtr->next;
+		if (contextPtr->deviceNum > 0)
+		{
+			free(contextPtr->voclDevices);
+		}
 		free(contextPtr->cmdQueuePtr);
 		free(contextPtr->memPtr);
 		free(contextPtr->programPtr);
@@ -189,6 +222,10 @@ int voclReleaseContext(vocl_context context)
 
     /* remote the current node from link list */
     preContextPtr->next = curContextPtr->next;
+	if (curContextPtr->deviceNum > 0)
+	{
+		free(curContextPtr->voclDevices);
+	}
 	free(curContextPtr->cmdQueuePtr);
 	free(curContextPtr->memPtr);
 	free(curContextPtr->programPtr);
@@ -464,6 +501,7 @@ void voclRemoveCommandQueueFromContext(vocl_command_queue_str *cmdQueuePtr)
         printf("voclRemoveCommandQueueFromContext, command queue %d does not exist!\n", cmdQueuePtr->voclCommandQueue);
         exit(1);
     }
+
     return;
 }
 
