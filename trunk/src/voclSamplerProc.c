@@ -23,7 +23,7 @@ static struct strVOCLSampler *createVOCLSampler()
     return samplerPtr;
 }
 
-static struct strVOCLSampler *getVOCLSamplerPtr(vocl_sampler sampler)
+struct strVOCLSampler *voclGetSamplerPtr(vocl_sampler sampler)
 {
     struct strVOCLSampler *samplerPtr;
     samplerPtr = voclSamplerPtr;
@@ -81,14 +81,14 @@ vocl_sampler voclCLSampler2VOCLSampler(cl_sampler sampler, int proxyRank,
 
 void voclSamplerSetMigrationStatus(vocl_sampler sampler, char status)
 {
-	struct strVOCLSampler *samplerPtr = getVOCLSamplerPtr(sampler);
+	struct strVOCLSampler *samplerPtr = voclGetSamplerPtr(sampler);
 	samplerPtr->migrationStatus = status;
 	return;
 }
 
 char voclSamplerGetMigrationStatus(vocl_sampler sampler)
 {
-	struct strVOCLSampler *samplerPtr = getVOCLSamplerPtr(sampler);
+	struct strVOCLSampler *samplerPtr = voclGetSamplerPtr(sampler);
 	return samplerPtr->migrationStatus;
 }
 
@@ -96,7 +96,7 @@ cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxyRank,
                                          int *proxyIndex, MPI_Comm * proxyComm,
                                          MPI_Comm * proxyCommData)
 {
-    struct strVOCLSampler *samplerPtr = getVOCLSamplerPtr(sampler);
+    struct strVOCLSampler *samplerPtr = voclGetSamplerPtr(sampler);
     *proxyRank = samplerPtr->proxyRank;
     *proxyIndex = samplerPtr->proxyIndex;
     *proxyComm = samplerPtr->proxyComm;

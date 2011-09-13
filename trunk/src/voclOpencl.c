@@ -47,8 +47,19 @@ extern cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id deviceID, int
                                                     int *proxyIndex, MPI_Comm * proxyComm,
                                                     MPI_Comm * proxyCommData);
 
+/* virtual GPU */
+extern void voclAddVirtualGPU(int proxyRank, int proxyIndex, vocl_device_id deviceID);
+extern void voclAddContextToVGPU(int proxyIndex, vocl_device_id deviceID, vocl_context_str *contextPtr);
+extern void voclRemoveContextFromVGPU(int proxyIndex, vocl_context_str *contextPtr);
+extern void voclSetVGPUMigStatus(int proxyIndex, vocl_device_id deviceID, char migStatus);
+extern void voclAddCommandQueueToVGPU(int proxyIndex, vocl_device_id deviceID, vocl_command_queue_str *cmdQueuePtr);
+extern void voclRemoveCommandQueueFromVGPU(int proxyIndex, vocl_command_queue_str *cmdQueuePtr);
+extern void voclReleaseVirtualGPU(int proxyIndex, vocl_device_id deviceID);
+extern void voclReleaseAllVirtualGPU();
+
 /* for context processing */
 extern void voclContextInitialize();
+extern vocl_context_str *voclGetContextPtr(vocl_context context);
 extern void voclContextFinalize();
 extern vocl_context voclCLContext2VOCLContext(cl_context context, int proxyRank,
                                               int proxyIndex, MPI_Comm proxyComm,
@@ -56,12 +67,23 @@ extern vocl_context voclCLContext2VOCLContext(cl_context context, int proxyRank,
 extern cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyRank,
                                                 int *proxyIndex, MPI_Comm * proxyComm,
                                                 MPI_Comm * proxyCommData);
+extern void voclContextSetDevices(vocl_context context, cl_uint deviceNum, vocl_device_id *devices);
+extern vocl_device_id * voclContextGetDevices(vocl_context context, cl_uint *deviceNum);
+extern void voclAddMemToContext(vocl_context context, vocl_mem_str *memPtr);
+extern void voclRemoveMemFromContext(vocl_mem_str *memPtr);
+extern void voclAddProgramToContext(vocl_context context, vocl_program_str *programPtr);
+extern void voclRemoveProgramFromContext(vocl_program_str *programPtr);
+extern void voclAddCommandQueueToContext(vocl_context context, vocl_command_queue_str *cmdQueuePtr);
+extern void voclRemoveCommandQueueFromContext(vocl_command_queue_str *cmdQueuePtr);
+extern void voclAddSamplerToContext(vocl_context context, vocl_sampler_str *samplerPtr);
+extern void voclRemoveSamplerFromContext(vocl_sampler_str *samplerPtr);
 extern int voclReleaseContext(vocl_context context);
 extern void voclContextSetMigrationStatus(vocl_context context, char status);
 extern char voclContextGetMigrationStatus(vocl_context context);
 
 /* for command queue processing */
 extern void voclCommandQueueInitialize();
+extern struct strVOCLCommandQueue *voclGetCommandQueuePtr(vocl_command_queue command_queue);
 extern void voclCommandQueueFinalize();
 extern vocl_command_queue voclCLCommandQueue2VOCLCommandQueue(cl_command_queue commandQueue,
                                                               int proxyRank, int proxyIndex,
@@ -72,26 +94,16 @@ extern cl_command_queue voclVOCLCommandQueue2CLCommandQueueComm(vocl_command_que
                                                                 int *proxyIndex,
                                                                 MPI_Comm * proxyComm,
                                                                 MPI_Comm * proxyCommData);
+extern struct strVOCLCommandQueue *voclGetCommandQueuePtr(vocl_command_queue command_queue);
 extern int voclReleaseCommandQueue(vocl_command_queue command_queue);
 extern void voclStoreCmdQueueProperties(vocl_command_queue command_queue,
                                         cl_command_queue_properties properties,
                                         vocl_context context, vocl_device_id device);
-extern int voclIsOldCommandQueueValid(vocl_command_queue command_queue);
-extern cl_command_queue voclVOCLCommandQueue2OldCLCommandQueueComm(vocl_command_queue
-                                                                   command_queue,
-                                                                   int *proxyRank,
-                                                                   int *proxyIndex,
-                                                                   MPI_Comm * proxyComm,
-                                                                   MPI_Comm * proxyCommData);
-
 extern void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, cl_command_queue newCmdQueue, 
                                 int proxyRank, int proxyIndex, MPI_Comm comm, MPI_Comm commData);
 
 extern void voclCommandQueueSetMigrationStatus(vocl_command_queue cmdQueue, char status);
 extern char voclCommandQueueGetMigrationStatus(vocl_command_queue cmdQueue);
-//extern void voclCommandQueueMigration(vocl_command_queue command_queue);
-//extern void voclUpdateMemoryInCommandQueue(vocl_command_queue command_queue, vocl_mem mem,
-//                                           size_t size);
 
 /* for program processing */
 extern void voclProgramInitialize();
@@ -102,6 +114,9 @@ extern vocl_program voclCLProgram2VOCLProgram(cl_program program, int proxyRank,
 extern cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyRank,
                                                 int *proxyIndex, MPI_Comm * proxyComm,
                                                 MPI_Comm * proxyCommData);
+extern void voclAddKernelToProgram(vocl_program program, vocl_kernel_str *kernelPtr);
+extern struct strVOCLProgram *voclGetProgramPtr(vocl_program program);
+extern void voclRemoveKernelFromProgram(vocl_kernel_str *kernelPtr);
 extern int voclReleaseProgram(vocl_program program);
 extern void voclStoreProgramSource(vocl_program program, char *source, size_t sourceSize);
 extern void voclStoreProgramContext(vocl_program program, vocl_context context);
@@ -115,6 +130,7 @@ extern void voclMemoryFinalize();
 extern vocl_mem voclCLMemory2VOCLMemory(cl_mem memory, int proxyRank,
                                         int proxyIndex, MPI_Comm proxyComm,
                                         MPI_Comm proxyCommData);
+extern struct strVOCLMemory *voclGetMemPtr(vocl_mem memory);
 extern cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyRank, int *proxyIndex,
                                           MPI_Comm * proxyComm, MPI_Comm * proxyCommData);
 extern int voclReleaseMemory(vocl_mem mem);
@@ -132,8 +148,6 @@ extern void voclUpdateVOCLMemory(vocl_mem voclMemory, cl_mem newMem, int proxyRa
                           MPI_Comm proxyComm, MPI_Comm proxyCommData);
 extern void voclMemSetMigrationStatus(vocl_mem mem, char status);
 extern char voclMemGetMigrationStatus(vocl_mem mem);
-//extern void voclUpdateSingleMemory(vocl_mem mem);
-//extern cl_int clMigReleaseOldMemObject(vocl_mem memobj);
 
 /* for program processing */
 extern void voclKernelInitialize();
@@ -144,6 +158,7 @@ extern vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyRank,
 extern cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
                                              int *proxyIndex, MPI_Comm * proxyComm,
                                              MPI_Comm * proxyCommData);
+extern struct strVOCLKernel *voclGetKernelPtr(vocl_kernel kernel);
 extern void voclUpdateVOCLKernel(vocl_kernel voclKernel, cl_kernel newKernel, int proxyRank, 
 								int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
 extern int voclReleaseKernel(vocl_kernel kernel);
@@ -151,7 +166,6 @@ extern void voclStoreKernelProgramContext(vocl_kernel kernel, vocl_program progr
                                           vocl_context context);
 extern void voclKernelSetMigrationStatus(vocl_kernel kernel, char status);
 extern char voclKernelGetMigrationStatus(vocl_kernel kernel);
-//extern void voclUpdateSingleKernel(vocl_kernel kernel, vocl_command_queue command_queue);
 
 /* kernel argument processing functions */
 extern cl_int createKernel(cl_kernel kernel);
@@ -216,6 +230,7 @@ extern vocl_sampler voclCLSampler2VOCLSampler(cl_sampler sampler, int proxyRank,
 extern cl_sampler voclVOCLSampler2CLSamplerComm(vocl_sampler sampler, int *proxyRank,
                                                 int *proxyIndex, MPI_Comm * proxyComm,
                                                 MPI_Comm * proxyCommData);
+extern struct strVOCLSampler *voclGetSamplerPtr(vocl_sampler sampler);
 extern int voclReleaseSampler(vocl_sampler sampler);
 extern void voclSamplerSetMigrationStatus(vocl_sampler sampler, char status);
 
@@ -241,8 +256,8 @@ extern void voclMigReadLocalBufferFinalize();
 extern void voclMigRWLocalBufferInitialize();
 extern void voclMigRWLocalBufferFinalize();
 extern void voclTaskMigration(vocl_kernel kernel, vocl_command_queue command_queue);
-extern void voclSetTaskMigrationCondition();
-extern int voclGetTaskMigrationCondition();
+//extern void voclSetTaskMigrationCondition();
+//extern int voclGetTaskMigrationCondition();
 
 extern void voclWinInfoInitialize();
 extern void voclWinInfoFinalize();
@@ -391,7 +406,7 @@ void voclInitialize()
     voclMigRWLocalBufferInitialize();
 
     /*initialize whether migration is requested */
-    voclSetTaskMigrationCondition();
+//    voclSetTaskMigrationCondition();
 
     return;
 }
@@ -664,6 +679,7 @@ clCreateContext(const cl_context_properties * properties,
                 void *user_data, cl_int * errcode_ret)
 {
     struct strCreateContext tmpCreateContext;
+	vocl_context_str *contextPtr;
     MPI_Status status[3];
     MPI_Request request[3];
     vocl_context context;
@@ -722,6 +738,15 @@ clCreateContext(const cl_context_properties * properties,
     /* for the first time a context is created, migration status is 0 */
     voclContextSetMigrationStatus(context, tmpCreateContext.migStatus);
 
+	/* add vocl context to the virtual GPU */
+	contextPtr = voclGetContextPtr(context);
+	for (i = 0; i < num_devices; i++)
+	{
+		voclAddVirtualGPU(proxyRank, proxyIndex, (vocl_device_id)devices[i]);
+		voclAddContextToVGPU(proxyIndex, (vocl_device_id)devices[i], contextPtr);
+		voclSetVGPUMigStatus(proxyIndex, (vocl_device_id)devices[i], tmpCreateContext.migStatus);
+	}
+
     free(clDevices);
 
     return (cl_context) context;
@@ -737,6 +762,7 @@ clCreateCommandQueue(cl_context context,
     checkSlaveProc();
 
     struct strCreateCommandQueue tmpCreateCommandQueue;
+	vocl_command_queue_str *cmdQueuePtr;
     MPI_Status status[2];
     MPI_Request request[2];
     int requestNo = 0;
@@ -753,7 +779,6 @@ clCreateCommandQueue(cl_context context,
     if (proxyRankContext != proxyRankDevice) {
         printf("deice and context are on different GPU nodes!\n");
     }
-
 
     /* local node, call native opencl function directly */
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
@@ -791,6 +816,11 @@ clCreateCommandQueue(cl_context context,
     voclStoreCmdQueueProperties(command_queue, properties, (vocl_context) context,
                                 (vocl_device_id) device);
 
+	/* add the vocl command queue to vgpu and context*/
+	cmdQueuePtr = voclGetCommandQueuePtr(command_queue);
+	voclAddCommandQueueToContext((vocl_context) context, cmdQueuePtr);
+	voclAddCommandQueueToVGPU(proxyIndex, (vocl_device_id)device, cmdQueuePtr);
+
     return (cl_command_queue) command_queue;
 }
 
@@ -800,6 +830,7 @@ clCreateProgramWithSource(cl_context context,
                           const char **strings, const size_t * lengths, cl_int * errcode_ret)
 {
     struct strCreateProgramWithSource tmpCreateProgramWithSource;
+	vocl_program_str *programPtr;
     MPI_Status status[4];
     MPI_Request request[4];
     vocl_program program;
@@ -888,6 +919,10 @@ clCreateProgramWithSource(cl_context context,
     /*store the source code corresponding to the program */
     voclStoreProgramSource(program, allStrings, totalLength);
     voclStoreProgramContext(program, (vocl_context) context);
+
+	/* add the vocl program to context */
+	programPtr = voclGetProgramPtr(program);
+	voclAddProgramToContext((vocl_context) context, programPtr);
 
     free(allStrings);
     free(lengthsArray);
@@ -980,6 +1015,8 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
 	size_t paramBufSize;
 	int argNum;
     struct strCreateKernel tmpCreateKernel;
+	vocl_kernel_str *kernelPtr;
+
     int kernelNameSize = strlen(kernel_name);
 
     /* check whether the slave process is created. If not, create one. */
@@ -1037,6 +1074,10 @@ cl_kernel clCreateKernel(cl_program program, const char *kernel_name, cl_int * e
     createKernel((cl_kernel) kernel);
 	setKernelArgInfo((cl_kernel) kernel, argNum, argFlag);
 
+	/* add kernel to program */
+	kernelPtr = voclGetKernelPtr(kernel);
+	voclAddKernelToProgram((vocl_program)program, kernelPtr);
+
     return (cl_kernel) kernel;
 }
 
@@ -1046,6 +1087,7 @@ clCreateBuffer(cl_context context,
                cl_mem_flags flags, size_t size, void *host_ptr, cl_int * errcode_ret)
 {
     struct strCreateBuffer tmpCreateBuffer;
+	vocl_mem_str *memPtr;
     MPI_Status status[3];
     MPI_Request request[3];
     vocl_mem memory;
@@ -1097,6 +1139,10 @@ clCreateBuffer(cl_context context,
     voclMemSetMigrationStatus(memory, tmpCreateBuffer.migStatus);
     /* store memory parameters for possible migration */
     voclStoreMemoryParameters(memory, flags, size, (vocl_context) context);
+
+	/* add memory to context */
+	memPtr = voclGetMemPtr(memory);
+	voclAddMemToContext((vocl_context)context, memPtr);
 
     return (cl_mem) memory;
 }
@@ -1434,7 +1480,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 
     cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
     kernelMigStatus = voclKernelGetMigrationStatus((vocl_kernel)kernel);
-    tmpEnqueueNDRangeKernel.kernel = kernelMigStatus; 
+    tmpEnqueueNDRangeKernel.kernelMigStatus = kernelMigStatus; 
     tmpEnqueueNDRangeKernel.cmdQueueMigStatus = cmdQueueMigStatus; 
     cmdQueueMigOperation = VOCL_MIG_NOUPDATE;
     kernelMigOperation = VOCL_MIG_NOUPDATE;
@@ -1810,7 +1856,7 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
 
 	if (blocking_read == CL_TRUE)
 	{
-		processAllRead(proxyIndex);
+		processAllReads(proxyIndex);
 	}
 	MPI_Waitall(requestNo, request, status);
 
@@ -1845,6 +1891,7 @@ cl_int clReleaseMemObject(cl_mem memobj)
     int requestNo;
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
+	vocl_mem_str *memPtr;
 	
 	/* check whether migration is needed */
 	char vgpuMigStatus, memMigStatus;
@@ -1883,30 +1930,13 @@ cl_int clReleaseMemObject(cl_mem memobj)
         MPI_Waitall(requestNo, request, status);
     }
 
+	/* remove the mem object from the context */
+	memPtr = voclGetMemPtr((vocl_mem) memobj);
+	voclRemoveMemFromContext(memPtr);
+	voclReleaseMemory((vocl_mem)memobj);
+
     /* decrease the number of OpenCL objects count */
     voclObjCountDecrease(proxyIndex);
-
-//    /* the old memory is not released yet after migration, do it here */
-//    if (voclIsOldMemoryValid((vocl_mem) memobj)) {
-//        tmpReleaseMemObject.memobj = voclVOCLMemory2OldCLMemoryComm((vocl_mem) memobj,
-//                                                                    &proxyRank, &proxyIndex,
-//                                                                    &proxyComm,
-//                                                                    &proxyCommData);
-//        if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
-//            tmpReleaseMemObject.res = dlCLReleaseMemObject(tmpReleaseMemObject.memobj);
-//        }
-//        else {
-//            requestNo = 0;
-//            MPI_Isend(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE,
-//                      proxyRank, RELEASE_MEM_OBJ, proxyComm, request + (requestNo++));
-//            MPI_Irecv(&tmpReleaseMemObject, sizeof(tmpReleaseMemObject), MPI_BYTE,
-//                      proxyRank, RELEASE_MEM_OBJ, proxyComm, request + (requestNo++));
-//            MPI_Waitall(requestNo, request, status);
-//        }
-//
-//        /* decrease the number of OpenCL objects count */
-//        voclObjCountDecrease(proxyIndex);
-//    }
 
     return tmpReleaseMemObject.res;
 }
@@ -1919,6 +1949,7 @@ cl_int clReleaseKernel(cl_kernel kernel)
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
     struct strReleaseKernel tmpReleaseKernel;
+	vocl_kernel_str *kernelPtr;
 
 	char vgpuMigStatus, kernelMigStatus;
 	int destProxyIndex;
@@ -1956,6 +1987,11 @@ cl_int clReleaseKernel(cl_kernel kernel)
                   proxyRank, CL_RELEASE_KERNEL_FUNC, proxyComm, request + (requestNo++));
         MPI_Waitall(requestNo, request, status);
     }
+
+	/* remove kernel from program */
+	kernelPtr = voclGetKernelPtr((vocl_kernel)kernel);
+	voclRemoveKernelFromProgram(kernelPtr);
+	voclReleaseKernel((vocl_kernel)kernel);
 
     /* decrease the number of OpenCL objects count */
     voclObjCountDecrease(proxyIndex);
@@ -2183,6 +2219,7 @@ cl_int clReleaseProgram(cl_program program)
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
     struct strReleaseProgram tmpReleaseProgram;
+	vocl_program_str *programPtr;
 
 	/* for migration */
 	char vgpuMigStatus, programMigStatus;
@@ -2215,6 +2252,12 @@ cl_int clReleaseProgram(cl_program program)
                   REL_PROGRAM_FUNC, proxyComm, request + (requestNo++));
         MPI_Waitall(requestNo, request, status);
     }
+
+	/* remove program from context */
+	programPtr = voclGetProgramPtr((vocl_program)program);
+	voclRemoveProgramFromContext(programPtr);
+	voclReleaseProgram((vocl_program)program);
+
     /* decrease the number of OpenCL objects count */
     voclObjCountDecrease(proxyIndex);
 
@@ -2229,6 +2272,7 @@ cl_int clReleaseCommandQueue(cl_command_queue command_queue)
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
     struct strReleaseCommandQueue tmpReleaseCommandQueue;
+	vocl_command_queue_str *cmdQueuePtr;
 	char vgpuMigStatus, cmdQueueMigStatus;
 	int destProxyIndex;
 
@@ -2260,30 +2304,14 @@ cl_int clReleaseCommandQueue(cl_command_queue command_queue)
         MPI_Waitall(requestNo, request, status);
     }
 
+	/* remove command queue from context and vgpu */
+	cmdQueuePtr = voclGetCommandQueuePtr((vocl_command_queue)command_queue);
+	voclRemoveCommandQueueFromContext(cmdQueuePtr);
+	voclRemoveCommandQueueFromVGPU(proxyIndex, cmdQueuePtr);
+	voclReleaseCommandQueue((vocl_command_queue)command_queue);
+
     /* decrease the number of OpenCL objects count */
     voclObjCountDecrease(proxyIndex);
-
-//    /* the old command queue is not released yet after migration, release it here */
-//    if (voclIsOldCommandQueueValid((vocl_command_queue) command_queue)) {
-//        tmpReleaseCommandQueue.command_queue =
-//            voclVOCLCommandQueue2OldCLCommandQueueComm((vocl_command_queue) command_queue,
-//                                                       &proxyRank, &proxyIndex, &proxyComm,
-//                                                       &proxyCommData);
-//        if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
-//            tmpReleaseCommandQueue.res =
-//                dlCLReleaseCommandQueue(tmpReleaseCommandQueue.command_queue);
-//        }
-//        else {
-//            MPI_Isend(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE,
-//                      proxyRank, REL_COMMAND_QUEUE_FUNC, proxyComm, request + (requestNo++));
-//            MPI_Irecv(&tmpReleaseCommandQueue, sizeof(tmpReleaseCommandQueue), MPI_BYTE,
-//                      proxyRank, REL_COMMAND_QUEUE_FUNC, proxyComm, request + (requestNo++));
-//            MPI_Waitall(requestNo, request, status);
-//        }
-//
-//        /* decrease the number of OpenCL objects count */
-//        voclObjCountDecrease(proxyIndex);
-//    }
 
     return tmpReleaseCommandQueue.res;
 }
@@ -2292,10 +2320,13 @@ cl_int clReleaseContext(cl_context context)
 {
     MPI_Status status[2];
     MPI_Request request[2];
-    int requestNo = 0;
+    int requestNo = 0, i;
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
     struct strReleaseContext tmpReleaseContext;
+	vocl_context_str *contextPtr;
+	vocl_device_id *devices;
+	cl_uint deviceNum;
 	char vgpuMigStatus, contextMigStatus;
 	int destProxyIndex;
 
@@ -2326,8 +2357,18 @@ cl_int clReleaseContext(cl_context context)
         MPI_Waitall(requestNo, request, status);
     }
 
+	/* remove context from vgpu */
+	contextPtr = voclGetContextPtr((vocl_context)context);
+	devices = voclContextGetDevices((vocl_context)context, &deviceNum);
+	for (i = 0; i < deviceNum; i++)
+	{
+		voclRemoveContextFromVGPU(proxyIndex, contextPtr);
+	}
+	voclReleaseContext((vocl_context)context);
+
     /* decrease the number of OpenCL objects count */
     voclObjCountDecrease(proxyIndex);
+
 
     return tmpReleaseContext.res;
 }
@@ -2538,6 +2579,7 @@ clCreateSampler(cl_context context,
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
     struct strCreateSampler tmpCreateSampler;
+	vocl_sampler_str *samplerPtr;
 
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
@@ -2577,6 +2619,10 @@ clCreateSampler(cl_context context,
                                         proxyRank, proxyIndex, proxyComm, proxyCommData);
     voclSamplerSetMigrationStatus(sampler,
                                   voclContextGetMigrationStatus((vocl_context) context));
+
+	/* add sampler to context */
+	samplerPtr = voclGetSamplerPtr(sampler);
+	voclAddSamplerToContext((vocl_context)context, samplerPtr);
 
     return (cl_sampler) sampler;
 }
@@ -2815,6 +2861,8 @@ cl_int clReleaseSampler(cl_sampler sampler)
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
     struct strReleaseSampler tmpReleaseSampler;
+	vocl_sampler_str *samplerPtr;
+
     checkSlaveProc();
     tmpReleaseSampler.sampler = voclVOCLSampler2CLSamplerComm((vocl_sampler) sampler,
                                                               &proxyRank, &proxyIndex,
@@ -2832,6 +2880,10 @@ cl_int clReleaseSampler(cl_sampler sampler)
 
     /* decrease the number of OpenCL objects count */
     voclObjCountDecrease(proxyIndex);
+
+	/* remove sampler from context */
+	samplerPtr = voclGetSamplerPtr((vocl_sampler)sampler);
+	voclRemoveSamplerFromContext(samplerPtr);
 
     return tmpReleaseSampler.res;
 }

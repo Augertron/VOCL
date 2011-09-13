@@ -28,7 +28,7 @@ static struct strVOCLMemory *createVOCLMemory()
     return memPtr;
 }
 
-static struct strVOCLMemory *getVOCLMemoryPtr(vocl_mem memory)
+struct strVOCLMemory *voclGetMemPtr(vocl_mem memory)
 {
     struct strVOCLMemory *memPtr;
     memPtr = voclMemoryPtr;
@@ -86,7 +86,7 @@ vocl_mem voclCLMemory2VOCLMemory(cl_mem memory, int proxyRank,
 void voclStoreMemoryParameters(vocl_mem memory, cl_mem_flags flags,
                                size_t size, vocl_context context)
 {
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+    struct strVOCLMemory *memoryPtr = voclGetMemPtr(memory);
     memoryPtr->flags = flags;
     memoryPtr->size = size;
     memoryPtr->context = context;
@@ -96,7 +96,7 @@ void voclStoreMemoryParameters(vocl_mem memory, cl_mem_flags flags,
 
 size_t voclGetVOCLMemorySize(vocl_mem memory)
 {
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+    struct strVOCLMemory *memoryPtr = voclGetMemPtr(memory);
     return memoryPtr->size;
 }
 
@@ -104,7 +104,7 @@ cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyRank,
                                    int *proxyIndex, MPI_Comm * proxyComm,
                                    MPI_Comm * proxyCommData)
 {
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+    struct strVOCLMemory *memoryPtr = voclGetMemPtr(memory);
     *proxyRank = memoryPtr->proxyRank;
     *proxyIndex = memoryPtr->proxyIndex;
     *proxyComm = memoryPtr->proxyComm;
@@ -115,14 +115,14 @@ cl_mem voclVOCLMemory2CLMemoryComm(vocl_mem memory, int *proxyRank,
 
 cl_mem voclVOCLMemory2CLMemory(vocl_mem memory)
 {
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+    struct strVOCLMemory *memoryPtr = voclGetMemPtr(memory);
     return memoryPtr->clMemory;
 }
 
 void voclUpdateVOCLMemory(vocl_mem voclMemory, cl_mem newMem, int proxyRank, int proxyIndex,
                           MPI_Comm proxyComm, MPI_Comm proxyCommData) 
 {
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(voclMemory);
+    struct strVOCLMemory *memoryPtr = voclGetMemPtr(voclMemory);
     int err;
 
     /* update the cl_mem corresponding to the vocl_mem */
@@ -138,46 +138,46 @@ void voclUpdateVOCLMemory(vocl_mem voclMemory, cl_mem newMem, int proxyRank, int
 
 void voclSetMemWrittenFlag(vocl_mem memory, int flag)
 {
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+    struct strVOCLMemory *memoryPtr = voclGetMemPtr(memory);
     memoryPtr->isWritten = flag;
     return;
 }
 
 int voclGetMemWrittenFlag(vocl_mem memory)
 {
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+    struct strVOCLMemory *memoryPtr = voclGetMemPtr(memory);
     return memoryPtr->isWritten;
 }
 
 void voclSetMemHostPtr(vocl_mem memory, void *ptr)
 {
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+    struct strVOCLMemory *memoryPtr = voclGetMemPtr(memory);
     memoryPtr->hostPtr = ptr;
 	return;
 }
 
 void * voclGetMemHostPtr(vocl_mem memory)
 {
-    struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(memory);
+    struct strVOCLMemory *memoryPtr = voclGetMemPtr(memory);
     return memoryPtr->hostPtr;
 }
 
 void voclMemSetMigrationStatus(vocl_mem mem, char status)
 {
-	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(mem);
+	struct strVOCLMemory *memoryPtr = voclGetMemPtr(mem);
 	memoryPtr->migrationStatus = status;
 	return;
 }
 
 char voclMemGetMigrationStatus(vocl_mem mem)
 {
-	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(mem);
+	struct strVOCLMemory *memoryPtr = voclGetMemPtr(mem);
 	return memoryPtr->migrationStatus;
 }
 
 vocl_context voclMemGetContext(vocl_mem mem)
 {
-	struct strVOCLMemory *memoryPtr = getVOCLMemoryPtr(mem);
+	struct strVOCLMemory *memoryPtr = voclGetMemPtr(mem);
 	return memoryPtr->context;
 }
 

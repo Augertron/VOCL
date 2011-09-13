@@ -27,7 +27,7 @@ static struct strVOCLCommandQueue *createVOCLCommandQueue()
     return commandQueuePtr;
 }
 
-static struct strVOCLCommandQueue *getVOCLCommandQueuePtr(vocl_command_queue command_queue)
+struct strVOCLCommandQueue *voclGetCommandQueuePtr(vocl_command_queue command_queue)
 {
     struct strVOCLCommandQueue *commandQueuePtr;
     commandQueuePtr = voclCommandQueuePtr;
@@ -88,7 +88,7 @@ void voclStoreCmdQueueProperties(vocl_command_queue cmdQueue,
                                  cl_command_queue_properties properties, vocl_context context,
                                  vocl_device_id deviceID)
 {
-    struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(cmdQueue);
+    struct strVOCLCommandQueue *commandQueuePtr = voclGetCommandQueuePtr(cmdQueue);
     commandQueuePtr->properties = properties;
     commandQueuePtr->context = context;
     commandQueuePtr->deviceID = deviceID;
@@ -98,26 +98,26 @@ void voclStoreCmdQueueProperties(vocl_command_queue cmdQueue,
 
 vocl_device_id voclGetCommandQueueDeviceID(vocl_command_queue cmdQueue)
 {
-    struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(cmdQueue);
+    struct strVOCLCommandQueue *commandQueuePtr = voclGetCommandQueuePtr(cmdQueue);
     return commandQueuePtr->deviceID;
 }
 
 vocl_context voclGetCommandQueueContext(vocl_command_queue cmdQueue)
 {
-    struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(cmdQueue);
+    struct strVOCLCommandQueue *commandQueuePtr = voclGetCommandQueuePtr(cmdQueue);
     return commandQueuePtr->context;
 }
 
 void voclCommandQueueSetMigrationStatus(vocl_command_queue cmdQueue, char status)
 {
-	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(cmdQueue);
+	struct strVOCLCommandQueue *commandQueuePtr = voclGetCommandQueuePtr(cmdQueue);
 	commandQueuePtr->migrationStatus = status;
 	return;
 }
 
 char voclCommandQueueGetMigrationStatus(vocl_command_queue cmdQueue)
 {
-	struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(cmdQueue);
+	struct strVOCLCommandQueue *commandQueuePtr = voclGetCommandQueuePtr(cmdQueue);
 	return commandQueuePtr->migrationStatus;
 }
 
@@ -126,7 +126,7 @@ cl_command_queue voclVOCLCommandQueue2CLCommandQueueComm(vocl_command_queue comm
                                                          MPI_Comm * proxyComm,
                                                          MPI_Comm * proxyCommData)
 {
-    struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(command_queue);
+    struct strVOCLCommandQueue *commandQueuePtr = voclGetCommandQueuePtr(command_queue);
     *proxyRank = commandQueuePtr->proxyRank;
     *proxyIndex = commandQueuePtr->proxyIndex;
     *proxyComm = commandQueuePtr->proxyComm;
@@ -137,14 +137,14 @@ cl_command_queue voclVOCLCommandQueue2CLCommandQueueComm(vocl_command_queue comm
 
 cl_command_queue voclVOCLCommandQueue2CLCommandQueue(vocl_command_queue command_queue)
 {
-    struct strVOCLCommandQueue *commandQueuePtr = getVOCLCommandQueuePtr(command_queue);
+    struct strVOCLCommandQueue *commandQueuePtr = voclGetCommandQueuePtr(command_queue);
     return commandQueuePtr->clCommandQueue;
 }
 
 void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, cl_command_queue newCmdQueue, 
 								int proxyRank, int proxyIndex, MPI_Comm comm, MPI_Comm commData)
 {
-    struct strVOCLCommandQueue *cmdQueuePtr = getVOCLCommandQueuePtr(voclCmdQueue);
+    struct strVOCLCommandQueue *cmdQueuePtr = voclGetCommandQueuePtr(voclCmdQueue);
     int err, migrationStatus;
 
     cmdQueuePtr->proxyRank = proxyRank;

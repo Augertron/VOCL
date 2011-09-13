@@ -146,6 +146,10 @@ typedef struct strVOCLSampler {
 typedef struct strVOCLContext {
     vocl_context voclContext;
     cl_context clContext;
+
+	cl_uint deviceNum;
+	vocl_device_id *voclDevices;
+
     int proxyRank;
     int proxyIndex;
 	char migrationStatus;
