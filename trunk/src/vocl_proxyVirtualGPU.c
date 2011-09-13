@@ -382,15 +382,28 @@ void voclProxyReleaseAllVirtualGPU()
 
 void voclProxyAddContextToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_context *context)
 {
+	int i;
 	vocl_virtual_gpu *vgpuPtr;
 	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
-	vgpuPtr->contextPtr[vgpuPtr->contextNo] = context;
-	vgpuPtr->contextNo++;
 
-	if (vgpuPtr->contextNo >= vgpuPtr->contextNum)
+	for (i = 0; i < vgpuPtr->contextNo; i++)
 	{
-		vgpuPtr->contextNum *= 2;
-		vgpuPtr->contextPtr = (vocl_proxy_context **)realloc(vgpuPtr->contextPtr, sizeof(vocl_proxy_context*) * vgpuPtr->contextNum);
+		if (vgpuPtr->contextPtr[i] == context)
+		{
+			break;
+		}
+	}
+
+	if (i == vgpuPtr->contextNo)
+	{
+		vgpuPtr->contextPtr[vgpuPtr->contextNo] = context;
+		vgpuPtr->contextNo++;
+
+		if (vgpuPtr->contextNo >= vgpuPtr->contextNum)
+		{
+			vgpuPtr->contextNum *= 2;
+			vgpuPtr->contextPtr = (vocl_proxy_context **)realloc(vgpuPtr->contextPtr, sizeof(vocl_proxy_context*) * vgpuPtr->contextNum);
+		}
 	}
 
 	return;
@@ -437,16 +450,29 @@ void voclProxyRemoveContextFromVGPU(int appIndex, vocl_proxy_context *context)
 
 void voclProxyAddCommandQueueToVGPU(int appIndex, cl_device_id deviceID, vocl_proxy_command_queue *command_queue)
 {
+	int i;
 	vocl_virtual_gpu *vgpuPtr;
-	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
-	vgpuPtr->cmdQueuePtr[vgpuPtr->cmdQueueNo] = command_queue;
-	vgpuPtr->cmdQueueNo++;
 
-	if (vgpuPtr->cmdQueueNo >= vgpuPtr->cmdQueueNum)
+	for (i = 0; i < vgpuPtr->cmdQueueNo; i++)
 	{
-		vgpuPtr->cmdQueueNum *= 2;
-		vgpuPtr->cmdQueuePtr = (vocl_proxy_command_queue **)realloc(vgpuPtr->cmdQueuePtr, 
-				sizeof(vocl_proxy_command_queue*) * vgpuPtr->cmdQueueNum);
+		if (vgpuPtr->cmdQueuePtr[i] == command_queue)
+		{
+			break;
+		}
+	}
+
+	if (i == vgpuPtr->cmdQueueNo)
+	{
+		vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+		vgpuPtr->cmdQueuePtr[vgpuPtr->cmdQueueNo] = command_queue;
+		vgpuPtr->cmdQueueNo++;
+
+		if (vgpuPtr->cmdQueueNo >= vgpuPtr->cmdQueueNum)
+		{
+			vgpuPtr->cmdQueueNum *= 2;
+			vgpuPtr->cmdQueuePtr = (vocl_proxy_command_queue **)realloc(vgpuPtr->cmdQueuePtr, 
+					sizeof(vocl_proxy_command_queue*) * vgpuPtr->cmdQueueNum);
+		}
 	}
 
 	return;

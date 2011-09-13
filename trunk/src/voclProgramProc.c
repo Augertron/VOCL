@@ -22,12 +22,20 @@ static struct strVOCLProgram *createVOCLProgram()
     programPtr->voclSourceString = NULL;
     programPtr->sourceSize = 0;
     programPtr->buildOptions = NULL;
+
+	programPtr->kernelNum = 20;
+	programPtr->kernelNo = 0;
+	programPtr->kernelPtr = (vocl_kernel_str **)malloc(sizeof(vocl_kernel_str *) * programPtr->kernelNum);
+	memset(programPtr->kernelPtr, 0, sizeof(vocl_kernel_str *) * programPtr->kernelNum);
+
+	programPtr->migrationStatus = 0;
+
     voclProgramPtr = programPtr;
 
     return programPtr;
 }
 
-static struct strVOCLProgram *getVOCLProgramPtr(vocl_program program)
+struct strVOCLProgram *voclGetProgramPtr(vocl_program program)
 {
     struct strVOCLProgram *programPtr;
     programPtr = voclProgramPtr;
@@ -46,6 +54,74 @@ static struct strVOCLProgram *getVOCLProgramPtr(vocl_program program)
     return programPtr;
 }
 
+void voclAddKernelToProgram(vocl_program program, vocl_kernel_str *kernelPtr)
+{
+	int i;
+	vocl_program_str *programPtr;
+	programPtr = voclGetProgramPtr(program);
+	
+	for (i = 0; i < programPtr->kernelNo; i++)
+	{
+		if (programPtr->kernelPtr[i] == kernelPtr)
+		{
+			break;
+		}
+	}
+
+	if (i == programPtr->kernelNo)
+	{
+		programPtr->kernelPtr[i] == kernelPtr;
+		programPtr->kernelNo++;
+
+		if (programPtr->kernelNo >= programPtr->kernelNum)
+		{
+			programPtr->kernelPtr = (vocl_kernel_str **)realloc(programPtr->kernelPtr, sizeof(vocl_kernel_str*) * programPtr->kernelNum * 2);
+			memset(&programPtr->kernelPtr[programPtr->kernelNum], 0, sizeof(vocl_kernel_str *) * programPtr->kernelNum);
+			programPtr->kernelNum *= 2;
+		}
+	}
+
+	return;
+}
+
+void voclProxyRemoveKernelFromProgram(vocl_kernel_str *kernelPtr)
+{
+    int i, j;
+    int kernelFound = 0;
+    vocl_program_str *programPtr;
+    programPtr = voclProgramPtr;
+ 
+    while (programPtr != NULL)
+    {
+        for (i = 0; i < programPtr->kernelNo; i++)
+        {
+            if (programPtr->kernelPtr[i] == kernelPtr)
+            {
+                kernelFound = 1;
+                break; 
+            }
+        }
+    
+        if (i < programPtr->kernelNo)
+        {
+            for (j = i; j < programPtr->kernelNo - 1; j++)
+            {
+                programPtr->kernelPtr[j] = programPtr->kernelPtr[j+1];
+            }
+            programPtr->kernelNo--;
+        }
+
+        programPtr = programPtr->next;
+    }
+
+    if (kernelFound == 0)
+    {
+        printf("voclRemoveKernelFromProgram, vocl_kernel %d does not exist!\n", kernel->voclKernel);
+        exit(1);
+    }
+
+    return;
+}
 
 void voclProgramInitialize()
 {
@@ -67,6 +143,11 @@ void voclProgramFinalize()
             free(programPtr->buildOptions);
         }
 
+		if (programPtr->kernelPtr != NULL)
+		{
+			free(programPtr->kernelPtr);
+		}
+
         free(programPtr);
         programPtr = tmpprogramPtr;
     }
@@ -79,7 +160,7 @@ void voclProgramFinalize()
 void voclStoreProgramSource(vocl_program program, char *source, size_t sourceSize)
 {
     struct strVOCLProgram *programPtr;
-    programPtr = getVOCLProgramPtr(program);
+    programPtr = voclGetProgramPtr(program);
     if (programPtr->voclSourceString != NULL) {
         free(programPtr->voclSourceString);
     }
@@ -95,7 +176,7 @@ void voclStoreProgramBuildOptions(vocl_program program, char *buildOptions)
 {
     struct strVOCLProgram *programPtr;
     int optionLen;
-    programPtr = getVOCLProgramPtr(program);
+    programPtr = voclGetProgramPtr(program);
     optionLen = strlen(buildOptions);
     if (optionLen > 0) {
         if (programPtr->buildOptions != NULL) {
@@ -113,7 +194,7 @@ void voclStoreProgramBuildOptions(vocl_program program, char *buildOptions)
 char *voclGetProgramBuildOptions(vocl_program program)
 {
     struct strVOCLProgram *programPtr;
-    programPtr = getVOCLProgramPtr(program);
+    programPtr = voclGetProgramPtr(program);
     return programPtr->buildOptions;
 }
 
@@ -121,7 +202,7 @@ char *voclGetProgramBuildOptions(vocl_program program)
 void voclStoreProgramContext(vocl_program program, vocl_context context)
 {
     struct strVOCLProgram *programPtr;
-    programPtr = getVOCLProgramPtr(program);
+    programPtr = voclGetProgramPtr(program);
     programPtr->context = context;
     return;
 }
@@ -129,14 +210,14 @@ void voclStoreProgramContext(vocl_program program, vocl_context context)
 vocl_context voclGetContextFromProgram(vocl_program program)
 {
     struct strVOCLProgram *programPtr;
-    programPtr = getVOCLProgramPtr(program);
+    programPtr = voclGetProgramPtr(program);
     return programPtr->context;
 }
 
 void voclProgramSetMigrationStatus(vocl_program program, char status)
 {
 	struct strVOCLProgram *programPtr;
-	programPtr = getVOCLProgramPtr(program);
+	programPtr = voclGetProgramPtr(program);
 	programPtr->migrationStatus = status;
 	return;
 }
@@ -144,14 +225,14 @@ void voclProgramSetMigrationStatus(vocl_program program, char status)
 char voclProgramGetMigrationStatus(vocl_program program)
 {
 	struct strVOCLProgram *programPtr;
-	programPtr = getVOCLProgramPtr(program);
+	programPtr = voclGetProgramPtr(program);
 	return programPtr->migrationStatus;
 }
 
 char *voclGetProgramSource(vocl_program program, size_t * sourceSize)
 {
     struct strVOCLProgram *programPtr;
-    programPtr = getVOCLProgramPtr(program);
+    programPtr = voclGetProgramPtr(program);
 
     *sourceSize = programPtr->sourceSize;
     return programPtr->voclSourceString;
@@ -178,7 +259,7 @@ cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyRank,
 {
     /* the vocl program value indicates its location */
     /* in the event buffer */
-    struct strVOCLProgram *programPtr = getVOCLProgramPtr(program);
+    struct strVOCLProgram *programPtr = voclGetProgramPtr(program);
 
     *proxyRank = programPtr->proxyRank;
     *proxyIndex = programPtr->proxyIndex;
@@ -191,7 +272,7 @@ cl_program voclVOCLProgram2CLProgramComm(vocl_program program, int *proxyRank,
 void voclUpdateVOCLProgram(vocl_program voclProgram, cl_program newProgram, int proxyRank, int proxyIndex,
                            MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
-    struct strVOCLProgram *programPtr = getVOCLProgramPtr(voclProgram);
+    struct strVOCLProgram *programPtr = voclGetProgramPtr(voclProgram);
 
     programPtr->proxyRank = proxyRank;
     programPtr->proxyIndex = proxyIndex;
@@ -210,6 +291,22 @@ int voclReleaseProgram(vocl_program program)
     if (program == voclProgramPtr->voclProgram) {
         programPtr = voclProgramPtr;
         voclProgramPtr = voclProgramPtr->next;
+
+		if (programPtr->voclSourceString)
+		{
+			free(programPtr->voclSourceString);
+		}
+
+		if (programPtr->buildOptions)
+		{
+			free(programPtr->buildOptions);
+		}
+
+		if (programPtr->kernelPtr)
+		{
+			free(programPtr->kernelPtr);
+		}
+
         free(programPtr);
 
         return 0;
@@ -234,6 +331,21 @@ int voclReleaseProgram(vocl_program program)
 
     /* remote the current node from link list */
     preProgramPtr->next = curProgramPtr->next;
+	if (curProgramPtr->voclSourceString)
+	{
+		free(curProgramPtr->voclSourceString);
+	}
+
+	if (curProgramPtr->buildOptions)
+	{
+		free(curProgramPtr->buildOptions);
+	}
+
+	if (curProgramPtr->kernelPtr)
+	{
+		free(curProgramPtr->kernelPtr);
+	}
+
     free(curProgramPtr);
 
     return 0;

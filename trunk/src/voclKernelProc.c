@@ -25,7 +25,7 @@ static struct strVOCLKernel *createVOCLKernel()
     return kernelPtr;
 }
 
-static struct strVOCLKernel *getVOCLKernelPtr(vocl_kernel kernel)
+struct strVOCLKernel *voclGetKernelPtr(vocl_kernel kernel)
 {
     struct strVOCLKernel *kernelPtr;
     kernelPtr = voclKernelPtr;
@@ -85,7 +85,7 @@ vocl_kernel voclCLKernel2VOCLKernel(cl_kernel kernel, int proxyRank,
 
 void voclStoreKernelName(vocl_kernel kernel, char *kernelName)
 {
-    struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+    struct strVOCLKernel *kernelPtr = voclGetKernelPtr(kernel);
     int len = strlen(kernelName) + 1;
     kernelPtr->kernelName = (char *) malloc(len);
     strcpy(kernelPtr->kernelName, kernelName);
@@ -96,33 +96,33 @@ void voclStoreKernelName(vocl_kernel kernel, char *kernelName)
 void voclStoreKernelProgramContext(vocl_kernel kernel, vocl_program program,
                                    vocl_context context)
 {
-    struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+    struct strVOCLKernel *kernelPtr = voclGetKernelPtr(kernel);
     kernelPtr->program = program;
     kernelPtr->context = context;
 }
 
 vocl_program voclGetProgramFromKernel(vocl_kernel kernel)
 {
-    struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+    struct strVOCLKernel *kernelPtr = voclGetKernelPtr(kernel);
     return kernelPtr->program;
 }
 
 vocl_context voclGetContextFromKernel(vocl_kernel kernel)
 {
-    struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+    struct strVOCLKernel *kernelPtr = voclGetKernelPtr(kernel);
     return kernelPtr->context;
 }
 
 void voclKernelSetMigrationStatus(vocl_kernel kernel, char status)
 {
-	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+	struct strVOCLKernel *kernelPtr = voclGetKernelPtr(kernel);
 	kernelPtr->migrationStatus = status;
 	return;
 }
 
 char voclKernelGetMigrationStatus(vocl_kernel kernel)
 {
-	struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+	struct strVOCLKernel *kernelPtr = voclGetKernelPtr(kernel);
 	return kernelPtr->migrationStatus;
 }
 
@@ -130,7 +130,7 @@ cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
                                       int *proxyIndex, MPI_Comm * proxyComm,
                                       MPI_Comm * proxyCommData)
 {
-    struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+    struct strVOCLKernel *kernelPtr = voclGetKernelPtr(kernel);
     *proxyRank = kernelPtr->proxyRank;
     *proxyIndex = kernelPtr->proxyIndex;
     *proxyComm = kernelPtr->proxyComm;
@@ -141,14 +141,14 @@ cl_kernel voclVOCLKernel2CLKernelComm(vocl_kernel kernel, int *proxyRank,
 
 cl_kernel voclVOCLKernel2CLKernel(vocl_kernel kernel)
 {
-    struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(kernel);
+    struct strVOCLKernel *kernelPtr = voclGetKernelPtr(kernel);
     return kernelPtr->clKernel;
 }
 
 void voclUpdateVOCLKernel(vocl_kernel voclKernel, cl_kernel newKernel, int proxyRank, 
 						  int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData)
 {
-    struct strVOCLKernel *kernelPtr = getVOCLKernelPtr(voclKernel);
+    struct strVOCLKernel *kernelPtr = voclGetKernelPtr(voclKernel);
     int err;
 
     kernelPtr->proxyRank = proxyRank;
