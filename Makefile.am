@@ -12,6 +12,7 @@ libvocl_la_SOURCES = $(top_srcdir)/src/voclOpencl.c \
 					 $(top_srcdir)/src/voclWriteBufferProc.c \
 					 $(top_srcdir)/src/voclPlatformIDProc.c \
 					 $(top_srcdir)/src/voclDeviceIDProc.c \
+					 $(top_srcdir)/src/voclVirtualGPU.c \
 					 $(top_srcdir)/src/voclContextProc.c \
 					 $(top_srcdir)/src/voclCommandQueueProc.c \
 					 $(top_srcdir)/src/voclKernelPrototype.c \
