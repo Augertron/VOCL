@@ -78,9 +78,8 @@ void voclMigUpdateVirtualGPU(int origProxyIndex, vocl_device_id origDeviceID,
 			  VOCL_UPDATE_VGPU, comm, request+(requestNo++));
 	MPI_Isend(msgBuf, vgpuMigMsgSize, MPI_BYTE, proxyRank, VOCL_UPDATE_VGPU,
 			  commData, request+(requestNo++));
-
-	MPI_Irecv(&tmpMigUpdateVGPU, sizeof(struct strMigUpdateVGPU), MPI_BYTE, proxyRank,
-			VOCL_UPDATE_VGPU, comm, request+(requestNo++));
+	MPI_Irecv(msgBuf, vgpuMigMsgSize, MPI_BYTE, proxyRank, VOCL_UPDATE_VGPU,
+			  commData, request+(requestNo++));
 	MPI_Waitall(requestNo, request, status);
 
 	voclUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, proxyIndex,
