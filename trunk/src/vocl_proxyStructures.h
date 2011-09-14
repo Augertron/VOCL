@@ -98,6 +98,7 @@ typedef struct strVoclProxyContext {
 typedef struct strVoclVirtualGPU {
     int appIndex;
 	cl_device_id deviceID;
+	cl_device_id oldDeviceID;
 	int proxyRank;
 
     cl_uint contextNum, contextNo;  /* buffer size and number of contexts created */
@@ -120,6 +121,69 @@ typedef struct voclProxyVirtualGPUMig {
 	cl_uint memNum;
 	size_t size;
 } vocl_vgpu_msg;
+
+/* structures used for update virtual gpu info on the local side */
+/* vocl structures used for update virtual gpu info */
+typedef struct strVOCLMigMem {
+    cl_mem mem;
+    char migStatus;
+    char padding[3];
+} vocl_mig_mem;
+
+typedef struct strVOCLMigCommandQueue {
+    cl_command_queue command_queue;
+    char migStatus;
+    char padding[3];
+} vocl_mig_command_queue;
+
+typedef struct strVOCLMigSampler {
+    cl_sampler sampler;
+    char migStatus;
+    char padding[3];
+} vocl_mig_sampler;
+
+typedef struct strVOCLMigKernel {
+    cl_kernel kernel;
+    char migStatus;
+    char padding[3];
+} vocl_mig_kernel;
+
+typedef struct strVOCLMigProgram {
+    cl_program program;
+    char migStatus;
+    char padding[3];
+
+    cl_uint kernelNo;
+    cl_kernel *kernelPtr;
+} vocl_mig_program;
+
+typedef struct strVOCLMigContext {
+    cl_context context;
+    char migStatus;
+    char padding[3];
+
+    cl_uint programNo;
+    cl_program *programPtr;
+
+    cl_uint memNo;
+    cl_mem *memPtr;
+
+    cl_uint cmdQueueNo;
+    cl_command_queue *cmdQueuePtr;
+
+    cl_uint samplerNo;
+    cl_sampler *samplerPtr;
+} vocl_mig_context;
+
+typedef struct strVOCLMigVGPU {
+    cl_device_id deviceID;
+    int proxyIndex, proxyRank;
+    char migStatus;
+    char padding[3];
+
+    cl_uint contextNo;
+    cl_context *contextPtr;
+} vocl_mig_vgpu;
 
 #endif
 

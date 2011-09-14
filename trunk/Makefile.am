@@ -25,6 +25,7 @@ libvocl_la_SOURCES = $(top_srcdir)/src/voclOpencl.c \
 					 $(top_srcdir)/src/voclSamplerProc.c \
 					 $(top_srcdir)/src/voclDynamicOpenCLLoad.c \
 					 $(top_srcdir)/src/voclMigrationDataTransfer.c \
+					 $(top_srcdir)/src/voclMigration.c \
 					 $(top_srcdir)/src/voclMigBufferProc.c \
 					 $(top_srcdir)/src/voclLoadBalance.c \
 					 $(top_srcdir)/src/voclWinProc.c
