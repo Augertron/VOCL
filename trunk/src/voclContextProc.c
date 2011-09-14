@@ -49,6 +49,10 @@ void voclContextSetDevices(vocl_context context, cl_uint deviceNum, vocl_device_
 	contextPtr = voclGetContextPtr(context);
 
 	contextPtr->deviceNum = deviceNum;
+	if (contextPtr->voclDevices != NULL)
+	{
+		free(contextPtr->voclDevices);
+	}
 	contextPtr->voclDevices = (vocl_device_id *)malloc(sizeof(vocl_device_id) * deviceNum);
 	memcpy(contextPtr->voclDevices, devices, sizeof(vocl_device_id) * deviceNum);
 

@@ -20,7 +20,9 @@ typedef @vocl_sampler@ vocl_sampler;
 /* but the program can automatically double */
 /* the size as required */
 #define VOCL_BUFF_NUM        200
+#define VOCL_EVENT_NULL -1
 
+/* vocl structure for opencl resources management */
 typedef struct strVOCLPlatformID {
     cl_platform_id clPlatformID;
     vocl_platform_id voclPlatformID;
@@ -172,7 +174,6 @@ typedef struct strVOCLContext {
     struct strVOCLContext *next;
 } vocl_context_str;
 
-/* vritual GPU structure */
 typedef struct strVOCLGPU {
 	int proxyIndex;
 	int proxyRank;
@@ -190,7 +191,69 @@ typedef struct strVOCLGPU {
 	struct strVOCLGPU *next;
 } vocl_gpu_str;
 
-#define VOCL_EVENT_NULL -1
+
+/* vocl structures used for update virtual gpu info */
+typedef struct strVOCLMigMem {
+	cl_mem mem;
+	char migStatus;
+	char padding[3];
+} vocl_mig_mem;
+
+typedef struct strVOCLMigCommandQueue {
+	cl_command_queue command_queue;
+	char migStatus;
+	char padding[3];
+} vocl_mig_command_queue;
+
+typedef struct strVOCLMigSampler {
+	cl_sampler sampler;
+	char migStatus;
+	char padding[3];
+} vocl_mig_sampler;
+
+typedef struct strVOCLMigKernel {
+	cl_kernel kernel;
+	char migStatus;
+	char padding[3];
+} vocl_mig_kernel;
+
+typedef struct strVOCLMigProgram {
+	cl_program program;
+	char migStatus;
+	char padding[3];
+
+	cl_uint kernelNo;
+	cl_kernel *kernelPtr;
+} vocl_mig_program;
+
+typedef struct strVOCLMigContext {
+	cl_context context;
+	char migStatus;
+	char padding[3];
+
+	cl_uint programNo;
+	cl_program *programPtr;
+
+	cl_uint memNo;
+	cl_mem *memPtr;
+
+	cl_uint cmdQueueNo;
+	cl_command_queue *cmdQueuePtr;
+
+	cl_uint samplerNo;
+	cl_sampler *samplerPtr;
+} vocl_mig_context;
+
+typedef struct strVOCLMigVGPU {
+	cl_device_id deviceID;
+	int proxyIndex, proxyRank;
+	char migStatus;
+	char padding[3];
+
+	cl_uint contextNo;
+	cl_context *contextPtr;
+} vocl_mig_vgpu;
+
 
 /* structures used for buffer pool */
 struct strReadBufferInfo {

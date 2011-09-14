@@ -1250,9 +1250,6 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 		}
 	}
 
-	/* acquire the locker to send out message */
-//	voclMigrationMutexLock(proxyIndex);
-
     /* local GPU, call native opencl function */
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         errCode = dlCLEnqueueWriteBuffer(tmpEnqueueWriteBuffer.command_queue,
@@ -1348,9 +1345,6 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 		}
 		MPI_Waitall(requestNo, request, status);
 	}
-
-    /* release the locker */
-//	voclMigrationMutexUnlock(proxyIndex);
 
 	/* command queue is the value before the migration, so local update is needed */
 	if (cmdQueueMigOperation = VOCL_MIG_UPDATE)
