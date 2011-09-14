@@ -802,21 +802,6 @@ int main(int argc, char *argv[])
 				requestNo = 0;
 			}
 
-//			migOperation = VOCL_MIG_NOUPDATE;
-//			if (tmpEnqueueWriteBuffer.cmdQueueMigStatus == VOCL_MIG_UPDATE)
-//			{
-//				tmpEnqueueWriteBuffer.command_queue = voclProxyGetNewCommandQueueValue(tmpEnqueueWriteBuffer.command_queue);
-//				tmpEnqueueWriteBuffer.cmdQueueMigStatus = voclProxyGetCommandQueueMigStatus(tmpEnqueueWriteBuffer.command_queue);
-//				migOperation = VOCL_MIG_UPDATE;
-//			}
-//
-//			if (tmpEnqueueWriteBuffer.memMigStatus == VOCL_MIG_UPDATE)
-//			{
-//				tmpEnqueueWriteBuffer.buffer = voclProxyGetNewMemValue(tmpEnqueueWriteBuffer.buffer);
-//				tmpEnqueueWriteBuffer.memMigStatus = voclProxyGetMemMigStatus(tmpEnqueueWriteBuffer.buffer);
-//				migOperation = VOCL_MIG_UPDATE;
-//			}
-
 			/* issue MPI data receive */
 			bufferSize = VOCL_PROXY_WRITE_BUFFER_SIZE;
 			bufferNum = (tmpEnqueueWriteBuffer.cb - 1) / bufferSize;
@@ -891,12 +876,6 @@ int main(int argc, char *argv[])
 							  appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
 							  curRequest + (requestNo++));
 				}
-//				else if (migOperation == VOCL_MIG_UPDATE)
-//				{
-//					MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE,
-//							  appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
-//							  curRequest + (requestNo++));
-//				}
 				else
 				{
 					MPI_Isend(NULL, 0, MPI_BYTE, appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
@@ -959,7 +938,6 @@ int main(int argc, char *argv[])
 //			voclProxyIncreaseKernelNumInCmdQueue(enqueueNDRangeKernel->command_queue, 1);
 //			pthread_mutex_unlock(&voclCmdQueuePtr->lock);
 //
-//
 //			if (kernelLaunchThreadExecuting == 0)
 //			{
 //				kernelLaunchThreadExecuting = 1;
@@ -997,23 +975,6 @@ int main(int argc, char *argv[])
 			}
 
 			MPI_Waitall(requestNo, curRequest, curStatus);
-
-//			migOperation = VOCL_MIG_NOUPDATE;
-//			if (tmpEnqueueNDRangeKernel.cmdQueueMigStatus == VOCL_MIG_UPDATE)
-//			{
-//				tmpEnqueueNDRangeKernel.command_queue = voclProxyGetNewCommandQueueValue(tmpEnqueueNDRangeKernel.command_queue);
-//				kernelLaunchReply.command_queue = tmpEnqueueNDRangeKernel.command_queue;
-//				kernelLaunchReply.cmdQueueMigStatus = voclProxyGetCommandQueueMigStatus(tmpEnqueueNDRangeKernel.command_queue);
-//				migOperation = VOCL_MIG_UPDATE;
-//			}
-//
-//			if (tmpEnqueueNDRangeKernel.kernelMigStatus == VOCL_MIG_UPDATE)
-//			{
-//				tmpEnqueueNDRangeKernel.kernel = voclProxyGetNewKernelValue(tmpEnqueueNDRangeKernel.kernel);
-//				kernelLaunchReply.kernel = tmpEnqueueNDRangeKernel.kernel;
-//				kernelLaunchReply.kernelMigStatus = voclProxyGetKernelMigStatus(tmpEnqueueNDRangeKernel.kernel);
-//				migOperation = VOCL_MIG_UPDATE;
-//			}
 
 			paramOffset = 0;
 			if (tmpEnqueueNDRangeKernel.global_work_offset_flag == 1) {
@@ -1070,7 +1031,6 @@ int main(int argc, char *argv[])
 
 			requestNo = 0;
 			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
-//				migOperation == VOCL_MIG_UPDATE)
 			{
 				MPI_Isend(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply),
 					  MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL, appComm[commIndex],
@@ -1114,21 +1074,6 @@ int main(int argc, char *argv[])
 						  curRequest);
 				MPI_Wait(curRequest, curStatus);
 			}
-
-//			migOperation = VOCL_MIG_NOUPDATE;
-//            if (tmpEnqueueReadBuffer.cmdQueueMigStatus == VOCL_MIG_UPDATE)
-//            {
-//                tmpEnqueueReadBuffer.command_queue = voclProxyGetNewCommandQueueValue(tmpEnqueueReadBuffer.command_queue);
-//                tmpEnqueueReadBuffer.cmdQueueMigStatus = voclProxyGetCommandQueueMigStatus(tmpEnqueueReadBuffer.command_queue);
-//                migOperation = VOCL_MIG_UPDATE;
-//            }
-//
-//            if (tmpEnqueueReadBuffer.memMigStatus == VOCL_MIG_UPDATE)
-//            {
-//                tmpEnqueueReadBuffer.buffer = voclProxyGetNewMemValue(tmpEnqueueReadBuffer.buffer);
-//                tmpEnqueueReadBuffer.memMigStatus = voclProxyGetMemMigStatus(tmpEnqueueReadBuffer.buffer);
-//                migOperation = VOCL_MIG_UPDATE;
-//            }
 
 			bufferSize = VOCL_PROXY_READ_BUFFER_SIZE;
 			bufferNum = (tmpEnqueueReadBuffer.cb - 1) / VOCL_PROXY_READ_BUFFER_SIZE;
@@ -1180,11 +1125,6 @@ int main(int argc, char *argv[])
         else if (status.MPI_TAG == RELEASE_MEM_OBJ) {
             memcpy(&tmpReleaseMemObject, conMsgBuffer[index], sizeof(tmpReleaseMemObject));
 
-//			if (tmpReleaseMemObject.migStatus == VOCL_MIG_UPDATE)
-//			{
-//				tmpReleaseMemObject.memobj = voclProxyGetNewMemValue(tmpReleaseMemObject.memobj);
-//			}
-
 			/*release the memory */
 			memPtr = voclProxyGetMemPtr(tmpReleaseMemObject.memobj);
 			voclProxyRemoveMemFromContext(memPtr);
@@ -1199,11 +1139,6 @@ int main(int argc, char *argv[])
 
         else if (status.MPI_TAG == CL_RELEASE_KERNEL_FUNC) {
             memcpy(&tmpReleaseKernel, conMsgBuffer[index], sizeof(tmpReleaseKernel));
-
-//			if (tmpReleaseKernel.migStatus == VOCL_MIG_UPDATE)
-//			{
-//				tmpReleaseKernel.kernel = voclProxyGetNewKernelValue(tmpReleaseKernel.kernel);
-//			}
 
 			/* release kernel */
 			kernelPtr = voclProxyGetKernelPtr(tmpReleaseKernel.kernel);
@@ -1234,13 +1169,6 @@ int main(int argc, char *argv[])
 //			}
 
             memcpy(&tmpFinish, conMsgBuffer[index], sizeof(tmpFinish));
-
-//			migOperation = VOCL_MIG_NOUPDATE;
-//			if (tmpFinish.migStatus == VOCL_MIG_UPDATE)
-//			{
-//				tmpFinish.command_queue = voclProxyGetNewCommandQueueValue(tmpFinish.command_queue);
-//				migOperation = VOCL_MIG_UPDATE;
-//			}
 
             processAllWrites(appIndex);
             processAllReads(appIndex);
@@ -1334,11 +1262,6 @@ int main(int argc, char *argv[])
         else if (status.MPI_TAG == REL_PROGRAM_FUNC) {
             memcpy(&tmpReleaseProgram, conMsgBuffer[index], sizeof(tmpReleaseProgram));
 
-//			if (tmpReleaseProgram.migStatus == VOCL_MIG_UPDATE)
-//			{
-//				tmpReleaseProgram.program = voclProxyGetNewProgramValue(tmpReleaseProgram.program);
-//			}
-
 			/* release program */
 			programPtr = voclProxyGetProgramPtr(tmpReleaseProgram.program);
 			voclProxyRemoveProgramFromContext(programPtr);
@@ -1354,11 +1277,6 @@ int main(int argc, char *argv[])
             memcpy(&tmpReleaseCommandQueue, conMsgBuffer[index],
                    sizeof(tmpReleaseCommandQueue));
 
-//			if (tmpReleaseCommandQueue.migStatus == VOCL_MIG_UPDATE)
-//			{
-//				tmpReleaseCommandQueue.command_queue = voclProxyGetNewCommandQueueValue(tmpReleaseCommandQueue.command_queue);
-//			}
-
 			/* release command queue */
 			cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpReleaseCommandQueue.command_queue);
 			voclProxyRemoveCommandQueueFromContext(cmdQueuePtr);
@@ -1373,11 +1291,6 @@ int main(int argc, char *argv[])
 
         else if (status.MPI_TAG == REL_CONTEXT_FUNC) {
             memcpy(&tmpReleaseContext, conMsgBuffer[index], sizeof(tmpReleaseContext));
-
-//			if (tmpReleaseContext.migStatus == VOCL_MIG_UPDATE)
-//			{
-//				tmpReleaseContext.context = voclProxyGetNewContextValue(tmpReleaseContext.context);
-//			}
 
 			/* release context */
 			contextPtr = voclProxyGetContextPtr(tmpReleaseContext.context);
