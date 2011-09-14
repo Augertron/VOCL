@@ -23,7 +23,7 @@ static struct strVOCLDeviceID *createVOCLDeviceID()
     return devicePtr;
 }
 
-static struct strVOCLDeviceID *getVOCLDeviceIDPtr(vocl_device_id device)
+static struct strVOCLDeviceID *voclGetDeviceIDPtr(vocl_device_id device)
 {
     struct strVOCLDeviceID *devicePtr;
     devicePtr = voclDeviceIDPtr;
@@ -83,7 +83,7 @@ cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyRa
                                              int *proxyIndex, MPI_Comm * proxyComm,
                                              MPI_Comm * proxyCommData)
 {
-    struct strVOCLDeviceID *devicePtr = getVOCLDeviceIDPtr(device);
+    struct strVOCLDeviceID *devicePtr = voclGetDeviceIDPtr(device);
     *proxyRank = devicePtr->proxyRank;
     *proxyIndex = devicePtr->proxyIndex;
     *proxyComm = devicePtr->proxyComm;
@@ -96,7 +96,7 @@ void voclUpdateVOCLDeviceID(vocl_device_id voclDevice, int proxyRank,
                             int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData,
                             cl_device_id clDevice)
 {
-    struct strVOCLDeviceID *devicePtr = getVOCLDeviceIDPtr(voclDevice);
+    struct strVOCLDeviceID *devicePtr = voclGetDeviceIDPtr(voclDevice);
     devicePtr->clDeviceID = clDevice;
     devicePtr->proxyRank = proxyRank;
     devicePtr->proxyIndex = proxyIndex;
