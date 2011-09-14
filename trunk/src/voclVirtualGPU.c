@@ -6,6 +6,30 @@
 extern vocl_device_id voclCLDeviceID2VOCLDeviceID(cl_device_id device, int proxyRank,
                                            int proxyIndex, MPI_Comm proxyComm,
                                            MPI_Comm proxyCommData);
+extern void voclUpdateVOCLContext(vocl_context voclContext, cl_context newContext, int proxyRank,
+                           int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern void voclContextSetDevices(vocl_context context, cl_uint deviceNum, vocl_device_id *devices);
+extern void voclContextSetMigrationStatus(vocl_context context, char status);
+
+extern void voclUpdateVOCLProgram(vocl_program voclProgram, cl_program newProgram, int proxyRank, int proxyIndex,
+                           MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern void voclProgramSetMigrationStatus(vocl_program program, char status);
+
+extern void voclUpdateVOCLKernel(vocl_kernel voclKernel, cl_kernel newKernel, int proxyRank,
+                          int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern void voclKernelSetMigrationStatus(vocl_kernel kernel, char status);
+
+extern void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, cl_command_queue newCmdQueue,
+                                int proxyRank, int proxyIndex, MPI_Comm comm, MPI_Comm commData);
+extern void voclCommandQueueSetMigrationStatus(vocl_command_queue cmdQueue, char status);
+
+extern void voclUpdateVOCLMemory(vocl_mem voclMemory, cl_mem newMem, int proxyRank, int proxyIndex,
+                          MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern void voclMemSetMigrationStatus(vocl_mem mem, char status);
+
+extern void voclUpdateVOCLSampler(vocl_sampler voclSampler, cl_sampler newSampler, int proxyRank, int proxyIndex,
+                           MPI_Comm proxyComm, MPI_Comm proxyCommData);
+extern void voclSamplerSetMigrationStatus(vocl_sampler sampler, char status);
 
 static vocl_gpu_str *voclVGPUPtr = NULL;
 //static char *voclVGPUResourceBuffer = NULL;
@@ -609,7 +633,7 @@ void voclUpdateVirtualGPU(int proxyIndex, vocl_device_id device,
 			msgOffset += sizeof(vocl_mig_mem);
 
 			voclUpdateVOCLMemory(memPtr[j]->voclMemory,
-					newProxyRank, newProxyIndex,
+					mmPtr->mem, newProxyRank, newProxyIndex,
 					newProxyComm, newProxyCommData);
 			voclMemSetMigrationStatus(memPtr[j]->voclMemory,
 					mmPtr->migStatus);
