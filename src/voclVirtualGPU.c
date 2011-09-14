@@ -11,7 +11,7 @@ extern cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *
                                              MPI_Comm * proxyCommData);
 extern void voclUpdateVOCLContext(vocl_context voclContext, cl_context newContext, int proxyRank,
                            int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
-extern void voclContextSetDevices(vocl_context context, cl_uint deviceNum, vocl_device_id *devices);
+extern void voclContextStoreDevices(vocl_context context, cl_uint deviceNum, vocl_device_id *devices);
 extern void voclContextSetMigrationStatus(vocl_context context, char status);
 
 extern void voclUpdateVOCLProgram(vocl_program voclProgram, cl_program newProgram, int proxyRank, int proxyIndex,
@@ -24,6 +24,7 @@ extern void voclKernelSetMigrationStatus(vocl_kernel kernel, char status);
 
 extern void voclUpdateVOCLCommandQueue(vocl_command_queue voclCmdQueue, cl_command_queue newCmdQueue,
                                 int proxyRank, int proxyIndex, MPI_Comm comm, MPI_Comm commData);
+extern void voclStoreCmdQueueDeviceID(vocl_command_queue cmdQueue, vocl_device_id deviceID);
 extern void voclCommandQueueSetMigrationStatus(vocl_command_queue cmdQueue, char status);
 
 extern void voclUpdateVOCLMemory(vocl_mem voclMemory, cl_mem newMem, int proxyRank, int proxyIndex,
@@ -541,7 +542,7 @@ void voclUpdateVirtualGPU(int origProxyIndex, vocl_device_id device,
 		voclUpdateVOCLContext(contextPtr[i]->voclContext,
 				ctxPtr->context, newProxyRank, newProxyIndex,
 				newProxyComm, newProxyCommData);
-		voclContextSetDevices(contextPtr[i]->voclContext,
+		voclContextStoreDevices(contextPtr[i]->voclContext,
 				1, &voclDeviceID);
 		voclContextSetMigrationStatus(contextPtr[i]->voclContext,
 				ctxPtr->migStatus);
@@ -586,6 +587,7 @@ void voclUpdateVirtualGPU(int origProxyIndex, vocl_device_id device,
 					newProxyComm, newProxyCommData);
 			voclCommandQueueSetMigrationStatus(cmdQueuePtr[j]->voclCommandQueue,
 					cqPtr->migStatus);
+			voclStoreCmdQueueDeviceID(cmdQueuePtr[j]->voclCommandQueue, voclDeviceID);
 		}
 
 		/* update mem info */

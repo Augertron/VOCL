@@ -67,7 +67,6 @@ extern vocl_context voclCLContext2VOCLContext(cl_context context, int proxyRank,
 extern cl_context voclVOCLContext2CLContextComm(vocl_context context, int *proxyRank,
                                                 int *proxyIndex, MPI_Comm * proxyComm,
                                                 MPI_Comm * proxyCommData);
-extern void voclContextSetDevices(vocl_context context, cl_uint deviceNum, vocl_device_id *devices);
 extern vocl_device_id * voclContextGetDevices(vocl_context context, cl_uint *deviceNum);
 extern void voclAddMemToContext(vocl_context context, vocl_mem_str *memPtr);
 extern void voclRemoveMemFromContext(vocl_mem_str *memPtr);
