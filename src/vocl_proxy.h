@@ -429,6 +429,10 @@ struct strMigRemoteGPUMemoryRW {
 	int res;
 };
 
+struct strMigUpdateVGPU {
+	size_t msgSize;
+};
+
 struct strMigRemoteGPURWCmpd {
 	int    res;
 };
@@ -494,6 +498,7 @@ union CMSG_UNION {
     struct strMigGPUMemoryWriteCmpd tmpMigWriteCmpd;
     struct strMigGPUMemoryReadCmpd tmpMigReadCmpd;
 	struct strMigRemoteGPUMemoryRW tmpMigGPUMemRW;
+	struct strMigUpdateVGPU tmpMigUpdateVGPU;
 	struct strMigRemoteGPURWCmpd tmpMigGPUMemRWCmpd;
 	struct strForcedMigration tmpForcedMigration;
 	struct strKernelNumOnDevice tmpKernelNumOnDevice;

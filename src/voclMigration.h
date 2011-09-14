@@ -54,4 +54,8 @@ struct strMigRWLocalBuffer {
     cl_event wtEvent;
 };
 
+struct strMigUpdateVGPU {
+	size_t msgSize;
+};
+
 #endif

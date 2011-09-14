@@ -13,6 +13,7 @@ void voclProxyAddVirtualGPU(int appIndex, int proxyRank, cl_device_id deviceID)
 	vgpuPtr = (vocl_virtual_gpu *)malloc(sizeof(vocl_virtual_gpu));
 	vgpuPtr->appIndex = appIndex;
 	vgpuPtr->deviceID = deviceID;
+	vgpuPtr->oldDeviceID = NULL;
 	vgpuPtr->proxyRank = proxyRank;
 
 	vgpuPtr->contextNum = 100;
@@ -88,6 +89,33 @@ void voclProxySetVGPUMigStatus(int appIndex, cl_device_id deviceID, char migStat
 	vocl_virtual_gpu *vgpuPtr;
 	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
 	vgpuPtr->migStatus = migStatus;
+
+	return;
+}
+
+cl_device_id voclProxyNewVGPUDeviceID(int appIndex, cl_device_id oldDeviceID)
+{
+	vocl_virtual_gpu *vgpuPtr;
+	
+	vgpuPtr = virtualGPUPtr;
+	while (vgpuPtr != NULL)
+	{
+		if (vgpuPtr->appIndex == appIndex && vgpuPtr->oldDeviceID == oldDeviceID)
+		{
+			break;
+		}
+		vgpuPtr = vgpuPtr->next;
+	}
+
+	if (vgpuPtr == NULL)
+	{
+		printf("voclProxyGetNewVGPUDeviceID, virtual GPU with appRank %d and old device id %p does not exist!\n",
+				appIndex, oldDeviceID);
+		exit (1);
+	}
+
+	return vgpuPtr->oldDeviceID;
+
 }
 
 char voclProxyUpdateVGPUMigStatus(int appIndex, cl_device_id deviceID)
@@ -97,6 +125,15 @@ char voclProxyUpdateVGPUMigStatus(int appIndex, cl_device_id deviceID)
 	vgpuPtr->migStatus++;
 
 	return vgpuPtr->migStatus;
+}
+
+void voclProxyStoreVGPUOldDeviceID(int appIndex, cl_device_id deviceID, cl_device_id oldDeviceID)
+{
+    vocl_virtual_gpu *vgpuPtr;
+    vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+    vgpuPtr->oldDeviceID = oldDeviceID;
+
+	return;
 }
 
 char voclProxyGetVGPUMigStatus(int appIndex, cl_device_id deviceID)
@@ -208,7 +245,8 @@ void voclProxyGetMessageSizeForVGPU(vocl_virtual_gpu *vgpuPtr, vocl_vgpu_msg *ms
         msgPtr->cmdQueueNum += contextPtr[i]->cmdQueueNo;
         msgPtr->memNum += contextPtr[i]->memNo;
     }
-
+	
+	msgSize += sizeof(vocl_virtual_gpu);
     msgSize += msgPtr->contextNum * sizeof(vocl_proxy_context);
     msgSize += msgPtr->programNum * sizeof(vocl_proxy_program);
     msgSize += msgPtr->kernelNum * sizeof(vocl_proxy_kernel);
@@ -237,6 +275,9 @@ void voclProxyPackMessageForVGPU(vocl_virtual_gpu *vgpuPtr, char *bufPtr)
 //  vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
 
     offset = 0;
+	memcpy(bufPtr+offset, vgpuPtr, sizeof(vocl_virtual_gpu));
+	offset += sizeof(vocl_virtual_gpu);
+
     contextPtr = vgpuPtr->contextPtr;
     for (i = 0; i < vgpuPtr->contextNo; i++)
     {
