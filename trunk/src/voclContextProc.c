@@ -43,7 +43,7 @@ struct strVOCLContext *voclGetContextPtr(vocl_context context)
     return contextPtr;
 }
 
-void voclContextSetDevices(vocl_context context, cl_uint deviceNum, vocl_device_id *devices)
+void voclContextStoreDevices(vocl_context context, cl_uint deviceNum, vocl_device_id *devices)
 {
 	vocl_context_str *contextPtr;
 	contextPtr = voclGetContextPtr(context);

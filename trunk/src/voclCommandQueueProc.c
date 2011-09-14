@@ -96,6 +96,14 @@ void voclStoreCmdQueueProperties(vocl_command_queue cmdQueue,
     return;
 }
 
+void voclStoreCmdQueueDeviceID(vocl_command_queue cmdQueue, vocl_device_id deviceID)
+{
+    struct strVOCLCommandQueue *commandQueuePtr = voclGetCommandQueuePtr(cmdQueue);
+    commandQueuePtr->deviceID = deviceID;
+
+    return;
+}
+
 vocl_device_id voclGetCommandQueueDeviceID(vocl_command_queue cmdQueue)
 {
     struct strVOCLCommandQueue *commandQueuePtr = voclGetCommandQueuePtr(cmdQueue);
