@@ -1770,7 +1770,6 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
         voclVOCLEvents2CLEvents((vocl_event *) event_wait_list, eventList,
                                 num_events_in_wait_list);
     }
-
 	tmpEnqueueReadBuffer.buffer =
 		voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
 									&proxyCommData);
@@ -1902,9 +1901,9 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     }
 
     /* receive all data */
+	bufferSize = VOCL_READ_BUFFER_SIZE;
     bufferNum = (cb - 1) / bufferSize;
     remainingSize = cb - bufferNum * bufferSize;
-	bufferSize = VOCL_READ_BUFFER_SIZE;
 
     for (i = 0; i <= bufferNum; i++) {
         if (i == bufferNum) {
@@ -2093,7 +2092,6 @@ cl_int clFinish(cl_command_queue command_queue)
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
 //	tmpFinish.migStatus = cmdQueueMigStatus;
 //	migOperation = VOCL_MIG_NOUPDATE;
-
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
@@ -2111,7 +2109,6 @@ cl_int clFinish(cl_command_queue command_queue)
 			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 													&proxyIndex, &proxyComm, &proxyCommData);
 	}
-
 
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         tmpFinish.res = dlCLFinish(tmpFinish.command_queue);

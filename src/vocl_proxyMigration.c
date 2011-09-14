@@ -747,6 +747,7 @@ void vocl_proxyUpdateVirtualGPUInfo(int appIndex, char *msgBuf)
     vocl_mig_sampler *spPtr;
     vocl_mig_vgpu *vgPtr;
     size_t msgOffset;
+	char migStatus;
 
     msgOffset = 0;
     vgPtr = (vocl_mig_vgpu *)(msgBuf + msgOffset);
@@ -764,7 +765,8 @@ void vocl_proxyUpdateVirtualGPUInfo(int appIndex, char *msgBuf)
 
         /* update context info */
 		ctxPtr->context = voclProxyGetNewContextValue(ctxPtr->context);
-		ctxPtr->migStatus = voclProxyGetContextMigStatus(ctxPtr->context);
+		migStatus = voclProxyGetContextMigStatus(ctxPtr->context);
+		ctxPtr->migStatus = migStatus;
 
         /* update program info */
         for (j = 0; j < ctxPtr->programNo; j++)
@@ -773,7 +775,8 @@ void vocl_proxyUpdateVirtualGPUInfo(int appIndex, char *msgBuf)
             msgOffset += sizeof(vocl_mig_program);
 
 			pgPtr->program = voclProxyGetNewProgramValue(pgPtr->program);
-			pgPtr->migStatus = voclProxyGetProgramMigStatus(pgPtr->program);
+			migStatus = voclProxyGetProgramMigStatus(pgPtr->program);
+			pgPtr->migStatus = migStatus;
 
             /* update kernel info */
             for (k = 0; k < pgPtr->kernelNo; k++)
@@ -782,7 +785,8 @@ void vocl_proxyUpdateVirtualGPUInfo(int appIndex, char *msgBuf)
                 msgOffset += sizeof(vocl_mig_kernel);
 
 				knPtr->kernel = voclProxyGetNewKernelValue(knPtr->kernel);
-				knPtr->migStatus = voclProxyGetKernelMigStatus(knPtr->kernel);
+				migStatus = voclProxyGetKernelMigStatus(knPtr->kernel);
+				knPtr->migStatus = migStatus;
             }
         }
 
@@ -793,7 +797,8 @@ void vocl_proxyUpdateVirtualGPUInfo(int appIndex, char *msgBuf)
             msgOffset += sizeof(vocl_mig_command_queue);
 
 			cqPtr->command_queue = voclProxyGetNewCommandQueueValue(cqPtr->command_queue);
-			cqPtr->migStatus = voclProxyGetCommandQueueMigStatus(cqPtr->command_queue);
+			migStatus = voclProxyGetCommandQueueMigStatus(cqPtr->command_queue);
+			cqPtr->migStatus = migStatus;
         }
 
         /* update mem info */
@@ -803,7 +808,8 @@ void vocl_proxyUpdateVirtualGPUInfo(int appIndex, char *msgBuf)
             msgOffset += sizeof(vocl_mig_mem);
 
 			mmPtr->mem = voclProxyGetNewMemValue(mmPtr->mem);
-			mmPtr->migStatus = voclProxyGetMemMigStatus(mmPtr->mem);
+			migStatus = voclProxyGetMemMigStatus(mmPtr->mem);
+			mmPtr->migStatus = migStatus;
         }
 
         /* update sampler info */

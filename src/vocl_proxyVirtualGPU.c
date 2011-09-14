@@ -114,7 +114,7 @@ cl_device_id voclProxyNewVGPUDeviceID(int appIndex, cl_device_id oldDeviceID)
 		exit (1);
 	}
 
-	return vgpuPtr->oldDeviceID;
+	return vgpuPtr->deviceID;
 
 }
 

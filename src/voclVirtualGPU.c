@@ -6,6 +6,9 @@
 extern vocl_device_id voclCLDeviceID2VOCLDeviceID(cl_device_id device, int proxyRank,
                                            int proxyIndex, MPI_Comm proxyComm,
                                            MPI_Comm proxyCommData);
+extern cl_device_id voclVOCLDeviceID2CLDeviceIDComm(vocl_device_id device, int *proxyRank,
+                                             int *proxyIndex, MPI_Comm * proxyComm,
+                                             MPI_Comm * proxyCommData);
 extern void voclUpdateVOCLContext(vocl_context voclContext, cl_context newContext, int proxyRank,
                            int proxyIndex, MPI_Comm proxyComm, MPI_Comm proxyCommData);
 extern void voclContextSetDevices(vocl_context context, cl_uint deviceNum, vocl_device_id *devices);
@@ -383,7 +386,7 @@ size_t voclGetVGPUMsgSize(int proxyIndex, vocl_device_id device)
 	return vgpuMsgSize;
 }
 
-void voclPackVGPUMigMsg(int proxyIndex, vocl_device_id device, char *msgBuf)
+void voclPackVGPUMigMsg(int origProxyIndex, vocl_device_id device, char *msgBuf)
 {
 	cl_uint i, j, k;
 	vocl_gpu_str *vgpuPtr;
@@ -400,9 +403,14 @@ void voclPackVGPUMigMsg(int proxyIndex, vocl_device_id device, char *msgBuf)
 	vocl_mig_command_queue *cqPtr;
 	vocl_mig_sampler *spPtr;
 	vocl_mig_vgpu *vgPtr;
+	cl_device_id clDeviceID;
+	int proxyRank, proxyIndex;
+	MPI_Comm proxyComm, proxyCommData;
 	size_t msgOffset;
 
-	vgpuPtr = voclGetVirtualGPUPtr(proxyIndex, device);
+	vgpuPtr = voclGetVirtualGPUPtr(origProxyIndex, device);
+	clDeviceID = voclVOCLDeviceID2CLDeviceIDComm(vgpuPtr->deviceID, &proxyRank,
+                     &proxyIndex, &proxyComm, &proxyCommData);
 	
 	msgOffset = 0;
 
@@ -410,6 +418,7 @@ void voclPackVGPUMigMsg(int proxyIndex, vocl_device_id device, char *msgBuf)
 	vgPtr = (vocl_mig_vgpu *)(msgBuf + msgOffset);
 	msgOffset += sizeof(vocl_mig_vgpu);
 	vgPtr->contextNo = vgpuPtr->contextNo;
+	vgPtr->deviceID = clDeviceID;
 
 	contextPtr = vgpuPtr->contextPtr;
 	for (i = 0; i < vgpuPtr->contextNo; i++)
@@ -480,7 +489,7 @@ void voclPackVGPUMigMsg(int proxyIndex, vocl_device_id device, char *msgBuf)
 	return;
 }
 
-void voclUpdateVirtualGPU(int proxyIndex, vocl_device_id device, 
+void voclUpdateVirtualGPU(int origProxyIndex, vocl_device_id device, 
 						  int newProxyRank, int newProxyIndex,
 						  MPI_Comm newProxyComm, MPI_Comm newProxyCommData,
 						  char *msgBuf)
@@ -503,8 +512,8 @@ void voclUpdateVirtualGPU(int proxyIndex, vocl_device_id device,
 	vocl_mig_vgpu *vgPtr;
 	size_t msgOffset;
 
-	vgpuPtr = voclGetVirtualGPUPtr(proxyIndex, device);
-	
+	vgpuPtr = voclGetVirtualGPUPtr(origProxyIndex, device);
+
 	/* decode the received message */
 	msgOffset = 0;
 	vgPtr = (vocl_mig_vgpu *)(msgBuf + msgOffset);
@@ -581,7 +590,7 @@ void voclUpdateVirtualGPU(int proxyIndex, vocl_device_id device,
 
 		/* update mem info */
 		memPtr = contextPtr[i]->memPtr;
-		for (j = 0; j < contextPtr[j]->memNo; j++)
+		for (j = 0; j < contextPtr[i]->memNo; j++)
 		{
 			mmPtr = (vocl_mig_mem *)(msgBuf + msgOffset);
 			msgOffset += sizeof(vocl_mig_mem);
