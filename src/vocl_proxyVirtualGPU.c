@@ -271,9 +271,6 @@ void voclProxyPackMessageForVGPU(vocl_virtual_gpu *vgpuPtr, char *bufPtr)
     vocl_proxy_kernel **kernelPtr;
     vocl_proxy_mem **memPtr;
 
-    /* copy the contexts to message */
-//  vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
-
     offset = 0;
 	memcpy(bufPtr+offset, vgpuPtr, sizeof(vocl_virtual_gpu));
 	offset += sizeof(vocl_virtual_gpu);

@@ -86,7 +86,7 @@ extern int voclMigRWGetNextBufferIndex(int rank);
 extern struct strMigRWBufferSameNode *voclMigRWGetBufferInfoPtr(int rank, int index);
 extern void voclMigSetRWBufferFlag(int rank, int index, int flag);
 extern int voclMigFinishDataRWOnSameNode(int rank);
-extern void voclProxyUpdateMigStatus(int appIndex, int destProxyIndex);
+extern void voclProxyUpdateMigStatus(int appIndex, int destProxyIndex, int isOnSameNode);
 extern void voclProxySetMigStatus(int appIndex, char migStatus);
 
 extern void voclProxyMigrationMutexLock(int appIndex);
@@ -458,7 +458,7 @@ cl_device_id voclProxyMigFindTargetGPU(struct strKernelNumOnDevice *gpuKernelNum
 	int indexOfMinKernelNum = -1;
 
 	cl_device_id deviceID;
-	for (i = 1; i < proxyNum; i++)
+	for (i = 0; i < proxyNum; i++)
 	{
 		for (j = 0; j < gpuKernelNum[i].deviceNum; j++)
 		{
@@ -526,7 +526,7 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr)
 		voclProxyMigSendDeviceMemoryData(vgpuPtr, destRankNo, comm, commData);
 
 		/* update the mapping information in the library size */
-		voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo);
+		voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo, 0);
 	}
 	else
 	{
@@ -537,6 +537,9 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr)
 					deviceID, msgBuf);
 			newVGPUPtr = voclProxyGetVirtualGPUPtr(vgpuPtr->appIndex, deviceID);
 			voclProxyMigSendRecvDeviceMemoryData(vgpuPtr, newVGPUPtr);
+
+			/* update the mapping information in the library size */
+			voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo, 1);
 		}
 		else {   } /* same device, no migration is needed */
 	}

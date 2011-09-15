@@ -265,6 +265,7 @@ extern void voclWinInfoFinalize();
 extern void voclAddWinInfo(MPI_Comm comm, int proxyRank, int proxyIndex, char *serviceName);
 extern void voclWinInfoFree(int proxyIndex);
 extern char voclGetMigrationStatus(int proxyIndex);
+extern void voclCompletePreviousDataTransfer(int proxyIndex);
 extern int voclGetMigrationDestProxyIndex(int proxyIndex);
 extern void voclPrintWinInfo();
 
@@ -1207,6 +1208,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 	{
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
+		voclCompletePreviousDataTransfer(origProxyIndex);
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
@@ -1433,6 +1435,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 	{
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
+		voclCompletePreviousDataTransfer(origProxyIndex);
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
@@ -1630,6 +1633,7 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
 	{
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
+		voclCompletePreviousDataTransfer(origProxyIndex);
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
@@ -1831,11 +1835,9 @@ cl_int clFinish(cl_command_queue command_queue)
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
-        processAllWrites(proxyIndex);
-        processAllReads(proxyIndex);
-
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
+		voclCompletePreviousDataTransfer(origProxyIndex);
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
@@ -2240,14 +2242,37 @@ cl_int clFlush(cl_command_queue command_queue)
     int requestNo = 0;
     int proxyRank, proxyIndex;
     MPI_Comm proxyComm, proxyCommData;
+    struct strFlush tmpFlush;
+	vocl_device_id origDeviceID;
+	char vgpuMigStatus, cmdQueueMigStatus;
+	int origProxyIndex, destProxyIndex;
 
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
 
-    struct strFlush tmpFlush;
     tmpFlush.command_queue =
         voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
                                                 &proxyIndex, &proxyComm, &proxyCommData);
+
+	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
+	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
+
+	/* only migration status of command queue is considered */
+	if (cmdQueueMigStatus < vgpuMigStatus)
+	{
+		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
+		origProxyIndex = proxyIndex;
+		printf("clFinish, origProxyIndex = %d\n", origProxyIndex);
+		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
+		proxyRank = voclProxyRank[destProxyIndex];
+		proxyComm = voclProxyComm[destProxyIndex];
+		proxyCommData = voclProxyCommData[destProxyIndex];
+		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
+		tmpFlush.command_queue =
+			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
+													&proxyIndex, &proxyComm, &proxyCommData);
+	}
+
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         tmpFlush.res = dlCLFlush(tmpFlush.command_queue);
     }
