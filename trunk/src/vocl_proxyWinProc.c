@@ -117,7 +117,7 @@ void voclProxyMigrationMutexUnlock(int appIndex)
 	return;
 }
 
-void voclProxyUpdateMigStatus(int appIndex, int destProxyRank)
+void voclProxyUpdateMigStatus(int appIndex, int destProxyRank, int isOnSameNode)
 {
 	struct strVoclWinInfo win;
 	vocl_proxy_wins *tmpWins;
@@ -133,7 +133,10 @@ void voclProxyUpdateMigStatus(int appIndex, int destProxyRank)
 	MPI_Win_unlock(0, voclProxyWinPtr[appIndex]);
 
 	/* update the migration status and target proxy index */
-	win.migrationStatus++;
+	if (isOnSameNode == 0)
+	{
+		win.migrationStatus++;
+	}
 	win.destProxyRank = destProxyRank;
 
 	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, voclProxyWinPtr[appIndex]);
@@ -163,7 +166,6 @@ void voclProxySetMigStatus(int appIndex, char migStatus)
 
 	/* update the migration status and target proxy index */
 	win.migrationStatus = migStatus;
-//	win.destProxyRank = destProxyRank;
 
 	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, voclProxyWinPtr[appIndex]);
 	MPI_Put(&win, sizeof(struct strVoclWinInfo), MPI_BYTE, 0, offset,

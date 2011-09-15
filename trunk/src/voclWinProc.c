@@ -161,14 +161,25 @@ char voclGetMigrationStatus(int proxyIndex)
 	if (migWin.preMigStatus < migWin.migrationStatus)
 	{
 		migWin.preMigStatus = migWin.migrationStatus;
-		if (proxyIndex == 0)
-		{
-			processAllWrites(proxyIndex);
-			processAllReads(proxyIndex);
-		}
+//		if (proxyIndex == 0)
+//		{
+//			printf("getMigStatus1\n");
+//			processAllWrites(proxyIndex);
+//			printf("getMigStatus2\n");
+//			processAllReads(proxyIndex);
+//			printf("getMigStatus3\n");
+//		}
 	}
 
 	return migWin.migrationStatus;
+}
+
+void voclCompletePreviousDataTransfer(int proxyIndex)
+{
+	processAllWrites(proxyIndex);
+	processAllReads(proxyIndex);
+
+	return;
 }
 
 int voclGetMigrationDestProxyIndex(int proxyIndex)
