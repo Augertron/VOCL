@@ -13,11 +13,11 @@ static int voclAppNum;
 static char *voclCommUsedFlag;
 static char **conMsgBufferStartPtr;
 static int  voclTmpRequestNumForMigration;
+MPI_Comm *appComm, *appCommData;
 
 extern MPI_Request *conMsgRequest;
 extern MPI_Request *conMsgRequestForWait;
 extern int *conMsgRequestIndex;
-extern MPI_Comm *appComm, *appCommData;
 extern int voclTotalRequestNum;
 extern int voclCommUsedSize;
 extern char voclPortName[MPI_MAX_PORT_NAME];
@@ -25,6 +25,12 @@ extern char **conMsgBuffer;
 
 pthread_t thAppComm;
 static pthread_mutex_t commLock;
+
+//debug----------------------------------------------------
+extern void voclProxySetMigrationCondition(int rankNo, char condition);
+extern char voclProxyGetMigrationCondition(int rankNo);
+//----------------------------------------------------------
+
 
 void voclProxyCommInitialize()
 {
@@ -230,8 +236,13 @@ void *proxyCommAcceptThread(void *p)
         MPI_Comm_dup(appComm[index], &appCommData[index]);
         voclIssueConMsgIrecv(index);
 		pthread_mutex_unlock(&commLock);
-    }
 
+		//debug----------------------------------
+		int rankNo;
+		MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
+		voclProxySetMigrationCondition(rankNo, 0);
+		//----------------------------------------
+	}
     return NULL;
 }
 

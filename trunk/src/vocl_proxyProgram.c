@@ -139,6 +139,7 @@ void voclProxyAddKernelToProgram(cl_program program, vocl_proxy_kernel *kernel)
 			programPtr->kernelNum *= 2;
 		}
 	}
+	printf("addKernelToProgram,kernelNo = %d\n", programPtr->kernelNo);
 
 	return;
 }
