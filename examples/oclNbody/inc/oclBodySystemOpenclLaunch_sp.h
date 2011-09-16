@@ -27,7 +27,7 @@ extern "C" {
 #include "oclBodySystemOpencl_sp.h"
 
     int CreateProgramAndKernel(cl_context ctx, cl_device_id * cdDevices,
-                               const char *kernel_name, cl_kernel * kernel, bool bDouble);
+                               const char *kernel_name, cl_program *program, cl_kernel * kernel, bool bDouble);
     void AllocateNBodyArrays(cl_context ctx, cl_mem * vel, int numBodies, int dFlag);
     void DeleteNBodyArrays(cl_mem * vel);
 

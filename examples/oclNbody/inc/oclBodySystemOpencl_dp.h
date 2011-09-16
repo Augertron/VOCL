@@ -54,6 +54,9 @@ class BodySystemOpenCL:public BodySystem {
     cl_context cxContext;
     cl_command_queue cqCommandQueue;
 
+	cl_program MT_program;
+	cl_program noMT_program;
+
     cl_kernel MT_kernel;
     cl_kernel noMT_kernel;
 
