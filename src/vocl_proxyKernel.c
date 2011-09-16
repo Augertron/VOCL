@@ -273,6 +273,7 @@ cl_kernel voclProxyGetNewKernelValue(cl_kernel oldKernel)
 		{
 			break;
 		}
+		kernelPtr = kernelPtr->next;
 	}
 
 	if (kernelPtr == NULL)

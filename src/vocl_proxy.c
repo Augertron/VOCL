@@ -75,10 +75,10 @@ static int maintenanceMigrationStatus = 0;
 MPI_Request *conMsgRequest;
 MPI_Request *conMsgRequestForWait;
 int *conMsgRequestIndex;
-MPI_Comm *appComm, *appCommData;
 char voclPortName[MPI_MAX_PORT_NAME];
 int voclTotalRequestNum;
 int voclCommUsedSize;
+extern MPI_Comm *appComm, *appCommData;
 
 /* control message buffer */
 //CON_MSG_BUFFER *conMsgBuffer;
@@ -329,6 +329,11 @@ extern void voclProxyObjCountFinalize();
 extern void voclProxyObjCountIncrease();
 extern void voclProxyObjCountDecrease();
 
+//debug----------------------------------------------------
+extern void voclProxySetMigrationCondition(int rankNo, char condition);
+extern char voclProxyGetMigrationCondition(int rankNo);
+//----------------------------------------------------------
+
 /* proxy process */
 int main(int argc, char *argv[])
 {
@@ -394,10 +399,6 @@ int main(int argc, char *argv[])
     char *kernelMsgBuffer;
 	char *migMsgBuffer;
 
-	//debug--------------------
-	int migrationStatus = 0;
-	//-----------------------------
-
 	/* flag to control the execution of the kernel launch thread */
 	int kernelLaunchThreadExecuting = 0;
 
@@ -443,13 +444,6 @@ int main(int argc, char *argv[])
 
 	/*initialize the internal command queue in the proxy process */
 	//voclProxyCmdQueueInit();
-
-    //debug-------------------
-	if (rankNo == 0)
-	{
-		migrationStatus = 1;
-	}
-	//-----------------------------------------------
 
 	/* issue non-blocking receiving for messages from other processes */
 	voclProxyAcceptProxyMessages();
@@ -838,10 +832,10 @@ int main(int argc, char *argv[])
 										 tmpEnqueueWriteBuffer.command_queue);
 
 			//debug, for migration test------------------------------------------------
-			if (migrationStatus == 0)
+			if (rankNo == 1 && voclProxyGetMigrationCondition(rankNo) == 0)
 			{
 				processAllWrites(appIndex);
-				migrationStatus = 1;
+				voclProxySetMigrationCondition(rankNo, 1);
 				cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpEnqueueWriteBuffer.command_queue);
 				voclProxyMigrationOneVGPUOverload(appIndex, cmdQueuePtr->deviceID);
 			}

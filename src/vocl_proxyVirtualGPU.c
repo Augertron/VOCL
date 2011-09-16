@@ -220,11 +220,14 @@ void voclProxyGetMessageSizeForVGPU(vocl_virtual_gpu *vgpuPtr, vocl_vgpu_msg *ms
     contextPtr = vgpuPtr->contextPtr;
     for (i = 0; i < vgpuPtr->contextNo; i++)
     {
+printf("pack1, i = %d\n", i);
         /* calculate size of program */
         msgPtr->programNum += contextPtr[i]->programNo;
         programPtr = contextPtr[i]->programPtr;
+printf("pack1.1, programNo = %d\n", contextPtr[i]->programNo);
         for (j = 0; j < contextPtr[i]->programNo; j++)
         {
+printf("pack2\n");
             /* add space for various program info */
             msgSize += programPtr[j]->sourceSize;
             msgSize += programPtr[j]->stringNum * sizeof(size_t);
@@ -233,19 +236,29 @@ void voclProxyGetMessageSizeForVGPU(vocl_virtual_gpu *vgpuPtr, vocl_vgpu_msg *ms
 
             msgPtr->kernelNum += programPtr[j]->kernelNo;
             kernelPtr = programPtr[j]->kernelPtr;
+printf("pack2.1, j = %d, kernelNo = %d\n", j, programPtr[j]->kernelNo);
+            /* add space for various program info */
             for (k = 0; k < programPtr[j]->kernelNo; k++)
             {
+printf("pack3, kernelPtr = %p\n", kernelPtr);
                 msgSize += kernelPtr[k]->nameLen;
+printf("pack3.1\n");
 				/* add the size of kernel arg flag and kernel args */
 				msgSize += kernelPtr[k]->argNum * sizeof(char);
+printf("pack3.2\n");
 				msgSize += kernelPtr[k]->argNum * sizeof(kernel_args);
+printf("pack3.3\n");
             }
+printf("pack4, i = %d\n", i);
         }
 
+printf("pack5, i = %d\n", i);
         msgPtr->cmdQueueNum += contextPtr[i]->cmdQueueNo;
         msgPtr->memNum += contextPtr[i]->memNo;
+printf("pack6, i = %d\n", i);
     }
 	
+printf("pack7, i = %d\n", i);
 	msgSize += sizeof(vocl_virtual_gpu);
     msgSize += msgPtr->contextNum * sizeof(vocl_proxy_context);
     msgSize += msgPtr->programNum * sizeof(vocl_proxy_program);

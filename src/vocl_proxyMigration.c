@@ -97,6 +97,20 @@ void voclProxyMigSendRecvDeviceMemoryData(vocl_virtual_gpu *sourceVGPUPtr, vocl_
 
 extern MPI_Comm *appComm, *appCommData;
 
+//debug-----------------------------------------
+int voclMigrationCondition[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+void voclProxySetMigrationCondition(int rankNo, char condition)
+{
+	voclMigrationCondition[rankNo] = condition;
+	return;
+}
+
+char voclProxyGetMigrationCondition(int rankNo)
+{
+	return voclMigrationCondition[rankNo];
+}
+//----------------------------------------------
+
 void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id deviceID, char *bufPtr)
 {
 	int i, j, k, stringIndex;
@@ -335,7 +349,7 @@ void voclProxyMigReleaseVirtualGPU(vocl_virtual_gpu *vgpuPtr)
 			for (k = 0; k < programPtr[j]->kernelNo; k++)
 			{
 				/* release kernel */
-				kernel = kernelPtr[i]->kernel;
+				kernel = kernelPtr[k]->kernel;
 				voclProxyReleaseKernel(kernel);
 				clReleaseKernel(kernel);
 			}
@@ -494,18 +508,22 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr)
 
 	/* acquire the locker */
 //	voclProxyMigrationMutexLock(vgpuPtr->appIndex);
-
+printf("migOneGPU1\n");
 	comm = appComm[0];
 	commData = appCommData[0];
+printf("migOneGPU2\n");
 	gpuKernelNum = voclProxyMigQueryLoadOnGPUs(vgpuPtr->appIndex, &proxyNum);
 	deviceID = voclProxyMigFindTargetGPU(gpuKernelNum, proxyNum, &destRankNo, &destAppIndex);
+printf("migOneGPU3\n");
 	free(gpuKernelNum);
 
 	/* send the migration message to target proxy process */
 	voclProxyGetMessageSizeForVGPU(vgpuPtr, &vgpuMsg);
+printf("migOneGPU4\n");
 	/* pack the message for the virtual GPU */
 	msgBuf = (char *)malloc(vgpuMsg.size);
 	voclProxyPackMessageForVGPU(vgpuPtr, msgBuf);
+printf("migOneGPU5\n");
 
 	/* in different proxy process */
 	if (vgpuPtr->proxyRank != destRankNo)
@@ -530,23 +548,28 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr)
 	}
 	else
 	{
+printf("migOneGPU6\n");
 		/* in the same proxy process, but in different devices */
 		if (vgpuPtr->deviceID != deviceID)
 		{
+printf("migOneGPU7\n");
 			voclProxyMigCreateVirtualGPU(vgpuPtr->appIndex, destRankNo, 
 					deviceID, msgBuf);
+printf("migOneGPU8\n");
 			newVGPUPtr = voclProxyGetVirtualGPUPtr(vgpuPtr->appIndex, deviceID);
 			voclProxyMigSendRecvDeviceMemoryData(vgpuPtr, newVGPUPtr);
+printf("migOneGPU9\n");
 
 			/* update the mapping information in the library size */
 			voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo, 1);
+printf("migOneGPU10\n");
 		}
 		else {   } /* same device, no migration is needed */
 	}
 
 	/* After data transfer and kernel launch are migrated, this function */
 	/* will be called to release the virtual GPU on the original proxy */
-//	voclProxyMigReleaseVirtualGPU(vgpuPtr);
+	voclProxyMigReleaseVirtualGPU(vgpuPtr);
 
 	/* acquire the locker */
 //	voclProxyMigrationMutexUnlock(vgpuPtr->appIndex);
@@ -757,6 +780,7 @@ void vocl_proxyUpdateVirtualGPUInfo(int appIndex, char *msgBuf)
     msgOffset += sizeof(vocl_mig_vgpu);
 
 	/* device id of previous vgpu is the old device id of current vgpu */
+
 	vgPtr->deviceID = voclProxyNewVGPUDeviceID(appIndex, vgPtr->deviceID);
 	vgPtr->migStatus = voclProxyGetVGPUMigStatus(appIndex, vgPtr->deviceID);
 
