@@ -141,9 +141,8 @@ extern "C"
 
     // Function to read in kernel from uncompiled source, create the OCL program and build the OCL program 
     // **************************************************************************************************
-    int CreateProgramAndKernel(cl_context cxGPUContext, cl_device_id* cdDevices, const char *kernel_name, cl_kernel *kernel, bool bDouble)
+    int CreateProgramAndKernel(cl_context cxGPUContext, cl_device_id* cdDevices, const char *kernel_name, cl_program *program, cl_kernel *kernel, bool bDouble)
     {
-        cl_program cpProgram;
         size_t szSourceLen;
         cl_int ciErrNum = CL_SUCCESS; 
 
@@ -167,14 +166,14 @@ extern "C"
 		//for double precision
 		char *pcSourceForDouble;
 		std::stringstream header;
-			header << "#define REAL double";
-			header << std::endl;
-			header << "#define REAL4 double4";
-			header << std::endl;
-			header << "#define REAL3 double" << iVec3Length;
-			header << std::endl;
-			header << "#define ZERO3 {0.0, 0.0, 0.0" << ((iVec3Length == 4) ? ", 0.0}" : "}");
-			header << std::endl;
+		header << "#define REAL double";
+		header << std::endl;
+		header << "#define REAL4 double4";
+		header << std::endl;
+		header << "#define REAL3 double" << iVec3Length;
+		header << std::endl;
+		header << "#define ZERO3 {0.0, 0.0, 0.0" << ((iVec3Length == 4) ? ", 0.0}" : "}");
+		header << std::endl;
 		
 		header << pcSource;
 		pcSourceForDouble = (char *)malloc(header.str().size() + 1);
@@ -187,7 +186,7 @@ extern "C"
 
         // create the program 
 		timerStart();
-        cpProgram = clCreateProgramWithSource(cxGPUContext, 1, (const char **)&pcSourceForDouble, &szSourceLen, &ciErrNum);
+        *program = clCreateProgramWithSource(cxGPUContext, 1, (const char **)&pcSourceForDouble, &szSourceLen, &ciErrNum);
 		timerEnd();
 		strTime.createProgramWithSource += elapsedTime();
         oclCheckError(ciErrNum, CL_SUCCESS);
@@ -200,29 +199,28 @@ extern "C"
 	char *flags = "-cl-fast-relaxed-math";
 #endif
 		timerStart();
-        ciErrNum = clBuildProgram(cpProgram, 0, NULL, flags, NULL, NULL);
+        ciErrNum = clBuildProgram(*program, 0, NULL, flags, NULL, NULL);
 		timerEnd();
 		strTime.buildProgram += elapsedTime();
         if (ciErrNum != CL_SUCCESS)
         {
             // write out standard error, Build Log and PTX, then cleanup and exit
             shrLogEx(LOGBOTH | ERRORMSG, ciErrNum, STDERROR);
-            oclLogBuildInfo(cpProgram, oclGetFirstDev(cxGPUContext));
-            oclLogPtx(cpProgram, oclGetFirstDev(cxGPUContext), "oclNbody.ptx");
+            oclLogBuildInfo(*program, oclGetFirstDev(cxGPUContext));
+            oclLogPtx(*program, oclGetFirstDev(cxGPUContext), "oclNbody.ptx");
             oclCheckError(ciErrNum, CL_SUCCESS); 
         }
         shrLog("clBuildProgram\n"); 
 
         // create the kernel
 		timerStart();
-        *kernel = clCreateKernel(cpProgram, kernel_name, &ciErrNum);
+        *kernel = clCreateKernel(*program, kernel_name, &ciErrNum);
 		timerEnd();
 		strTime.createKernel += elapsedTime();
         oclCheckError(ciErrNum, CL_SUCCESS); 
         shrLog("clCreateKernel\n"); 
 
 		free(pcSourceForDouble);
-		clReleaseProgram(cpProgram);
 
         return 0;
     }

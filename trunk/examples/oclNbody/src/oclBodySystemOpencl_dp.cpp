@@ -39,14 +39,14 @@ BodySystemOpenCL::BodySystemOpenCL(int numBodies, cl_device_id dev, cl_context c
 
     // create non multithreaded program and kernel
     shrLog("\nCreateProgramAndKernel _noMT... ");  
-    if (CreateProgramAndKernel(ctx, &dev, "integrateBodies_noMT", &noMT_kernel, m_bDouble)) 
+    if (CreateProgramAndKernel(ctx, &dev, "integrateBodies_noMT", &noMT_program, &noMT_kernel, m_bDouble)) 
     {
         exit(shrLogEx(LOGBOTH | CLOSELOG, -1.0, "CreateProgramAndKernel _noMT ", STDERROR)); 
     }
 
     // create multithreaded program and kernel
     shrLog("\nCreateProgramAndKernel _MT... ");
-    if (CreateProgramAndKernel(ctx, &dev, "integrateBodies_MT", &MT_kernel, m_bDouble)) 
+    if (CreateProgramAndKernel(ctx, &dev, "integrateBodies_MT", &MT_program, &MT_kernel, m_bDouble)) 
     {
         exit(shrLogEx(LOGBOTH | CLOSELOG, -1.0, "CreateProgramAndKernel _MT ", STDERROR)); 
     }
@@ -73,32 +73,8 @@ void BodySystemOpenCL::_initialize(int numBodies)
     memset(m_hPos, 0, m_numBodies*4*sizeof(double));
     memset(m_hVel, 0, m_numBodies*4*sizeof(double));
 
-//    if (m_bUsePBO)
-//    {
-//        // create the position pixel buffer objects for rendering
-//        // we will actually compute directly from this memory in OpenCL too
-//        glGenBuffers(2, (GLuint*)m_pboGL);  
-//        shrLog("Allocating Pixel Buffers\n"); 
-//        for (int i = 0; i < 2; ++i)
-//        {
-//            glBindBuffer(GL_ARRAY_BUFFER, m_pboGL[i]);
-//            glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(double) * m_numBodies, m_hPos, GL_DYNAMIC_DRAW);
-//
-//            int size = 0;
-//            glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, (GLint*)&size); 
-//            if ((unsigned)size != 4 * (sizeof(double) * m_numBodies))
-//            {
-//                shrLogEx(LOGBOTH, -1.0, "WARNING: Pixel Buffer Object allocation failed!\n"); 
-//            }
-//            glBindBuffer(GL_ARRAY_BUFFER, 0);
-//            m_pboCL[i] = RegisterGLBufferObject(cxContext, m_pboGL[i]);
-//        }
-//    }
-//    else
-//    {
-        AllocateNBodyArrays(cxContext, m_dPos, m_numBodies, m_bDouble);
-        shrLog("\nAllocateNBodyArrays m_dPos\n"); 
-//    }
+    AllocateNBodyArrays(cxContext, m_dPos, m_numBodies, m_bDouble);
+    shrLog("\nAllocateNBodyArrays m_dPos\n"); 
     
     AllocateNBodyArrays(cxContext, m_dVel, m_numBodies, m_bDouble);
     shrLog("\nAllocateNBodyArrays m_dVel\n"); 
@@ -120,23 +96,15 @@ void BodySystemOpenCL::_finalize()
 	strTime.releaseKernel += elapsedTime();
 	strTime.numReleaseKernel += 2;
 
-//	timerStart();
-//	clReleaseProgram(cpProgram);
-//	timerEnd();
-//	strTime.releaseProgram += elapsedTime();
-//	strTime.numReleaseProgram++;
+	timerStart();
+	clReleaseProgram(MT_program);
+	clReleaseProgram(noMT_program);
+	timerEnd();
+	strTime.releaseProgram += elapsedTime();
+	strTime.numReleaseProgram++;
 
     DeleteNBodyArrays(m_dVel);
-//    if (m_bUsePBO)
-//    {
-//        UnregisterGLBufferObject(m_pboCL[0]);
-//        UnregisterGLBufferObject(m_pboCL[1]);
-//        glDeleteBuffers(2, (const GLuint*)m_pboGL);
-//    }
-//    else
-//    {
-        DeleteNBodyArrays(m_dPos);
-//    }
+    DeleteNBodyArrays(m_dPos);
 }
 
 void BodySystemOpenCL::setSoftening(double softening)
@@ -180,11 +148,8 @@ double* BodySystemOpenCL::getArray(BodyArray array)
         case BODYSYSTEM_POSITION:
             hdata = m_hPos;
             ddata = m_dPos[m_currentRead];
-            //if (m_bUsePBO)
-            //{
-            //    pbo = m_pboCL[m_currentRead];
-            //}
             break;
+
         case BODYSYSTEM_VELOCITY:
             hdata = m_hVel;
             ddata = m_dVel[m_currentRead];
@@ -204,28 +169,9 @@ void BodySystemOpenCL::setArray(BodyArray array, const double* data)
     {
         default:
         case BODYSYSTEM_POSITION:
-        {
-//            if (m_bUsePBO)
-//            {
-//                UnregisterGLBufferObject(m_pboCL[m_currentRead]);
-//                glBindBuffer(GL_ARRAY_BUFFER, m_pboGL[m_currentRead]);
-//                glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(double) * m_numBodies, data, GL_DYNAMIC_DRAW);
-//            
-//                int size = 0;
-//                glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, (GLint*)&size); 
-//                if ((unsigned)size != 4 * (sizeof(double) * m_numBodies))
-//                {
-//                    shrLogEx(LOGBOTH, -1.0, "WARNING: Pixel Buffer Object download failed!\n"); 
-//                }
-//                glBindBuffer(GL_ARRAY_BUFFER, 0);
-//                m_pboCL[m_currentRead] = RegisterGLBufferObject(cxContext, m_pboGL[m_currentRead]);
-//            }
-//            else
-//            {
-                CopyArrayToDevice(cqCommandQueue, m_dPos[m_currentRead], data, m_numBodies, m_bDouble);
-//            }
-        }
-            break;
+            CopyArrayToDevice(cqCommandQueue, m_dPos[m_currentRead], data, m_numBodies, m_bDouble);
+        	break;
+
         case BODYSYSTEM_VELOCITY:
             CopyArrayToDevice(cqCommandQueue, m_dVel[m_currentRead], data, m_numBodies, m_bDouble);
             break;
