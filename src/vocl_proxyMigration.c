@@ -593,8 +593,8 @@ void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo,
 					}
 					bufferIndex = voclMigGetNextReadBufferIndex(appIndex);
 					migReadBufferInfoPtr = voclMigGetReadBufferPtr(appIndex, bufferIndex);
-					err = clEnqueueReadBuffer(memPtr[k]->cmdQueue,
-											  memPtr[k]->mem,
+					err = clEnqueueReadBuffer(memPtr[j]->cmdQueue,
+											  memPtr[j]->mem,
 											  CL_FALSE,
 											  k * VOCL_MIG_BUF_SIZE,
 											  bufferSize,
@@ -602,7 +602,7 @@ void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo,
 											  0, NULL, voclMigGetReadEventPtr(appIndex,
 																			  bufferIndex));
 					migReadBufferInfoPtr->size = bufferSize;
-					migReadBufferInfoPtr->offset = i * VOCL_MIG_BUF_SIZE;
+					migReadBufferInfoPtr->offset = k * VOCL_MIG_BUF_SIZE;
 					migReadBufferInfoPtr->comm = migComm;
                     migReadBufferInfoPtr->commData = migCommData;
                     migReadBufferInfoPtr->dest = destRankNo;
@@ -670,7 +670,7 @@ void voclProxyMigRecvDeviceMemoryData(int appIndex, cl_device_id deviceID, int s
 					migWriteBufferInfoPtr->source = sourceRankNo;
 					migWriteBufferInfoPtr->comm = migComm;
 					migWriteBufferInfoPtr->size = bufferSize;
-					migWriteBufferInfoPtr->offset = i * VOCL_MIG_BUF_SIZE;
+					migWriteBufferInfoPtr->offset = k * VOCL_MIG_BUF_SIZE;
 					voclMigSetWriteBufferFlag(appIndex, bufferIndex, MIG_WRT_MPIRECV);
 				}
 			}
@@ -717,17 +717,17 @@ void voclProxyMigSendRecvDeviceMemoryData(vocl_virtual_gpu *sourceVGPUPtr, vocl_
 					}
 					bufferIndex = voclMigRWGetNextBufferIndex(appIndex);
 					migRWBufferInfoPtr = voclMigRWGetBufferInfoPtr(appIndex, bufferIndex);
-					err = clEnqueueReadBuffer(oldMemPtr[i]->cmdQueue,
-											  oldMemPtr[i]->mem,
+					err = clEnqueueReadBuffer(oldMemPtr[j]->cmdQueue,
+											  oldMemPtr[j]->mem,
 											  CL_FALSE,
-											  i * VOCL_MIG_BUF_SIZE,
+											  k * VOCL_MIG_BUF_SIZE,
 											  bufferSize,
 											  migRWBufferInfoPtr->ptr,
 											  0, NULL, &migRWBufferInfoPtr->rdEvent);
 					migRWBufferInfoPtr->wtCmdQueue = newCmdQueue;
-					migRWBufferInfoPtr->wtMem = newMemPtr[i]->mem;
+					migRWBufferInfoPtr->wtMem = newMemPtr[j]->mem;
 					migRWBufferInfoPtr->size = bufferSize;
-					migRWBufferInfoPtr->offset = i * VOCL_MIG_BUF_SIZE;
+					migRWBufferInfoPtr->offset = k * VOCL_MIG_BUF_SIZE;
 					voclMigSetRWBufferFlag(appIndex, bufferIndex, MIG_RW_SAME_NODE_RDMEM);
 				}
 			}
