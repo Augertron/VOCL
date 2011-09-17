@@ -13,7 +13,7 @@ static struct strEnqueueNDRangeKernelReply kernelLaunchReply;
 static struct strEnqueueReadBuffer tmpEnqueueReadBuffer;
 static struct strFinish tmpFinish;
 
-static struct strVoclCommandQueue *voclProxyCmdQueue = NULL;
+static vocl_internal_command_queue *voclProxyCmdQueue = NULL;
 static int voclProxyCmdNum;
 static int voclProxyCmdHead;
 static int voclProxyCmdTail;
@@ -77,7 +77,7 @@ void voclProxyCmdQueueInit()
 	//voclProxyNumOfKernelsCompleted = (int *)malloc(sizeof(int) * voclProxyAppNum);
 	memset(voclProxyNumOfKernelsLaunched, 0, sizeof(int) * voclProxyAppNum);
 	//memset(voclProxyNumOfKernelsCompleted, 0, sizeof(int) * voclProxyAppNum);
-	voclProxyCmdQueue = (struct strVoclCommandQueue *)malloc(sizeof(struct strVoclCommandQueue) * voclProxyCmdNum);
+	voclProxyCmdQueue = (vocl_internal_command_queue *)malloc(sizeof(vocl_internal_command_queue) * voclProxyCmdNum);
 
 	for (i = 0; i < voclProxyCmdNum; i++)
 	{
@@ -106,7 +106,7 @@ void voclProxyCmdQueueInit()
 
 
 /* for enqueue operation */
-struct strVoclCommandQueue * voclProxyGetCmdQueueTail()
+vocl_internal_command_queue * voclProxyGetCmdQueueTail()
 {
 	int index;
 
@@ -122,7 +122,7 @@ struct strVoclCommandQueue * voclProxyGetCmdQueueTail()
 }
 
 /* for dequeue operation */
-struct strVoclCommandQueue * voclProxyGetCmdQueueHead()
+vocl_internal_command_queue * voclProxyGetCmdQueueHead()
 {
 	int index;
 	index = voclProxyCmdHead;
@@ -185,7 +185,7 @@ void voclProxyCmdQueueFinalize()
 
 void *proxyEnqueueThread(void *p)
 {
-	struct strVoclCommandQueue *cmdQueuePtr;
+	vocl_internal_command_queue *cmdQueuePtr;
 
 	cl_event *event_wait_list;
 	cl_uint num_events_in_wait_list;

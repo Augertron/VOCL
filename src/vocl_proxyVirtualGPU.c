@@ -283,6 +283,22 @@ void voclProxyPackMessageForVGPU(vocl_virtual_gpu *vgpuPtr, char *bufPtr)
         memcpy(bufPtr+offset, contextPtr[i], sizeof(vocl_proxy_context));
         offset += sizeof(vocl_proxy_context);
 
+        /* pack the command queue based on the context */
+        cmdQueuePtr = contextPtr[i]->cmdQueuePtr;
+        for (j = 0; j < contextPtr[i]->cmdQueueNo; j++)
+        {
+            memcpy(bufPtr+offset, cmdQueuePtr[j], sizeof(vocl_proxy_command_queue));
+            offset += sizeof(vocl_proxy_command_queue);
+        }
+
+        /* pack the mem based on the context */
+        memPtr = contextPtr[i]->memPtr;
+        for (j = 0; j < contextPtr[i]->memNo; j++)
+        {
+            memcpy(bufPtr+offset, memPtr[j], sizeof(vocl_proxy_mem));
+            offset += sizeof(vocl_proxy_mem);
+        }
+
         /*pack the program based on the context */
         programPtr = contextPtr[i]->programPtr;
         for (j = 0; j < contextPtr[i]->programNo; j++)
@@ -331,22 +347,6 @@ void voclProxyPackMessageForVGPU(vocl_virtual_gpu *vgpuPtr, char *bufPtr)
 				memcpy(bufPtr+offset, kernelPtr[k]->args, kernelPtr[k]->argNum * sizeof(kernel_args));
 				offset += kernelPtr[k]->argNum * sizeof(kernel_args);
             }
-        }
-
-        /* pack the command queue based on the context */
-        cmdQueuePtr = contextPtr[i]->cmdQueuePtr;
-        for (j = 0; j < contextPtr[i]->cmdQueueNo; j++)
-        {
-            memcpy(bufPtr+offset, cmdQueuePtr[j], sizeof(vocl_proxy_command_queue));
-            offset += sizeof(vocl_proxy_command_queue);
-        }
-
-        /* pack the mem based on the context */
-        memPtr = contextPtr[i]->memPtr;
-        for (j = 0; j < contextPtr[i]->memNo; j++)
-        {
-            memcpy(bufPtr+offset, memPtr[j], sizeof(vocl_proxy_mem));
-            offset += sizeof(vocl_proxy_mem);
         }
     }
 

@@ -3,13 +3,14 @@
 
 #include <stdio.h>
 #include <CL/opencl.h>
+#include "vocl_proxy_macro.h"
 
 #define VOCL_PROXY_CMDQUEUE_SIZE 1024
 #define VOCL_CMDQUEUE_IN_EXECUTION 20
 #define VOCL_PROXY_CMD_AVABL 0
 #define VOCL_PROXY_CMD_INUSE 1
 
-struct strVoclCommandQueue {
+typedef struct strVoclCmddQueue {
 	pthread_mutex_t  lock;
 	int              msgTag;
 	MPI_Comm         appComm;
@@ -19,7 +20,7 @@ struct strVoclCommandQueue {
 	int              internalWaitFlag;
 	int              status;
 	char             conMsgBuffer[MAX_CMSG_SIZE];
-};
+} vocl_internal_command_queue;
 
 #endif
 

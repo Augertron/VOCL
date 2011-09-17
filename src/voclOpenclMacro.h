@@ -106,11 +106,12 @@ extern "C" {
 #define MIG_SAME_REMOTE_NODE_CMPLD  56
 #define VOCL_MIGRATION              57
 #define VOCL_UPDATE_VGPU            58
-#define FORCED_MIGRATION            59
-#define LB_GET_KERNEL_NUM           60
-#define PROGRAM_END                 61
+#define VOCL_MIG_CMD_OPERATIONS     59
+#define FORCED_MIGRATION            60
+#define LB_GET_KERNEL_NUM           61
+#define PROGRAM_END                 62
 
-#define CMSG_NUM                    63
+#define CMSG_NUM                    64
 #define DATAMSG_NUM                 100
 #define TOTAL_MSG_NUM               (CMSG_NUM + DATAMSG_NUM)
 
