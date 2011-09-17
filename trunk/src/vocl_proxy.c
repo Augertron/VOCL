@@ -318,10 +318,13 @@ extern void voclProxyRecvAllMsgs(int index);
 extern void vocl_proxyGetKernelNumsOnGPUs(struct strKernelNumOnDevice *gpuKernelNum);
 extern cl_int voclProxyMigrationOneVGPUOverload(int appIndex, cl_device_id deviceID);
 extern void voclProxyMigRecvDeviceMemoryData(int appIndex, cl_device_id deviceID, int sourceRankNo);
+extern void voclProxyMigrationOneVGPUInKernelLaunch(int appIndex, int appRank,
+                    MPI_Comm appComm, cl_device_id deviceID,
+                    struct strEnqueueNDRangeKernel *conMsgKernelLaunch, char *kernelDimInfo);
 
-extern void voclProxyCmdQueueInit();
-extern void voclProxyCmdQueueFinalize();
-extern struct strVoclCommandQueue * voclProxyGetCmdQueueTail();
+//extern void voclProxyCmdQueueInit();
+//extern void voclProxyCmdQueueFinalize();
+//extern struct strVoclCommandQueue * voclProxyGetCmdQueueTail();
 
 /* functions to manage objects allocated in the proxy process */
 extern void voclProxyObjCountInitialize();
@@ -371,7 +374,7 @@ int main(int argc, char *argv[])
     struct strMigWriteBufferInfo *migWriteBufferInfoPtr;
     struct strMigReadBufferInfo *migReadBufferInfoPtr;
     struct strMigRWBufferSameNode *migRWBufferInfoPtr;
-	struct strVoclCommandQueue *voclCmdQueuePtr;
+	vocl_internal_command_queue *voclCmdQueuePtr;
 	struct strEnqueueNDRangeKernel *enqueueNDRangeKernel;
 	vocl_virtual_gpu *vgpuPtr;
 	vocl_proxy_context *contextPtr;
@@ -389,7 +392,7 @@ int main(int argc, char *argv[])
     void *arg_value;
     int work_dim;
 
-    size_t *global_work_offset, *global_work_size, *local_work_size, paramOffset;
+    size_t *global_work_offset, *global_work_size, *local_work_size, paramOffset, dimMsgSize;
     kernel_args *args_ptr;
     size_t param_value_size;
     void *param_value;
@@ -831,15 +834,15 @@ int main(int argc, char *argv[])
 			voclProxySetMemWriteCmdQueue(tmpEnqueueWriteBuffer.buffer,
 										 tmpEnqueueWriteBuffer.command_queue);
 
-			//debug, for migration test------------------------------------------------
-			if (rankNo == 1 && voclProxyGetMigrationCondition(rankNo) == 0)
-			{
-				processAllWrites(appIndex);
-				voclProxySetMigrationCondition(rankNo, 1);
-				cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpEnqueueWriteBuffer.command_queue);
-				voclProxyMigrationOneVGPUOverload(appIndex, cmdQueuePtr->deviceID);
-			}
-			//end of debug----------------------------------------------------------
+//			//debug, for migration test------------------------------------------------
+//			if (rankNo == 1 && voclProxyGetMigrationCondition(rankNo) == 0)
+//			{
+//				processAllWrites(appIndex);
+//				voclProxySetMigrationCondition(rankNo, 1);
+//				cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpEnqueueWriteBuffer.command_queue);
+//				voclProxyMigrationOneVGPUOverload(appIndex, cmdQueuePtr->deviceID);
+//			}
+//			//end of debug----------------------------------------------------------
 
 			if (tmpEnqueueWriteBuffer.blocking_write == CL_TRUE) {
 				if (requestNo > 0) {
@@ -1001,6 +1004,28 @@ int main(int argc, char *argv[])
 			voclProxyStoreKernelArgs(tmpEnqueueNDRangeKernel.kernel, 
 								   tmpEnqueueNDRangeKernel.args_num, 
 								   args_ptr);
+
+			//debug, for migration test------------------------------------------------
+			if (rankNo == 1 && voclProxyGetMigrationCondition(rankNo) == 0)
+			{
+				processAllWrites(appIndex);
+				voclProxySetMigrationCondition(rankNo, 1);
+				cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpEnqueueNDRangeKernel.command_queue);
+				voclProxyMigrationOneVGPUInKernelLaunch(appIndex, appRank, appComm[commIndex], 
+					         cmdQueuePtr->deviceID, &tmpEnqueueNDRangeKernel, kernelMsgBuffer);
+
+				/* if migration is performed, no need to launch the kernel in the current proxy */
+				if (num_events_in_wait_list > 0) {
+					free(event_wait_list);
+				}
+
+				/* issue it for later call of this function */
+				MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG,
+						  appComm[commIndex], conMsgRequest + index);
+
+				continue;
+			}
+			//end of debug----------------------------------------------------------
 
 			/* if there are data received, but not write to */
 			/* the GPU memory yet, use the helper thread to */
@@ -1250,7 +1275,6 @@ int main(int argc, char *argv[])
             if (param_value_size > 0 && tmpGetProgramInfo.param_value != NULL) {
                 free(param_value);
             }
-
         }
 
         else if (status.MPI_TAG == REL_PROGRAM_FUNC) {
@@ -1786,6 +1810,71 @@ int main(int argc, char *argv[])
 			free(migMsgBuffer);
 		}
 
+		else if (status.MPI_TAG == VOCL_MIG_CMD_OPERATIONS)
+		{
+			/* migration of the kernel launch operation */
+			memcpy(&tmpEnqueueNDRangeKernel, conMsgBuffer[index],
+				   sizeof(tmpEnqueueNDRangeKernel));
+			requestNo = 0;
+
+			work_dim = tmpEnqueueNDRangeKernel.work_dim;
+			global_work_offset = NULL;
+			global_work_size = NULL;
+			local_work_size = NULL;
+
+			dimMsgSize = 0;
+			work_dim = tmpEnqueueNDRangeKernel.work_dim;
+			if (tmpEnqueueNDRangeKernel.global_work_offset_flag == 1) {
+				dimMsgSize += work_dim * sizeof(size_t);
+			}
+
+			if (tmpEnqueueNDRangeKernel.global_work_size_flag == 1) {
+				dimMsgSize += work_dim * sizeof(size_t);
+			}
+
+			if (tmpEnqueueNDRangeKernel.local_work_size_flag == 1) {
+				dimMsgSize += work_dim * sizeof(size_t);
+			}
+
+			if (dimMsgSize > 0) {
+				MPI_Irecv(kernelMsgBuffer, dimMsgSize, MPI_BYTE, appRank,
+						  VOCL_MIG_CMD_OPERATIONS, appCommData[commIndex],
+						  curRequest + (requestNo++));
+			}
+			MPI_Wait(curRequest, curStatus);
+
+			paramOffset = 0;
+			if (tmpEnqueueNDRangeKernel.global_work_offset_flag == 1) {
+				global_work_offset = (size_t *) (kernelMsgBuffer + paramOffset);
+				paramOffset += work_dim * sizeof(size_t);
+			}
+
+			if (tmpEnqueueNDRangeKernel.global_work_size_flag == 1) {
+				global_work_size = (size_t *) (kernelMsgBuffer + paramOffset);
+				paramOffset += work_dim * sizeof(size_t);
+			}
+
+			if (tmpEnqueueNDRangeKernel.local_work_size_flag == 1) {
+				local_work_size = (size_t *) (kernelMsgBuffer + paramOffset);
+				paramOffset += work_dim * sizeof(size_t);
+			}
+
+			/* update the kernel and command queue info */
+			tmpEnqueueNDRangeKernel.command_queue = voclProxyGetNewCommandQueueValue(tmpEnqueueNDRangeKernel.command_queue);
+			tmpEnqueueNDRangeKernel.kernel = voclProxyGetNewKernelValue(tmpEnqueueNDRangeKernel.kernel);
+			kernelLaunchReply.res =  clEnqueueNDRangeKernel(tmpEnqueueNDRangeKernel.command_queue,
+											tmpEnqueueNDRangeKernel.kernel,
+											work_dim,
+											global_work_offset,
+											global_work_size,
+											local_work_size,
+											0, NULL, NULL);
+			
+			MPI_Isend(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply), MPI_BYTE, 
+					  appRank, VOCL_MIG_CMD_OPERATIONS, appCommData[commIndex], curRequest);
+			MPI_Wait(curRequest, curStatus);
+		}
+
         else if (status.MPI_TAG == FORCED_MIGRATION) {
             memcpy(&tmpForcedMigration, conMsgBuffer[index],
                    sizeof(struct strForcedMigration));
@@ -1861,7 +1950,7 @@ int main(int argc, char *argv[])
 
     /* record objects allocated */
     voclProxyObjCountFinalize();
-	voclProxyCmdQueueFinalize();
+//	voclProxyCmdQueueFinalize();
 	voclProxyWinFinalize();
 
     MPI_Finalize();

@@ -211,28 +211,14 @@ extern "C"
 		//for double precision
 		char *pcSourceForDouble;
 		std::stringstream header;
-		if (bDouble)
-		{
-			header << "#define REAL double";
-			header << std::endl;
-			header << "#define REAL4 double4";
-			header << std::endl;
-			header << "#define REAL3 double" << iVec3Length;
-			header << std::endl;
-			header << "#define ZERO3 {0.0, 0.0, 0.0" << ((iVec3Length == 4) ? ", 0.0}" : "}");
-			header << std::endl;
-		}
-		else
-		{
-			header << "#define REAL float";
-			header << std::endl;
-			header << "#define REAL4 float4";
-			header << std::endl;
-			header << "#define REAL3 float" << iVec3Length;
-			header << std::endl;
-			header << "#define ZERO3 {0.0f, 0.0f, 0.0f" << ((iVec3Length == 4) ? ", 0.0f}" : "}");
-			header << std::endl;
-		}
+		header << "#define REAL float";
+		header << std::endl;
+		header << "#define REAL4 float4";
+		header << std::endl;
+		header << "#define REAL3 float" << iVec3Length;
+		header << std::endl;
+		header << "#define ZERO3 {0.0f, 0.0f, 0.0f" << ((iVec3Length == 4) ? ", 0.0f}" : "}");
+		header << std::endl;
 		
 		header << pcSource;
 		pcSourceForDouble = (char *)malloc(header.str().size() + 1);

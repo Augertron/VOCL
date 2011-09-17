@@ -1550,11 +1550,11 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 
         kernelLaunchReply.res = CL_SUCCESS;
 
-		if (event != NULL)
-		{
+//		if (event != NULL)
+//		{
         	MPI_Irecv(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply), MPI_BYTE,
                   proxyRank, ENQUEUE_ND_RANGE_KERNEL, proxyComm, request + (requestNo++));
-		}
+//		}
 
         MPI_Waitall(requestNo, request, status);
     }

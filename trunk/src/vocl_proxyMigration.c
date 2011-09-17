@@ -4,6 +4,7 @@
 #include "vocl_proxyWinProc.h"
 #include "vocl_proxyBufferProc.h"
 #include "vocl_proxyStructures.h"
+#include "vocl_proxyInternalQueueUp.h"
 
 extern vocl_virtual_gpu *voclProxyGetVirtualGPUPtr(int appIndex, cl_device_id deviceID);
 extern void voclProxyAddVirtualGPU(int appIndex, int proxyRank, cl_device_id deviceID);
@@ -92,8 +93,13 @@ extern void voclProxySetMigStatus(int appIndex, char migStatus);
 extern void voclProxyMigrationMutexLock(int appIndex);
 extern void voclProxyMigrationMutexUnlock(int appIndex);
 
-void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo, MPI_Comm migComm, MPI_Comm migCommData);
-void voclProxyMigSendRecvDeviceMemoryData(vocl_virtual_gpu *sourceVGPUPtr, vocl_virtual_gpu *destVGPUPtr);
+void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo, 
+			MPI_Comm migComm, MPI_Comm migCommData);
+void voclProxyMigSendRecvDeviceMemoryData(vocl_virtual_gpu *sourceVGPUPtr, 
+			vocl_virtual_gpu *destVGPUPtr);
+void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank, 
+			MPI_Comm destComm, MPI_Comm destCommData, int appRank, MPI_Comm appComm, 
+			struct strEnqueueNDRangeKernel *kernelLaunch, char *kernelDimInfo);
 
 extern MPI_Comm *appComm, *appCommData;
 
@@ -147,7 +153,6 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 	/* device id of the previous virtual is the old device id of the current virtual gpu */
 	voclProxyStoreVGPUOldDeviceID(appIndex, deviceID, vgpuPtr->deviceID);
 	voclProxySetMigStatus(appIndex, migStatus);
-
 	for (i = 0; i < vgpuPtr->contextNo; i++)
 	{
 		/* obtain the context pointer to unpack the migration message */
@@ -165,7 +170,47 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 		/* get vocl_proxy_context pointer */
 		ctxPtr = voclProxyGetContextPtr(context);
 		voclProxyAddContextToVGPU(appIndex, deviceID, ctxPtr);
-	
+
+		for (j = 0; j < contextPtr->cmdQueueNo; j++)
+		{
+			/* decode command queue */
+			cmdQueuePtr = (vocl_proxy_command_queue *)(bufPtr + offset);
+			offset += sizeof(vocl_proxy_command_queue);
+			cmdQueue = clCreateCommandQueue(context, deviceID, cmdQueuePtr->properties, &retCode);
+
+			/* store the command queue */
+			voclProxyAddCmdQueue(cmdQueue, cmdQueuePtr->properties, context, deviceID);
+			
+			/* set the migration status of command queue */
+			voclProxySetCommandQueueMigStatus(cmdQueue, migStatus);
+
+			/* store the command queue value before migration */
+			voclProxyStoreOldCommandQueueValue(cmdQueue, cmdQueuePtr->command_queue);
+
+			cqPtr = voclProxyGetCmdQueuePtr(cmdQueue);
+			voclProxyAddCommandQueueToContext(context, cqPtr);
+			voclProxyAddCommandQueueToVGPU(appIndex, deviceID, cqPtr);
+		}
+
+		for (j = 0; j < contextPtr->memNo; j++)
+		{
+			/* decoce the device memory */
+			memPtr = (vocl_proxy_mem *)(bufPtr + offset);
+			offset += sizeof(vocl_proxy_mem);
+			mem = clCreateBuffer(context, memPtr->flags, memPtr->size,
+								 NULL, &retCode);
+			/* store the memory */
+			voclProxyAddMem(mem, memPtr->flags, memPtr->size, context);
+			voclProxySetMemMigStatus(mem, migStatus);
+
+			/* store the memory value before migration */
+			voclProxyStoreOldMemValue(mem, memPtr->mem);
+
+			voclProxySetMemWritten(mem, memPtr->isWritten);
+			mmPtr = voclProxyGetMemPtr(mem);
+			voclProxyAddMemToContext(context, mmPtr);
+		}
+
 		/* unpack the program */
 		for (j = 0; j < contextPtr->programNo; j++)
 		{
@@ -279,45 +324,6 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 			}
 		}
 
-		for (j = 0; j < contextPtr->cmdQueueNo; j++)
-		{
-			/* decode command queue */
-			cmdQueuePtr = (vocl_proxy_command_queue *)(bufPtr + offset);
-			offset += sizeof(vocl_proxy_command_queue);
-			cmdQueue = clCreateCommandQueue(context, deviceID, cmdQueuePtr->properties, &retCode);
-
-			/* store the command queue */
-			voclProxyAddCmdQueue(cmdQueue, cmdQueuePtr->properties, context, deviceID);
-			
-			/* set the migration status of command queue */
-			voclProxySetCommandQueueMigStatus(cmdQueue, migStatus);
-
-			/* store the command queue value before migration */
-			voclProxyStoreOldCommandQueueValue(cmdQueue, cmdQueuePtr->command_queue);
-
-			cqPtr = voclProxyGetCmdQueuePtr(cmdQueue);
-			voclProxyAddCommandQueueToContext(context, cqPtr);
-			voclProxyAddCommandQueueToVGPU(appIndex, deviceID, cqPtr);
-		}
-
-		for (j = 0; j < contextPtr->memNo; j++)
-		{
-			/* decoce the device memory */
-			memPtr = (vocl_proxy_mem *)(bufPtr + offset);
-			offset += sizeof(vocl_proxy_mem);
-			mem = clCreateBuffer(context, memPtr->flags, memPtr->size,
-								 NULL, &retCode);
-			/* store the memory */
-			voclProxyAddMem(mem, memPtr->flags, memPtr->size, context);
-			voclProxySetMemMigStatus(mem, migStatus);
-
-			/* store the memory value before migration */
-			voclProxyStoreOldMemValue(mem, memPtr->mem);
-
-			voclProxySetMemWritten(mem, memPtr->isWritten);
-			mmPtr = voclProxyGetMemPtr(mem);
-			voclProxyAddMemToContext(context, mmPtr);
-		}
 	}
 
 	return;
@@ -472,7 +478,7 @@ cl_device_id voclProxyMigFindTargetGPU(struct strKernelNumOnDevice *gpuKernelNum
 	int indexOfMinKernelNum = -1;
 
 	cl_device_id deviceID;
-	for (i = 0; i < proxyNum; i++)
+	for (i = 1; i < proxyNum; i++)
 	{
 		for (j = 0; j < gpuKernelNum[i].deviceNum; j++)
 		{
@@ -491,7 +497,8 @@ cl_device_id voclProxyMigFindTargetGPU(struct strKernelNumOnDevice *gpuKernelNum
 	return deviceID;
 }
 
-cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr)
+cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, 
+			int *destProxyRank, MPI_Comm *destComm, MPI_Comm *destCommData)
 {
 	struct strKernelNumOnDevice *gpuKernelNum;
 	struct strVGPUMigration vgpuMigrationMsg;
@@ -513,6 +520,11 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr)
 	gpuKernelNum = voclProxyMigQueryLoadOnGPUs(vgpuPtr->appIndex, &proxyNum);
 	deviceID = voclProxyMigFindTargetGPU(gpuKernelNum, proxyNum, &destRankNo, &destAppIndex);
 	free(gpuKernelNum);
+
+	/* return value for communication with dest proxy process */
+	*destProxyRank = destRankNo;
+	*destComm = comm;
+	*destCommData = commData;
 
 	/* send the migration message to target proxy process */
 	voclProxyGetMessageSizeForVGPU(vgpuPtr, &vgpuMsg);
@@ -571,9 +583,31 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr)
 cl_int voclProxyMigrationOneVGPUOverload(int appIndex, cl_device_id deviceID)
 {
 	vocl_virtual_gpu *vgpuPtr;
+	int destProxyRank;
+	MPI_Comm destComm, destCommData;
+
 	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
 
-	return voclProxyMigrationOneVGPU(vgpuPtr);
+	return voclProxyMigrationOneVGPU(vgpuPtr, &destProxyRank, &destComm, &destCommData);
+}
+
+void voclProxyMigrationOneVGPUInKernelLaunch(int appIndex, int appRank, 
+					MPI_Comm appComm, cl_device_id deviceID,
+					struct strEnqueueNDRangeKernel *conMsgKernelLaunch,
+					char *kernelDimInfo)
+{	
+	vocl_virtual_gpu *vgpuPtr;
+	int origProxyRank, destProxyRank;
+	MPI_Comm destComm, destCommData;
+
+	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+	origProxyRank = vgpuPtr->proxyRank;
+	voclProxyMigrationOneVGPU(vgpuPtr, &destProxyRank, &destComm, &destCommData);
+
+	voclProxyMigSendOperationsInCmdQueue(origProxyRank, destProxyRank, destComm, 
+				destCommData, appRank, appComm, conMsgKernelLaunch, kernelDimInfo);
+
+	return;
 }
 
 void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo, MPI_Comm migComm, MPI_Comm migCommData)
@@ -842,4 +876,89 @@ void vocl_proxyUpdateVirtualGPUInfo(int appIndex, char *msgBuf)
 
     return;
 }
-	
+
+/* transfer the kernel launch command to the target proxy process */
+void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank, 
+			MPI_Comm destComm, MPI_Comm destCommData, int appRank, MPI_Comm appComm, 
+			struct strEnqueueNDRangeKernel *kernelLaunch, char *kernelDimInfo)
+{
+	MPI_Request request[3];
+	MPI_Status status[3];
+	int requestNo = 0;
+	int workDim;
+	size_t dimMsgSize;
+	size_t paramOffset;
+	struct strEnqueueNDRangeKernelReply kernelLaunchReply;
+	size_t *global_work_offset, *global_work_size, *local_work_size;
+
+	workDim = kernelLaunch->work_dim;
+	if (origProxyRank != destProxyRank)
+	{
+		dimMsgSize = 0;
+		if (kernelLaunch->global_work_offset_flag == 1) {
+			dimMsgSize += workDim * sizeof(size_t);
+		}
+
+		if (kernelLaunch->global_work_size_flag == 1) {
+			dimMsgSize += workDim * sizeof(size_t);
+		}
+
+		if (kernelLaunch->local_work_size_flag == 1) {
+			dimMsgSize += workDim * sizeof(size_t);
+		}
+
+		MPI_Isend(kernelLaunch, sizeof(struct strEnqueueNDRangeKernel), MPI_BYTE, 
+				  destProxyRank, VOCL_MIG_CMD_OPERATIONS, destComm, request+(requestNo++));
+		if (dimMsgSize > 0)
+		{
+			MPI_Isend(kernelDimInfo, dimMsgSize, MPI_BYTE, destProxyRank, 
+					  VOCL_MIG_CMD_OPERATIONS, destCommData, request+(requestNo++));
+		}
+
+		/* if reply message is needed */
+		MPI_Irecv(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply), 
+				  MPI_BYTE, destProxyRank, VOCL_MIG_CMD_OPERATIONS, destCommData, 
+				  request+(requestNo++));
+		MPI_Waitall(requestNo, request, status);
+	}
+	else /* migration is performed on the same node across different GPUs */
+	{
+		paramOffset = 0;
+		global_work_offset = NULL;
+		global_work_size = NULL;
+		local_work_size = NULL;
+		if (kernelLaunch->global_work_offset_flag == 1) {
+			global_work_offset = (size_t *) (kernelDimInfo + paramOffset);
+			paramOffset += workDim * sizeof(size_t);
+		}
+
+		if (kernelLaunch->global_work_size_flag == 1) {
+			global_work_size = (size_t *) (kernelDimInfo + paramOffset);
+			paramOffset += workDim * sizeof(size_t);
+		}
+
+		if (kernelLaunch->local_work_size_flag == 1) {
+			local_work_size = (size_t *) (kernelDimInfo + paramOffset);
+			paramOffset += workDim * sizeof(size_t);
+		}
+
+		kernelLaunchReply.command_queue = voclProxyGetNewCommandQueueValue(kernelLaunch->command_queue);
+		kernelLaunchReply.kernel = voclProxyGetNewKernelValue(kernelLaunch->kernel);
+		kernelLaunchReply.res =  clEnqueueNDRangeKernel(kernelLaunchReply.command_queue,
+										kernelLaunchReply.kernel,
+										workDim,
+										global_work_offset,
+										global_work_size,
+										local_work_size,
+										0, NULL, NULL);
+	}
+
+	/* send the reply message back */
+	MPI_Isend(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply),
+			  MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL, appComm, request);
+	MPI_Wait(request, status);
+
+	return;
+} 
+
+
