@@ -95,8 +95,8 @@ void BodySystemOpenCL::_finalize()
 	strTime.releaseKernel += elapsedTime();
 
 	timerStart();
-	clReleaseKernel(MT_kernel);
-	clReleaseKernel(noMT_kernel);
+	clReleaseProgram(MT_program);
+	clReleaseProgram(noMT_program);
 	timerEnd();
 	strTime.releaseKernel += elapsedTime();
 	strTime.numReleaseKernel += 2;
