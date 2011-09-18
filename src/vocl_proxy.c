@@ -474,10 +474,10 @@ int main(int argc, char *argv[])
         }
         conMsgRequestForWait[commIndex] = conMsgRequest[conMsgRequestIndex[commIndex]];
 
-        //debug-----------------------------
-        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
-              rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
-        //-------------------------------------
+//        //debug-----------------------------
+//        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
+//              rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+//        //-------------------------------------
 		if (status.MPI_TAG == GET_PROXY_COMM_INFO) {
 			memcpy((void *)&tmpGetProxyCommInfo, (const void *) conMsgBuffer[index],
 					sizeof(tmpGetProxyCommInfo));
@@ -959,7 +959,6 @@ int main(int argc, char *argv[])
 			global_work_offset = NULL;
 			global_work_size = NULL;
 			local_work_size = NULL;
-
 			if (tmpEnqueueNDRangeKernel.dataSize > 0) {
 				if (tmpEnqueueNDRangeKernel.dataSize > kernelMsgSize)
 				{
@@ -1049,7 +1048,7 @@ int main(int argc, char *argv[])
 			voclProxyIncreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 1);
 
 			requestNo = 0;
-			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
+//			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
 			{
 				MPI_Isend(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply),
 					  MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL, appComm[commIndex],

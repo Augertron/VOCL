@@ -473,7 +473,7 @@ static void checkSlaveProc()
                 }
 
                 /* establish inter node communicator */
-                usleep(50000);
+                usleep(800000);
                 err =
                     MPI_Comm_connect(portName, MPI_INFO_NULL, 0, MPI_COMM_SELF,
                                      &voclProxyComm[i]);

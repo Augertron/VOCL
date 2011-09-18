@@ -478,7 +478,7 @@ cl_device_id voclProxyMigFindTargetGPU(struct strKernelNumOnDevice *gpuKernelNum
 	int indexOfMinKernelNum = -1;
 
 	cl_device_id deviceID;
-	for (i = 1; i < proxyNum; i++)
+	for (i = 0; i < proxyNum; i++)
 	{
 		for (j = 0; j < gpuKernelNum[i].deviceNum; j++)
 		{
