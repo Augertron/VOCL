@@ -462,11 +462,11 @@ static void checkSlaveProc()
 
         /* rank of the app process */
         for (i = 0; i < np; i++) {
-            voclSetIndex2NodeMapping(i, (rank + i) % proxyNum);
-            //voclSetIndex2NodeMapping(i, i % proxyNum);
+            //voclSetIndex2NodeMapping(i, (rank + i) % proxyNum);
+            voclSetIndex2NodeMapping(i, i % proxyNum);
             if (voclIsOnLocalNode(i) == VOCL_FALSE) {
                 sprintf(serviceName, "voclCloud%s", voclGetProxyHostName(i));
-
+				
                 err = MPI_Lookup_name(serviceName, MPI_INFO_NULL, portName);
                 if (err != MPI_SUCCESS) {
                     printf("Lookup name error, %d\n", err);
@@ -491,11 +491,18 @@ static void checkSlaveProc()
 
                 /* since MPI_COMM_SELF, rankes of all proxy processes are 0 */
                 voclProxyRank[i] = 0;
-
-				/* create a window for data access by the proxy process */
-				voclAddWinInfo(voclProxyComm[i], voclProxyRank[i], i, serviceName);
             }
         }
+
+		/* create a window for data access by proxy process */
+		for (i = 0; i < np; i++)
+		{
+			if (voclIsOnLocalNode(i) == VOCL_FALSE)
+			{
+                sprintf(serviceName, "voclCloud%s", voclGetProxyHostName(i));
+				voclAddWinInfo(voclProxyComm[i], voclProxyRank[i], i, serviceName);
+			}
+		}
 
 #ifdef _PRINT_NODE_NAME
         {

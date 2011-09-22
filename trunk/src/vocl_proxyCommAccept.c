@@ -210,7 +210,7 @@ void voclProxyDisconnectOneApp(int commIndex)
 	while (voclAppNo == 1)
 	{
 		printf("polling...\n");
-		usleep(50000); /* polling every 50ms */
+		usleep(500000); /* polling every 50ms */
 	}
 
 	return;
