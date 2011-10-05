@@ -517,11 +517,8 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 //	voclProxyMigrationMutexLock(vgpuPtr->appIndex);
 	comm = appComm[0];
 	commData = appCommData[0];
-//printf("MigOneVGPU1\n");
 	gpuKernelNum = voclProxyMigQueryLoadOnGPUs(vgpuPtr->appIndex, &proxyNum);
-//printf("MigOneVGPU2\n");
 	deviceID = voclProxyMigFindTargetGPU(gpuKernelNum, proxyNum, &destRankNo, &destAppIndex);
-//printf("MigOneVGPU3\n");
 	free(gpuKernelNum);
 
 	/* return value for communication with dest proxy process */
@@ -531,17 +528,14 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 
 	/* send the migration message to target proxy process */
 	voclProxyGetMessageSizeForVGPU(vgpuPtr, &vgpuMsg);
-//printf("MigOneVGPU4\n");
 
 	/* pack the message for the virtual GPU */
 	msgBuf = (char *)malloc(vgpuMsg.size);
 	voclProxyPackMessageForVGPU(vgpuPtr, msgBuf);
-//printf("MigOneVGPU5\n");
 
 	/* in different proxy process */
 	if (vgpuPtr->proxyRank != destRankNo)
 	{
-//printf("MigOneVGPU6\n");
 		vgpuMigrationMsg.migMsgSize = vgpuMsg.size;
 		vgpuMigrationMsg.deviceID = deviceID;
 		vgpuMigrationMsg.contextNum = vgpuMsg.contextNum;
@@ -553,16 +547,12 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 				  commData, request+(requestNo++));
 		MPI_Irecv(&vgpuMigrationMsg, sizeof(struct strVGPUMigration), MPI_BYTE, 
 				  destRankNo, VOCL_MIGRATION, commData, request+(requestNo++));
-//printf("MigOneVGPU7\n");
 		MPI_Waitall(requestNo, request, status);
-//printf("MigOneVGPU8\n");
 		/* finish data transfer for migration */
 		voclProxyMigSendDeviceMemoryData(vgpuPtr, destRankNo, comm, commData);
-//printf("MigOneVGPU9\n");
 
 		/* update the mapping information in the library size */
 		voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo, 0);
-//printf("MigOneVGPU10\n");
 	}
 	else
 	{
