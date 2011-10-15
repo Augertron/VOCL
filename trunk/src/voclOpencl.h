@@ -106,9 +106,9 @@ extern "C" {
         cl_int event_null_flag; /* 1, flag is NULL, 0, is NOT NULL */
         cl_event event;
         cl_int res;
-		char cmdQueueMigStatus;
-		char memMigStatus;
-		char padding[2];
+//		char cmdQueueMigStatus;
+//		char memMigStatus;
+//		char padding[2];
     };
 
     struct strSetKernelArg {
@@ -139,9 +139,9 @@ extern "C" {
 		size_t dataSize;
         cl_uint num_events_in_wait_list;
         cl_int event_null_flag;
-		char cmdQueueMigStatus;
-		char kernelMigStatus;
-		char padding[2];
+//		char cmdQueueMigStatus;
+//		char kernelMigStatus;
+//		char padding[2];
     };
 
 	struct strEnqueueNDRangeKernelReply {
@@ -149,9 +149,9 @@ extern "C" {
 		cl_kernel kernel;
 		cl_event event;
 		cl_int res;
-		char cmdQueueMigStatus;
-		char kernelMigStatus;
-		char padding[2];
+//		char cmdQueueMigStatus;
+//		char kernelMigStatus;
+//		char padding[2];
 	};
 
     struct strEnqueueReadBuffer {
@@ -165,9 +165,9 @@ extern "C" {
         cl_int event_null_flag; /* 1: the event point is NULL. 0: the event point is NOT NULL */
         cl_event event;
         cl_int res;
-		char cmdQueueMigStatus;
-		char memMigStatus;
-		char padding[2];
+//		char cmdQueueMigStatus;
+//		char memMigStatus;
+//		char padding[2];
     };
 
     struct strReleaseMemObject {
@@ -187,8 +187,8 @@ extern "C" {
     struct strFinish {
         cl_command_queue command_queue;
         cl_int res;
-		char migStatus;
-		char padding[3];
+//		char migStatus;
+//		char padding[3];
     };
 
     struct strGetContextInfo {

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <CL/opencl.h>
+#include <sys/time.h>
 #include "mpi.h"
 #include "mpix.h"
 #include "voclOpencl.h"
@@ -40,6 +41,12 @@ static int voclWinInfoNo;
 extern void processAllWrites(int proxyIndex);
 extern void processAllReads(int proxyIndex);
 
+//debug------------------------------
+struct timeval t1, t2;
+float tmpTime;
+float totalTime;
+//--------------------------------------
+
 void voclWinInfoInitialize()
 {
 	totalVoclWinInfoNum = DEFAULT_PROXY_NUM;
@@ -50,6 +57,8 @@ void voclWinInfoInitialize()
 	voclWinMapPtr = (int *)malloc(sizeof(int) * totalVoclWinInfoNum);
 	voclLockers = (MPIX_Mutex *)malloc(sizeof(MPIX_Mutex) * totalVoclWinInfoNum);
 
+	totalTime = 0.0f;
+	
 	return;
 }
 
@@ -61,6 +70,10 @@ void voclWinInfoFinalize()
 	free(voclWinPtr);
 	free(voclWinMapPtr);
 	free(voclLockers);
+
+	//debug-------------------------------------------
+	printf("getTotalMigStatus = %.3f\n", totalTime);
+	//------------------------------------------------
 
 	return;
 }
@@ -150,6 +163,7 @@ char voclGetMigrationStatus(int proxyIndex)
 	int offset;
 	struct strVoclWinInfo migWin;
 
+	gettimeofday(&t1, NULL);
 	winPtr = (vocl_wins *)malloc(sizeof(vocl_wins));
 	offset = ((char *)&winPtr->wins[proxyIndex]) - ((char*)winPtr);
 	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, voclWinPtr[proxyIndex]);
@@ -162,14 +176,24 @@ char voclGetMigrationStatus(int proxyIndex)
 	{
 		migWin.preMigStatus = migWin.migrationStatus;
 	}
+	gettimeofday(&t2, NULL);
+	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	totalTime += tmpTime;
 
 	return migWin.migrationStatus;
 }
 
 void voclCompletePreviousDataTransfer(int proxyIndex)
 {
+//	struct timeval t1, t2;
+//	float tmpTime;
+
+//	gettimeofday(&t1, NULL);
 	processAllWrites(proxyIndex);
 	processAllReads(proxyIndex);
+//	gettimeofday(&t2, NULL);
+//	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+//	printf("completePreDataTransfer = %.3f\n", tmpTime);
 
 	return;
 }

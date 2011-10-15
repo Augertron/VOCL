@@ -108,9 +108,9 @@ struct strEnqueueWriteBuffer {
     cl_int event_null_flag;     /* 1: event is NULL, 0: NOT NULL */
     cl_event event;
     cl_int res;
-	char cmdQueueMigStatus;
-	char memMigStatus;
-	char padding[2];
+//	char cmdQueueMigStatus;
+//	char memMigStatus;
+//	char padding[2];
 };
 
 struct strSetKernelArg {
@@ -140,9 +140,9 @@ struct strEnqueueNDRangeKernel {
 	size_t dataSize;
     cl_uint num_events_in_wait_list;
     cl_int event_null_flag;
-	char cmdQueueMigStatus;
-	char kernelMigStatus;
-	char padding[2];
+//	char cmdQueueMigStatus;
+//	char kernelMigStatus;
+//	char padding[2];
 };
 
 struct strEnqueueNDRangeKernelReply {
@@ -150,9 +150,9 @@ struct strEnqueueNDRangeKernelReply {
 	cl_kernel kernel;
 	cl_event event;
 	cl_int res;
-	char cmdQueueMigStatus;
-	char kernelMigStatus;
-	char padding[2];
+//	char cmdQueueMigStatus;
+//	char kernelMigStatus;
+//	char padding[2];
 };
 
 struct strEnqueueReadBuffer {
@@ -166,9 +166,9 @@ struct strEnqueueReadBuffer {
     cl_int event_null_flag;     /* 1: event is NULL, 0: NOT NULL */
     cl_event event;
     cl_int res;
-	char cmdQueueMigStatus;
-	char memMigStatus;
-	char padding[2];
+//	char cmdQueueMigStatus;
+//	char memMigStatus;
+//	char padding[2];
 };
 
 struct strReleaseMemObject {
@@ -237,8 +237,8 @@ struct strReleaseContext {
 struct strFinish {
     cl_command_queue command_queue;
     cl_int res;
-	char migStatus;
-	char padding[3];
+//	char migStatus;
+//	char padding[3];
 };
 
 struct strGetDeviceInfo {

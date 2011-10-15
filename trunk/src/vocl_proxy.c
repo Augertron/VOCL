@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include <memory.h>
 #include <CL/opencl.h>
+#include <sys/time.h>
 #include <sched.h>
 #include <pthread.h>
 #include "vocl_proxy.h"
@@ -404,6 +405,11 @@ int main(int argc, char *argv[])
 
 	/* flag to control the execution of the kernel launch thread */
 	int kernelLaunchThreadExecuting = 0;
+
+	// timing info for migration-----------
+	struct timeval t1, t2;
+	float tmpTime;
+	//-----------------------------------
 
 	kernelMsgSize = 2048;
     kernelMsgBuffer = (char *) malloc(sizeof(char) * kernelMsgSize);
@@ -883,7 +889,6 @@ int main(int argc, char *argv[])
 			if (requestNo > 0) {
 				MPI_Wait(curRequest, curStatus);
 			}
-
         }
 
         else if (status.MPI_TAG == SET_KERNEL_ARG) {
@@ -940,7 +945,6 @@ int main(int argc, char *argv[])
 //				kernelLaunchThreadExecuting = 1;
 //				pthread_barrier_wait(&barrierKernalLaunch);
 //			}
-
 			memcpy(&tmpEnqueueNDRangeKernel, conMsgBuffer[index],
 				   sizeof(tmpEnqueueNDRangeKernel));
 			requestNo = 0;
@@ -1007,7 +1011,15 @@ int main(int argc, char *argv[])
 			//debug, for migration test------------------------------------------------
 			if (rankNo == 1 && voclProxyGetMigrationCondition(rankNo) == 0)
 			{
+				gettimeofday(&t1, NULL);
 				processAllWrites(appIndex);
+				gettimeofday(&t2, NULL);
+				tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+
+				FILE *pfile = fopen("waitTime.txt", "at");
+				fprintf(pfile, "proxyWaitTime\t%.3f\n", tmpTime);
+				fclose(pfile);
+
 				voclProxySetMigrationCondition(rankNo, 1);
 				cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpEnqueueNDRangeKernel.command_queue);
 				voclProxyMigrationOneVGPUInKernelLaunch(appIndex, appRank, appComm[commIndex], 
