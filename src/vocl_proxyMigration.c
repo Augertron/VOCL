@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include "vocl_proxy.h"
 #include "vocl_proxyWinProc.h"
 #include "vocl_proxyBufferProc.h"
@@ -480,7 +482,7 @@ cl_device_id voclProxyMigFindTargetGPU(struct strKernelNumOnDevice *gpuKernelNum
 	cl_device_id deviceID;
 	for (i = 1; i < proxyNum; i++)
 	{
-		for (j = 0; j < gpuKernelNum[i].deviceNum; j++)
+		for (j = 1; j < gpuKernelNum[i].deviceNum; j++)
 		{
 			if (minKernelNumInWaiting > gpuKernelNum[i].kernelNums[j])
 			{
@@ -512,13 +514,30 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 	MPI_Status status[3];
 	int requestNo = 0;
 	cl_device_id deviceID;
+	//debug, for profiling------------------------------
+	struct timeval t1, t2;
+	float tmpTime;
+	float queryLoadTime, findTargetGPU, packMsgTime, newVGPUAllocTime, transferDataTime, updateStatusTime, relVGPUTime;
+	FILE *pfile;
+	//--------------------------------------------------
 
 	/* acquire the locker */
-//	voclProxyMigrationMutexLock(vgpuPtr->appIndex);
+	//voclProxyMigrationMutexLock(vgpuPtr->appIndex);
 	comm = appComm[0];
 	commData = appCommData[0];
+
+	gettimeofday(&t1, NULL);
 	gpuKernelNum = voclProxyMigQueryLoadOnGPUs(vgpuPtr->appIndex, &proxyNum);
+	gettimeofday(&t2, NULL);
+	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	queryLoadTime = tmpTime;
+	
+	gettimeofday(&t1, NULL);
 	deviceID = voclProxyMigFindTargetGPU(gpuKernelNum, proxyNum, &destRankNo, &destAppIndex);
+	gettimeofday(&t2, NULL);
+	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	findTargetGPU = tmpTime;
+
 	free(gpuKernelNum);
 
 	/* return value for communication with dest proxy process */
@@ -526,16 +545,20 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 	*destComm = comm;
 	*destCommData = commData;
 
+	gettimeofday(&t1, NULL);
 	/* send the migration message to target proxy process */
 	voclProxyGetMessageSizeForVGPU(vgpuPtr, &vgpuMsg);
-
 	/* pack the message for the virtual GPU */
 	msgBuf = (char *)malloc(vgpuMsg.size);
 	voclProxyPackMessageForVGPU(vgpuPtr, msgBuf);
+	gettimeofday(&t2, NULL);
+	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	packMsgTime = tmpTime;
 
 	/* in different proxy process */
 	if (vgpuPtr->proxyRank != destRankNo)
 	{
+		gettimeofday(&t1, NULL);
 		vgpuMigrationMsg.migMsgSize = vgpuMsg.size;
 		vgpuMigrationMsg.deviceID = deviceID;
 		vgpuMigrationMsg.contextNum = vgpuMsg.contextNum;
@@ -548,11 +571,23 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 		MPI_Irecv(&vgpuMigrationMsg, sizeof(struct strVGPUMigration), MPI_BYTE, 
 				  destRankNo, VOCL_MIGRATION, commData, request+(requestNo++));
 		MPI_Waitall(requestNo, request, status);
+		gettimeofday(&t2, NULL);
+		tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+		newVGPUAllocTime = tmpTime;
+
 		/* finish data transfer for migration */
+		gettimeofday(&t1, NULL);
 		voclProxyMigSendDeviceMemoryData(vgpuPtr, destRankNo, comm, commData);
+		gettimeofday(&t2, NULL);
+		tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+		transferDataTime = tmpTime;
 
 		/* update the mapping information in the library size */
+		gettimeofday(&t1, NULL);
 		voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo, 0);
+		gettimeofday(&t2, NULL);
+		tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+		updateStatusTime = tmpTime;
 	}
 	else
 	{
@@ -572,7 +607,38 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 
 	/* After data transfer and kernel launch are migrated, this function */
 	/* will be called to release the virtual GPU on the original proxy */
+	gettimeofday(&t1, NULL);
 	voclProxyMigReleaseVirtualGPU(vgpuPtr);
+	gettimeofday(&t2, NULL);
+	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	relVGPUTime = tmpTime;
+
+	pfile = fopen("migTime.txt", "at");
+	fprintf(pfile, "%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n",
+			queryLoadTime,
+			findTargetGPU,
+			packMsgTime,
+			newVGPUAllocTime,
+			transferDataTime,
+			updateStatusTime,
+			relVGPUTime);
+	fclose(pfile);
+
+	printf("%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n",
+			queryLoadTime,
+			findTargetGPU,
+			packMsgTime,
+			newVGPUAllocTime,
+			transferDataTime,
+			updateStatusTime,
+			relVGPUTime);
+//	printf("queryLoadTime = %.3f\n", queryLoadTime);
+//	printf("findTargetGPU = %.3f\n", findTargetGPU);
+//	printf("packMsgTime = %.3f\n", packMsgTime);
+//	printf("newVGPUAllocTime = %.3f\n", newVGPUAllocTime);
+//	printf("transferDataTime = %.3f\n", transferDataTime);
+//	printf("updateStatusTime = %.3f\n", updateStatusTime);
+//	printf("relVGPUTime = %.3f\n", relVGPUTime);
 
 	/* acquire the locker */
 //	voclProxyMigrationMutexUnlock(vgpuPtr->appIndex);

@@ -19,6 +19,8 @@ extern "C" {
 #define VOCL_TRUE  1
 #define VOCL_FALSE 0
 
+#define VOCL_CMSG_TRACK_SIZE 50
+
 /* parameters of buffer pool */
 /* write buffer */
 #define VOCL_WRITE_BUFFER_NUM 8

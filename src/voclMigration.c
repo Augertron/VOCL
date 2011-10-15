@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <sys/time.h>
 #include "voclOpencl.h"
 #include "voclStructures.h"
 #include "voclMigration.h"
@@ -66,7 +67,10 @@ void voclMigUpdateVirtualGPU(int origProxyIndex, vocl_device_id origDeviceID,
 	MPI_Request request[3];
 	MPI_Status status[3];
 	int requestNo = 0;
+	struct timeval t1, t2;
+	float tmpTime;
 
+	gettimeofday(&t1, NULL);
 	/* get msg size for vgpu info update */
 	vgpuMigMsgSize = voclGetVGPUMsgSize(origProxyIndex, origDeviceID);
 	msgBuf = (char *)malloc(vgpuMigMsgSize);
@@ -84,7 +88,11 @@ void voclMigUpdateVirtualGPU(int origProxyIndex, vocl_device_id origDeviceID,
 
 	voclUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, proxyIndex,
 						 comm, commData, msgBuf);
+	gettimeofday(&t2, NULL);
+	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
 	free(msgBuf);
+
+	printf("updateVGPU = %.3f\n", tmpTime);
 
 	return;
 }
