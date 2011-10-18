@@ -19,6 +19,7 @@ typedef struct strVoclCmddQueue {
 	int              appIndex;
 	int              internalWaitFlag;
 	int              status;
+	char			 *paramBuf;
 	char             conMsgBuffer[MAX_CMSG_SIZE];
 } vocl_internal_command_queue;
 
