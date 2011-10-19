@@ -67,10 +67,10 @@ void voclMigUpdateVirtualGPU(int origProxyIndex, vocl_device_id origDeviceID,
 	MPI_Request request[3];
 	MPI_Status status[3];
 	int requestNo = 0;
-	struct timeval t1, t2;
-	float tmpTime;
+	//struct timeval t1, t2;
+	//float tmpTime;
 
-	gettimeofday(&t1, NULL);
+	//gettimeofday(&t1, NULL);
 	/* get msg size for vgpu info update */
 	vgpuMigMsgSize = voclGetVGPUMsgSize(origProxyIndex, origDeviceID);
 	msgBuf = (char *)malloc(vgpuMigMsgSize);
@@ -88,12 +88,33 @@ void voclMigUpdateVirtualGPU(int origProxyIndex, vocl_device_id origDeviceID,
 
 	voclUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, proxyIndex,
 						 comm, commData, msgBuf);
-	gettimeofday(&t2, NULL);
-	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	//gettimeofday(&t2, NULL);
+	//tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+	//printf("updateVGPU = %.3f\n", tmpTime);
 	free(msgBuf);
-
-	printf("updateVGPU = %.3f\n", tmpTime);
 
 	return;
 }
 
+/* send message to the source proxy process to indicate it is the */
+/* last message before migration. Then the proxy process can migrate */
+/* all commands that are not issued to the destination proxy process */
+void voclMigSendLastMsgToOrigProxy(int origProxyIndex, int origProxyRank,
+			MPI_Comm comm, MPI_Comm commData, int *reissueWriteNum, 
+			int *reissueReadNum)
+{
+	MPI_Request request[2];
+	MPI_Status status[2];
+	int requestNo = 0;
+	struct strMigSendLastMessage lastMsg;
+	MPI_Isend(&lastMsg, sizeof(struct strMigSendLastMessage), MPI_BYTE, 
+			origProxyRank, VOCL_MIG_LAST_MSG, comm, request+(requestNo++));
+	MPI_Irecv(&lastMsg, sizeof(struct strMigSendLastMessage), MPI_BYTE, 
+			origProxyRank, VOCL_MIG_LAST_MSG, comm, request+(requestNo++));
+	MPI_Waitall(requestNo, request, status);
+
+	*reissueWriteNum = lastMsg.reissueWriteNum;
+	*reissueReadNum = lastMsg.reissueReadNum;
+
+	return;
+}

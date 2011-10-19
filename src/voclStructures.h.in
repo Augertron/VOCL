@@ -256,11 +256,15 @@ typedef struct strVOCLMigVGPU {
 
 
 /* structures used for buffer pool */
+/* some info is added for data send/recv reissue */
 struct strReadBufferInfo {
     int isInUse;
     vocl_event event;
     int bufferNum;
     MPI_Request request;
+	void *ptr;
+	size_t size;
+	int tag;
 };
 
 struct voclReadBuffer {
@@ -274,6 +278,9 @@ struct strWriteBufferInfo {
     vocl_event event;
     int bufferNum;
     MPI_Request request;
+	void *ptr;
+	size_t size;
+	int tag;
 };
 
 struct voclWriteBuffer {

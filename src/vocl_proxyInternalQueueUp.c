@@ -18,6 +18,7 @@ static int voclProxyCmdNum;
 static int voclProxyCmdHead;
 static int voclProxyCmdTail;
 int voclProxyThreadInternalTerminateFlag = 0;
+int voclProxyMigrateCommandOperationsFlag = 0;
 static int voclProxyAppNum = 100;
 static int *voclProxyNumOfKernelsLaunched = NULL;
 static int *voclProxyNumOfKernelsCompleted = NULL;
@@ -27,7 +28,17 @@ extern int voclProxyAppIndex;
 extern pthread_barrier_t barrier;
 
 pthread_t thKernelLaunch;
-pthread_barrier_t barrierKernalLaunch;
+//pthread_barrier_t barrierKernelLaunch;
+
+extern int voclMigOrigProxyRank;
+extern int voclMigDestProxyRank;
+extern MPI_Comm voclMigDestComm;
+extern MPI_Comm voclMigDestCommData;
+extern int voclMigAppIndexOnOrigProxy;
+extern int voclMigAppIndexOnDestProxy;
+extern void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
+        	MPI_Comm destComm, MPI_Comm destCommData, int appIndex, int appIndexOnDestProxy);
+
 
 extern int getNextWriteBufferIndex(int rank);
 extern struct strWriteBufferInfo *getWriteBufferInfoPtr(int rank, int index);
@@ -142,6 +153,12 @@ vocl_internal_command_queue * voclProxyGetInternalQueueHead()
 	return &voclProxyInternalQueue[index];
 }
 
+void voclProxyUnlockItem(vocl_internal_command_queue *cmdPtr)
+{
+	pthread_mutex_unlock(&cmdPtr->lock);
+	return;
+}
+
 void voclProxyInternalQueueReset()
 {
 	int i;
@@ -208,15 +225,25 @@ void *proxyEnqueueThread(void *p)
 	kernel_args *args_ptr;
 	int internalWaitFlag; 
 
-	pthread_barrier_wait(&barrierKernalLaunch);
-
+//	pthread_barrier_wait(&barrierKernelLaunch);
 	while (1)
 	{
-		cmdQueuePtr = voclProxyGetInternalQueueHead();
 		if (voclProxyThreadInternalTerminateFlag == 1)
 		{
 			break;
 		}
+
+		if (voclProxyMigrateCommandOperationsFlag == 1)
+		{
+			voclProxyMigSendOperationsInCmdQueue(voclMigOrigProxyRank, voclMigDestProxyRank,
+					voclMigDestComm, voclMigDestCommData, voclMigAppIndexOnOrigProxy,
+					voclMigAppIndexOnDestProxy);
+			/* migration completed */
+			voclProxyMigrateCommandOperationsFlag = 0;
+		}
+
+		/* get head of internal queue */
+		cmdQueuePtr = voclProxyGetInternalQueueHead();
 
 		appComm = cmdQueuePtr->appComm;
 		appCommData = cmdQueuePtr->appCommData;
@@ -305,11 +332,11 @@ void *proxyEnqueueThread(void *p)
 					MPI_Isend(&tmpEnqueueWriteBuffer, sizeof(tmpEnqueueWriteBuffer), MPI_BYTE,
 							  appRank, ENQUEUE_WRITE_BUFFER, appComm, curRequest + (requestNo++));
 				}
-                else
-                {
-                    MPI_Isend(NULL, 0, MPI_BYTE, appRank, ENQUEUE_WRITE_BUFFER, appComm,
-                              curRequest + (requestNo++));
-                }
+                //else
+                //{
+                //    MPI_Isend(NULL, 0, MPI_BYTE, appRank, ENQUEUE_WRITE_BUFFER, appComm,
+                //              curRequest + (requestNo++));
+                //}
 			}
 
 			if (requestNo > 0) {
@@ -389,7 +416,7 @@ void *proxyEnqueueThread(void *p)
 			/* increase the number of kernels in the command queue by 1 */
 			voclProxyIncreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 1);
 
-//			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
+			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
 			{
 				MPI_Isend(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply),
 					  MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL, appComm,
@@ -419,7 +446,8 @@ void *proxyEnqueueThread(void *p)
 				clFinish(tmpEnqueueNDRangeKernel.command_queue);
 
 				/* all kernels complete their computation */
-				voclProxyDecreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, voclProxyNumOfKernelsLaunched[appIndex]);
+				voclProxyDecreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 
+						voclProxyNumOfKernelsLaunched[appIndex]);
 				voclProxyNumOfKernelsLaunched[appIndex] = 0;
 			}
 		}

@@ -53,6 +53,15 @@ static void reallocateWriteBuffer(int origBufferNum, int newBufferNum)
     return;
 }
 
+void setWriteBufferMPICommInfo(int proxyIndex, int index,
+			void *ptr, size_t size, int tag)
+{
+	voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].ptr = ptr;
+	voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].size = size;
+	voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].tag = tag;
+
+	return;
+}
 
 void setWriteBufferInUse(int proxyIndex, int index)
 {
@@ -147,7 +156,64 @@ void processWriteBuffer(int proxyIndex, int curIndex, int bufferNum)
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 0;
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].event = VOCL_EVENT_NULL;
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].bufferNum = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].ptr = NULL;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].size = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].tag = -1;
     }
+
+    return;
+}
+
+void reissueWriteBufferRequest(int proxyIndex, int reissueNum,
+			MPI_Comm destCommData, int destProxyRank, int destProxyIndex)
+{
+    int i, index, startIndex, endIndex;
+	int bufferIndex;
+    struct strWriteBufferInfo *origWriteBufPtr, *destWrietBufPtr;
+
+	if (destProxyIndex != proxyIndex)
+	{
+		endIndex = voclWriteBufferPtr[proxyIndex].curWriteBufferIndex;
+		startIndex = endIndex - reissueNum;
+		if (startIndex < 0) {
+			startIndex += VOCL_WRITE_BUFFER_NUM;
+			endIndex += VOCL_WRITE_BUFFER_NUM;
+		}
+
+		for (i = startIndex; i < endIndex; i++)
+		{
+			index = i % VOCL_WRITE_BUFFER_NUM;
+			origWriteBufPtr = &voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index];
+
+			/* get available buffer on the dest proxy process */
+			bufferIndex = getNextWriteBufferIndex(destProxyIndex);
+			destWriteBufPtr = &voclWriteBufferPtr[destProxyIndex].voclWriteBufferInfo[bufferIndex];
+			destWriteBufPtr->ptr = origWriteBufPtr->ptr;
+			destWriteBufPtr->size = origWriteBufPtr->size;
+			destWriteBufPtr->tag = VOCL_WRITE_TAG + bufferIndex;
+			
+			/* issue send to dest proxy process */
+			MPI_Isend(destWriteBufPtr->ptr, destWriteBufPtr->size, MPI_BYTE, destProxyRank,
+					destWriteBufPtr->tag, destCommData, &destWriteBufPtr->request);
+
+			/* cancel previous issued requests to the source proxy process */
+			MPI_Cancel(&origWriteBufPtr->request);
+			MPI_Request_free(&origWriteBufPtr->request);
+			origWriteBufPtr->isInUse = 0;
+			origWriteBufPtr->event = VOCL_EVENT_NULL;
+			origWriteBufPtr->bufferNum = 0;
+			origWriteBufPtr->ptr = NULL;
+			origWriteBufPtr->size = 0;
+			origWriteBufPtr->tag = -1;
+		}
+
+		voclWriteBufferPtr[proxyIndex].curWriteBufferIndex -= reissueNum;
+		if (voclWriteBufferPtr[proxyIndex].curWriteBufferIndex < 0)
+		{
+			voclWriteBufferPtr[proxyIndex].curWriteBufferIndex += VOCL_WRITE_BUFFER_NUM;
+		}
+		voclWriteBufferPtr[proxyIndex].writeDataRequestNum -= reissueNum;
+	}
 
     return;
 }
@@ -183,6 +249,9 @@ void processAllWrites(int proxyIndex)
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 0;
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].event = VOCL_EVENT_NULL;
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].bufferNum = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].ptr = NULL;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].size = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].tag = -1;
     }
 
     voclWriteBufferPtr[proxyIndex].curWriteBufferIndex = 0;

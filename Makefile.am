@@ -40,6 +40,7 @@ vocl_proxy_SOURCES = $(top_srcdir)/src/vocl_proxy.c \
 					 $(top_srcdir)/src/vocl_proxyCommAccept.c \
 					 $(top_srcdir)/src/vocl_proxyMigrationDataTransfer.c \
 					 $(top_srcdir)/src/vocl_proxyWinProc.c \
+					 $(top_srcdir)/src/vocl_proxyInternalQueueUp.c \
 					 $(top_srcdir)/src/vocl_proxyVirtualGPU.c \
 					 $(top_srcdir)/src/vocl_proxyContext.c \
 					 $(top_srcdir)/src/vocl_proxyCmdQueue.c \

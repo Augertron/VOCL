@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include "vocl.h"
 #include "voclOpencl.h"
 #include "voclOpenclMacro.h"
 #include "voclStructures.h"
@@ -181,8 +182,12 @@ extern void setWriteBufferInUse(int proxyIndex, int index);
 extern MPI_Request *getWriteRequestPtr(int proxyIndex, int index);
 extern int getNextWriteBufferIndex(int proxyIndex);
 extern void processWriteBuffer(int proxyIndex, int curIndex, int bufferNum);
+extern void reissueWriteBufferRequest(int proxyIndex, int reissueNum,
+            MPI_Comm destCommData, int destProxyRank, int destProxyIndex);
 extern void processAllWrites(int proxyIndex);
 extern void setWriteBufferNum(int proxyIndex, int index, int bufferNum);
+extern void setWriteBufferMPICommInfo(int proxyIndex, int index,
+        void *ptr, size_t size, int tag);
 extern void setWriteBufferEvent(int proxyIndex, int index, vocl_event event);
 extern int getWriteBufferIndexFromEvent(int proxyIndex, vocl_event event);
 extern int getWriteBufferNum(int proxyIndex, int index);
@@ -194,8 +199,12 @@ extern void setReadBufferInUse(int proxyIndex, int index);
 extern MPI_Request *getReadRequestPtr(int proxyIndex, int index);
 extern int getNextReadBufferIndex(int proxyIndex);
 extern void processReadBuffer(int proxyIndex, int curIndex, int bufferNum);
+extern void reissueReadBufferRequest(int proxyIndex, int reissueNum,
+            	MPI_Comm destCommData, int destProxyRank, int destProxyIndex);
 extern void processAllReads(int proxyIndex);
 extern void setReadBufferNum(int proxyIndex, int index, int bufferNum);
+extern void setReadBufferMPICommInfo(int proxyIndex, int index,
+        void *ptr, size_t size, int tag);
 extern void setReadBufferEvent(int proxyIndex, int index, vocl_event event);
 extern int getReadBufferIndexFromEvent(int proxyIndex, vocl_event event);
 extern int getReadBufferNum(int proxyIndex, int index);
@@ -1284,6 +1293,9 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
                   getWriteRequestPtr(proxyIndex, bufferIndex));
         /* current buffer is used */
         setWriteBufferInUse(proxyIndex, bufferIndex);
+		setWriteBufferMPICommInfo(proxyIndex, buferIndex,
+            	(void *) ((char *) ptr + i * VOCL_WRITE_BUFFER_SIZE), 
+				bufferSize, VOCL_WRITE_TAG + bufferIndex);
     }
     setWriteBufferNum(proxyIndex, bufferIndex, bufferNum + 1);
 
@@ -1310,12 +1322,12 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
         }
         return tmpEnqueueWriteBuffer.res;
     }
-	else /* need updating local opencl resources */
-	{
-		MPI_Irecv(NULL, 0, MPI_BYTE,
-				  proxyRank, ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
-		MPI_Waitall(requestNo, request, status);
-	}
+//	else /* need updating local opencl resources */
+//	{
+//		MPI_Irecv(NULL, 0, MPI_BYTE,
+//				  proxyRank, ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
+//		MPI_Waitall(requestNo, request, status);
+//	}
 
     /* delete buffer for vocl events */
     if (num_events_in_wait_list > 0) {
@@ -1416,6 +1428,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
     int proxyRank, proxyIndex, i, rankNo;
 	vocl_device_id origDeviceID;
 	int origProxyIndex, destProxyIndex;
+	int reissueReadNum, ieissueWriteNum;
     MPI_Comm proxyComm, proxyCommData;
     char vgpuMigStatus, cmdQueueMigStatus;
     cl_event *eventList = NULL;
@@ -1434,20 +1447,42 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 	tmpEnqueueNDRangeKernel.command_queue =
 		voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 												&proxyIndex, &proxyComm, &proxyCommData);
+
+    /* acquire the locker to make sure no */
+	/* migration happened on the proxy */
+	voclMigrationMutexLock(proxyIndex);
+
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
+
+	/* release the locker */
+	voclMigrationMutexUnlock(proxyIndex);
 
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
-		voclCompletePreviousDataTransfer(origProxyIndex);
+
+		/* send a NULL message to indicate the last message before migration */
+		/* and count the number of reissues for gpu memory write and write */
+		voclMigSendLastMsgToOrigProxy(origProxyIndex, proxyRank, proxyComm,
+				proxyCommData, &reissueWriteNum, &reissueReadNum);
+
+		//voclCompletePreviousDataTransfer(origProxyIndex);
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
 		proxyCommData = voclProxyCommData[destProxyIndex];
-		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
+
+		/* call functions for issue requests */
+		reissueWriteBufferRequest(origProxyIndex, reissueWriteNum,
+            proxyCommData, proxyRank, destProxyIndex);
+		reissueReadBufferRequest(origProxyIndex, reissueReadNum,
+            proxyCommData, proxyRank, destProxyIndex);
+
+		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, 
+				destProxyIndex, proxyComm, proxyCommData);
 		tmpEnqueueNDRangeKernel.kernel =
 			voclVOCLKernel2CLKernelComm((vocl_kernel) kernel, &proxyRank, &proxyIndex, &proxyComm,
 										&proxyCommData);
@@ -1467,8 +1502,6 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
                                 num_events_in_wait_list);
     }
 
-    /* acquire the locker to send out message */
-	voclMigrationMutexLock(proxyIndex);
 
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         kernelLaunchReply.res =
@@ -1479,8 +1512,6 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
         if (kernelLaunchReply.res != CL_SUCCESS) {
             printf("Kernel launch error, %d\n", kernelLaunchReply.res);
         }
-//		/* increase the number of kernels in the cmdQueue by 1 */
-//		voclLibIncreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 1);
     }
     else {
         tmpEnqueueNDRangeKernel.work_dim = work_dim;
@@ -1557,11 +1588,11 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 
         kernelLaunchReply.res = CL_SUCCESS;
 
-//		if (event != NULL)
-//		{
+		if (event != NULL)
+		{
         	MPI_Irecv(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply), MPI_BYTE,
                   proxyRank, ENQUEUE_ND_RANGE_KERNEL, proxyComm, request + (requestNo++));
-//		}
+		}
 
         MPI_Waitall(requestNo, request, status);
     }
@@ -1713,6 +1744,9 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
                   proxyRank, VOCL_READ_TAG + bufferIndex, proxyCommData,
                   getReadRequestPtr(proxyIndex, bufferIndex));
         setReadBufferInUse(proxyIndex, bufferIndex);
+		setReadBufferMPICommInfo(proxyIndex, bufferIndex,
+        		(void *) ((char *) ptr + VOCL_READ_BUFFER_SIZE * i), 
+				bufferSize, VOCL_READ_TAG + bufferIndex);
     }
     setReadBufferNum(proxyIndex, bufferIndex, bufferNum + 1);
 
@@ -3079,3 +3113,7 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue,
     return tmpEnqueueUnmapMemObject.res;
 }
 
+void voclRebalance()
+{
+	
+}

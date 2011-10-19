@@ -62,6 +62,7 @@ static struct strMigGPUMemoryWrite tmpMigGPUMemoryWrite;
 static struct strMigGPUMemoryRead tmpMigGPUMemoryRead;
 static struct strMigRemoteGPUMemoryRW tmpMigGPUMemRW;
 static struct strMigUpdateVGPU tmpMigUpdateVGPU;
+static struct strMigSendLastMessage tmpMigSendLastMessage;
 static struct strMigQueueOperations tmpMigQueueOperations;
 static struct strMigGPUMemoryWriteCmpd tmpMigWriteMemCmpdRst;
 static struct strMigGPUMemoryReadCmpd tmpMigReadMemCmpdRst;
@@ -95,8 +96,10 @@ extern pthread_t th, thAppComm;
 extern int voclProxyAppIndex;
 
 /* thread for kernel launch on proxy */
+extern int voclProxyThreadInternalTerminateFlag;
+extern int voclProxyMigrateCommandOperationsFlag;
 extern pthread_t thKernelLaunch;
-extern pthread_barrier_t barrierKernalLaunch;
+//extern pthread_barrier_t barrierKernelLaunch;
 void   *proxyEnqueueThread(void *p);
 
 /* variables from write buffer pool */
@@ -326,6 +329,7 @@ extern void voclProxyMigrationOneVGPUInKernelLaunch(int appIndex, int appRank,
 
 extern void voclProxyInternalQueueInit();
 extern void voclProxyInternalQueueFinalize();
+extern void voclProxyUnlockItem(vocl_internal_command_queue *cmdPtr);
 extern vocl_internal_command_queue * voclProxyGetInternalQueueTail();
 
 /* functions to manage objects allocated in the proxy process */
@@ -409,7 +413,7 @@ int main(int argc, char *argv[])
 	char *migMsgBuffer;
 
 	/* flag to control the execution of the kernel launch thread */
-	int kernelLaunchThreadExecuting = 0;
+//	int kernelLaunchThreadExecuting = 0;
 
 	// timing info for migration-----------
 	struct timeval t1, t2;
@@ -470,7 +474,7 @@ int main(int argc, char *argv[])
     pthread_create(&th, NULL, proxyHelperThread, NULL);
     pthread_create(&thAppComm, NULL, proxyCommAcceptThread, NULL);
 
-	pthread_barrier_init(&barrierKernalLaunch, NULL, 2);
+//	pthread_barrier_init(&barrierKernelLaunch, NULL, 2);
 	pthread_create(&thKernelLaunch, NULL, proxyEnqueueThread, NULL);
 
     while (1) {
@@ -788,12 +792,12 @@ int main(int argc, char *argv[])
 			voclCmdQueuePtr->appCommData = appCommData[commIndex];
 			voclCmdQueuePtr->appRank = appRank;
 			voclCmdQueuePtr->appIndex = appIndex;
-			pthread_mutex_unlock(&voclCmdQueuePtr->lock);
-			if (kernelLaunchThreadExecuting == 0)
-			{
-				kernelLaunchThreadExecuting = 1;
-				pthread_barrier_wait(&barrierKernalLaunch);
-			}
+			voclProxyUnlockItem(voclCmdQueuePtr);
+			//if (kernelLaunchThreadExecuting == 0)
+			//{
+			//	kernelLaunchThreadExecuting = 1;
+			//	pthread_barrier_wait(&barrierKernelLaunch);
+			//}
 
 //			memcpy(&tmpEnqueueWriteBuffer, conMsgBuffer[index], sizeof(tmpEnqueueWriteBuffer));
 //			requestNo = 0;
@@ -883,11 +887,11 @@ int main(int argc, char *argv[])
 //							  appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
 //							  curRequest + (requestNo++));
 //				}
-//				else
-//				{
-//					MPI_Isend(NULL, 0, MPI_BYTE, appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
-//							  curRequest + (requestNo++));
-//				}
+//				//else
+//				//{
+//				//	MPI_Isend(NULL, 0, MPI_BYTE, appRank, ENQUEUE_WRITE_BUFFER, appComm[commIndex],
+//				//			  curRequest + (requestNo++));
+//				//}
 //			}
 //
 //			if (requestNo > 0) {
@@ -931,6 +935,11 @@ int main(int argc, char *argv[])
 			voclProxyMigRecvDeviceMemoryData(tmpVGPUMigration.appIndex, tmpVGPUMigration.deviceID, appRank);
         }
 
+		else if (status.MPI_TAG == VOCL_MIG_LAST_MSG)
+		{
+			tmpMigSendLastMessage.reissueWriteNum
+		}
+
         else if (status.MPI_TAG == ENQUEUE_ND_RANGE_KERNEL) {
 			voclCmdQueuePtr = voclProxyGetInternalQueueTail();
 			voclCmdQueuePtr->msgTag = ENQUEUE_ND_RANGE_KERNEL;
@@ -950,13 +959,13 @@ int main(int argc, char *argv[])
 				MPI_Wait(curRequest, curStatus);
 			}
 			voclProxyIncreaseKernelNumInCmdQueue(enqueueNDRangeKernel->command_queue, 1);
-			pthread_mutex_unlock(&voclCmdQueuePtr->lock);
+			voclProxyUnlockItem(voclCmdQueuePtr);
 
-			if (kernelLaunchThreadExecuting == 0)
-			{
-				kernelLaunchThreadExecuting = 1;
-				pthread_barrier_wait(&barrierKernalLaunch);
-			}
+			//if (kernelLaunchThreadExecuting == 0)
+			//{
+			//	kernelLaunchThreadExecuting = 1;
+			//	pthread_barrier_wait(&barrierKernelLaunch);
+			//}
 //			memcpy(&tmpEnqueueNDRangeKernel, conMsgBuffer[index],
 //				   sizeof(tmpEnqueueNDRangeKernel));
 //			requestNo = 0;
@@ -1072,7 +1081,7 @@ int main(int argc, char *argv[])
 //			voclProxyIncreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 1);
 //
 //			requestNo = 0;
-////			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
+//			if (tmpEnqueueNDRangeKernel.event_null_flag == 0)
 //			{
 //				MPI_Isend(&kernelLaunchReply, sizeof(struct strEnqueueNDRangeKernelReply),
 //					  MPI_BYTE, appRank, ENQUEUE_ND_RANGE_KERNEL, appComm[commIndex],
@@ -1097,13 +1106,13 @@ int main(int argc, char *argv[])
 			voclCmdQueuePtr->appCommData = appCommData[commIndex];
 			voclCmdQueuePtr->appRank = appRank;
 			voclCmdQueuePtr->appIndex = appIndex;
-			pthread_mutex_unlock(&voclCmdQueuePtr->lock);
+			voclProxyUnlockItem(voclCmdQueuePtr);
 
-			if (kernelLaunchThreadExecuting == 0)
-			{
-				kernelLaunchThreadExecuting = 1;
-				pthread_barrier_wait(&barrierKernalLaunch);
-			}
+			//if (kernelLaunchThreadExecuting == 0)
+			//{
+			//	kernelLaunchThreadExecuting = 1;
+			//	pthread_barrier_wait(&barrierKernelLaunch);
+			//}
 
 //			memcpy(&tmpEnqueueReadBuffer, conMsgBuffer[index], sizeof(tmpEnqueueReadBuffer));
 //			num_events_in_wait_list = tmpEnqueueReadBuffer.num_events_in_wait_list;
@@ -1202,13 +1211,13 @@ int main(int argc, char *argv[])
 			voclCmdQueuePtr->appCommData = appCommData[commIndex];
 			voclCmdQueuePtr->appRank = appRank;
 			voclCmdQueuePtr->appIndex = appIndex;
-			pthread_mutex_unlock(&voclCmdQueuePtr->lock);
+			voclProxyUnlockItem(voclCmdQueuePtr);
 
-			if (kernelLaunchThreadExecuting == 0)
-			{
-				kernelLaunchThreadExecuting = 1;
-				pthread_barrier_wait(&barrierKernalLaunch);
-			}
+			//if (kernelLaunchThreadExecuting == 0)
+			//{
+			//	kernelLaunchThreadExecuting = 1;
+			//	pthread_barrier_wait(&barrierKernelLaunch);
+			//}
 
 //			memcpy(&tmpFinish, conMsgBuffer[index], sizeof(tmpFinish));
 //
@@ -1910,7 +1919,7 @@ int main(int argc, char *argv[])
 				}
 
 				/* release lock for the current entry */
-				pthread_mutex_unlock(&voclCmdQueuePtr->lock);
+				voclProxyUnlockItem(voclCmdQueuePtr);
 			}
 			
 			MPI_Isend(&tmpMigQueueOperations, sizeof(struct strMigQueueOperations), MPI_BYTE, 
