@@ -58,4 +58,9 @@ struct strMigUpdateVGPU {
 	size_t msgSize;
 };
 
+struct strMigSendLastMessage {
+	int reissueWriteNum;
+	int reissueReadNum;
+};
+
 #endif

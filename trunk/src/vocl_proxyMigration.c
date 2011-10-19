@@ -105,12 +105,16 @@ void voclProxyMigSendRecvDeviceMemoryData(vocl_virtual_gpu *sourceVGPUPtr,
 			vocl_virtual_gpu *destVGPUPtr);
 
 void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
-            MPI_Comm destComm, MPI_Comm destCommData, int appRank, int appIndex,
-			MPI_Comm appComm, int appIndexOnDestProxy)
-
-
+		MPI_Comm destComm, MPI_Comm destCommData, int appIndex, int appIndexOnDestProxy);
 
 extern MPI_Comm *appComm, *appCommData;
+
+int voclMigOrigProxyRank;
+int voclMigDestProxyRank;
+MPI_Comm voclMigDestComm;
+MPI_Comm voclMigDestCommData;
+int voclMigAppIndexOnOrigProxy;
+int voclMigAppIndexOnDestProxy;
 
 //debug-----------------------------------------
 int voclMigrationCondition[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -543,6 +547,7 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 	gettimeofday(&t1, NULL);
 	deviceID = voclProxyMigFindTargetGPU(gpuKernelNum, proxyNum, &destRankNo, &destAppIndex);
 	*appIndexOnDestProxy = destAppIndex;
+
 	gettimeofday(&t2, NULL);
 	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
 	findTargetGPU = tmpTime;
@@ -563,6 +568,14 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 	gettimeofday(&t2, NULL);
 	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
 	packMsgTime = tmpTime;
+
+	/* store mpi info of proxy process */
+	voclMigOrigProxyRank = vgpuPtr->proxyRank;
+	voclMigDestProxyRank = destRankNo;
+	voclMigAppIndexOnDestProxy = destAppIndex;
+	voclMigAppIndexOnOrigProxy = vgpuPtr->appIndex;
+	voclMigDestComm = comm;
+	voclMigDestCommData = commData;
 
 	/* in different proxy process */
 	if (vgpuPtr->proxyRank != destRankNo)
@@ -681,7 +694,7 @@ void voclProxyMigration(int appIndex, cl_device_id deviceID,
 	voclProxyMigrationOneVGPU(vgpuPtr, &destProxyRank, &destComm, &destCommData,
 							  appIndexOnDestProxy);
 	voclProxyMigSendOperationsInCmdQueue(origProxyRank, destProxyRank, destComm, 
-				destCommData, appRank, appIndex, appComm, appIndexOnDestProxy);
+				destCommData, appIndex, appIndexOnDestProxy);
 
 	return;
 }
@@ -881,7 +894,6 @@ void vocl_proxyUpdateVirtualGPUInfo(int appIndex, char *msgBuf)
     msgOffset += sizeof(vocl_mig_vgpu);
 
 	/* device id of previous vgpu is the old device id of current vgpu */
-
 	vgPtr->deviceID = voclProxyNewVGPUDeviceID(appIndex, vgPtr->deviceID);
 	vgPtr->migStatus = voclProxyGetVGPUMigStatus(appIndex, vgPtr->deviceID);
 
@@ -955,8 +967,7 @@ void vocl_proxyUpdateVirtualGPUInfo(int appIndex, char *msgBuf)
 
 /* transfer the kernel launch command to the target proxy process */
 void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank, 
-			MPI_Comm destComm, MPI_Comm destCommData, int appRank, int appIndex,
-			MPI_Comm appComm, int appIndexOnDestProxy)
+			MPI_Comm destComm, MPI_Comm destCommData, int appIndex, int appIndexOnDestProxy)
 {
 	MPI_Request request[3];
 	MPI_Status status[3];
@@ -966,6 +977,8 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 	int operationNum, i; 
 	struct strMigQueueOperations tmpMigQueueOpera;
 	struct strEnqueueNDRangeKernel *kernelLaunch;
+	struct strEnqueueWriteBuffer *memoroyWrite;
+	struct strEnqueueReadBuffer *memoryRead;
 	vocl_internal_command_queue *cmdPtr;
 	
 	operationNum = voclProxyGetInteranlQueueOperationNum(appIndex);
@@ -978,6 +991,7 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 	offset = 0;
 	for (i = 0; i < operationNum; i++)
 	{
+		/* current item is locked */
 		cmdPtr = voclProxyGetInternalQueueHead();
 		if (offset + sizeof(vocl_internal_command_queue) > msgSize)
 		{
@@ -1001,6 +1015,7 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 				offset += kernelLaunch->dataSize;
 			}
 		}
+		voclProxyUnlockItem(cmdPtr);
 	}
 	tmpMigQueueOpera.msgSize = offset;
 

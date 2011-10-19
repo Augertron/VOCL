@@ -11,6 +11,9 @@ static void initializeReadBuffer(int proxyIndex)
         voclReadBufferPtr[proxyIndex].voclReadBufferInfo[i].isInUse = 0;
 		voclReadBufferPtr[proxyIndex].voclReadBufferInfo[i].event = VOCL_EVENT_NULL;
 		voclReadBufferPtr[proxyIndex].voclReadBufferInfo[i].bufferNum = 0;
+		voclReadBufferPtr[proxyIndex].voclReadBufferInfo[i].ptr = NULL;
+		voclReadBufferPtr[proxyIndex].voclReadBufferInfo[i].size = 0;
+		voclReadBufferPtr[proxyIndex].voclReadBufferInfo[i].tag = -1;
     }
 
     voclReadBufferPtr[proxyIndex].curReadBufferIndex = 0;
@@ -51,6 +54,16 @@ static void reallocateReadBuffer(int origBufferNum, int newBufferNum)
     }
 
     return;
+}
+
+void setReadBufferMPICommInfo(int proxyIndex, int index, 
+		void *ptr, size_t size, int tag)
+{
+	voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].ptr = ptr;
+	voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].size = size;
+	voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].tag = tag;
+
+	return;
 }
 
 void setReadBufferInUse(int proxyIndex, int index)
@@ -145,9 +158,64 @@ void processReadBuffer(int proxyIndex, int curIndex, int bufferNum)
         voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].isInUse = 0;
         voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].event = VOCL_EVENT_NULL;
         voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].bufferNum = 0;
+        voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].ptr = NULL;
+        voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].size = 0;
+        voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].tag = -1;
     }
 
     return;
+}
+
+void reissueReadBufferRequest(int proxyIndex, int reissueNum, 
+			MPI_Comm destCommData, int destProxyRank, int destProxyIndex)
+{
+	int i, index, startIndex, endIndex;
+	int bufferIndex;
+	struct strReadBufferInfo *origReadBufPtr, *destReadBufPtr;
+
+	if (origProxyIndex != proxyIndex)
+	{
+		endIndex = voclReadBufferPtr[proxyIndex].curReadBufferIndex;
+		startIndex = endIndex - reissueNum;
+		if (startIndex < 0) {
+			startIndex += VOCL_READ_BUFFER_NUM;
+			endIndex += VOCL_READ_BUFFER_NUM;
+		}
+
+		for (i = startIndex; i < endIndex; i++)
+		{
+			index = i % VOCL_READ_BUFFER_NUM;
+			origReadBufPtr = &voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index];
+
+			/* get available buffer on the dest proxy process */
+			bufferIndex = getNextReadBufferIndex(destProxyIndex);
+			destReadBufPtr = &voclReadBufferPtr[destProxyIndex].voclReadBufferInfo[bufferIndex];
+			destReadBufPtr->ptr = origReadBufPtr->ptr;
+			destReadBufPtr->size = destReadBufPtr->size;
+			destReadBufPtr->tag = VOCL_READ_TAG + bufferIndex;
+
+			MPI_Irecv(destReadBufPtr->ptr, destReadBufPtr->size, MPI_BYTE, destProxyRank,
+					destReadBufPtr->tag, destCommData, &destReadBufPtr->request);
+
+			/* cancel previous issued issued requests */
+			MPI_Cancel(&origReadBufPtr->request);
+			MPI_Request_free(&origReadBufPtr->request);
+            origReadBufPtr->isInUse = 0;
+            origReadBufPtr->event = VOCL_EVENT_NULL;
+            origReadBufPtr->bufferNum = 0;
+            origReadBufPtr->ptr = NULL;
+            origReadBufPtr->size = 0;
+            origReadBufPtr->tag = -1;
+
+			voclReadBufferPtr[proxyIndex].curReadBufferIndex -= reissueNum;
+			if (voclReadBufferPtr[proxyIndex].curReadBufferIndex < 0) {
+				voclReadBufferPtr[proxyIndex].curReadBufferIndex += VOCL_READ_BUFFER_NUM;
+			}
+			voclReadBufferPtr[proxyIndex].readDataRequestNum -= reissueNum;
+		}
+	}
+
+	return;
 }
 
 void processAllReads(int proxyIndex)
@@ -182,6 +250,9 @@ void processAllReads(int proxyIndex)
         voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].isInUse = 0;
         voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].event = VOCL_EVENT_NULL;
         voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].bufferNum = 0;
+        voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].ptr = NULL;
+        voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].size = 0;
+        voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].tag = -1;
     }
 
     voclReadBufferPtr[proxyIndex].curReadBufferIndex = 0;

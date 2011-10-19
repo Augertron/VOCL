@@ -437,6 +437,11 @@ struct strMigUpdateVGPU {
 	size_t msgSize;
 };
 
+struct strMigSendLastMessage {
+	int reissueWriteNum;
+	int reissueReadNum;
+};
+
 struct strMigQueueOperations {
 	size_t msgSize;
 	int appIndexOnDestProxy;
@@ -506,6 +511,7 @@ union CMSG_UNION {
     struct strMigGPUMemoryReadCmpd tmpMigReadCmpd;
 	struct strMigRemoteGPUMemoryRW tmpMigGPUMemRW;
 	struct strMigUpdateVGPU tmpMigUpdateVGPU;
+	struct strMigSendLastMessage tmpMigSendLastMessage;
 	struct strMigQueueOperations tmpMigQueueOperations;
 	struct strMigRemoteGPURWCmpd tmpMigGPUMemRWCmpd;
 	struct strForcedMigration tmpForcedMigration;
