@@ -63,6 +63,7 @@ static struct strMigGPUMemoryRead tmpMigGPUMemoryRead;
 static struct strMigRemoteGPUMemoryRW tmpMigGPUMemRW;
 static struct strMigUpdateVGPU tmpMigUpdateVGPU;
 static struct strMigSendLastMessage tmpMigSendLastMessage;
+static struct strVoclRebalance tmpVoclRebalance;
 static struct strMigQueueOperations tmpMigQueueOperations;
 static struct strMigGPUMemoryWriteCmpd tmpMigWriteMemCmpdRst;
 static struct strMigGPUMemoryReadCmpd tmpMigReadMemCmpdRst;
@@ -98,8 +99,10 @@ extern int voclProxyAppIndex;
 /* thread for kernel launch on proxy */
 extern int voclProxyThreadInternalTerminateFlag;
 extern int voclProxyMigrateCommandOperationsFlag;
+extern int voclProxyMigReissueWriteNum;
+extern int voclProxyMigReissueReadNum;
 extern pthread_t thKernelLaunch;
-//extern pthread_barrier_t barrierKernelLaunch;
+extern pthread_barrier_t barrierMigOperations;
 void   *proxyEnqueueThread(void *p);
 
 /* variables from write buffer pool */
@@ -321,7 +324,7 @@ extern void voclProxyRecvOnlyMigrationMsgs(int index);
 extern void voclProxyRecvAllMsgs(int index);
 
 extern void vocl_proxyGetKernelNumsOnGPUs(struct strKernelNumOnDevice *gpuKernelNum);
-extern cl_int voclProxyMigrationOneVGPUOverload(int appIndex, cl_device_id deviceID);
+extern cl_int voclProxyMigration(int appIndex, cl_device_id deviceID);
 extern void voclProxyMigRecvDeviceMemoryData(int appIndex, cl_device_id deviceID, int sourceRankNo);
 extern void voclProxyMigrationOneVGPUInKernelLaunch(int appIndex, int appRank,
                     MPI_Comm appComm, cl_device_id deviceID,
@@ -339,8 +342,8 @@ extern void voclProxyObjCountIncrease();
 extern void voclProxyObjCountDecrease();
 
 //debug----------------------------------------------------
-extern void voclProxySetMigrationCondition(int rankNo, char condition);
-extern char voclProxyGetMigrationCondition(int rankNo);
+extern void voclProxySetMigrationCondition(int condition);
+extern int voclProxyGetMigrationCondition();
 //----------------------------------------------------------
 
 /* proxy process */
@@ -380,10 +383,12 @@ int main(int argc, char *argv[])
     struct strMigWriteBufferInfo *migWriteBufferInfoPtr;
     struct strMigReadBufferInfo *migReadBufferInfoPtr;
     struct strMigRWBufferSameNode *migRWBufferInfoPtr;
-	vocl_internal_command_queue *voclCmdQueuePtr, cmdPtr;
+	vocl_internal_command_queue *voclCmdQueuePtr, *cmdPtr;
 	struct strEnqueueNDRangeKernel *enqueueNDRangeKernel;
 	struct strEnqueueWriteBuffer *writeBuffer;
 	struct strEnqueueReadBuffer *readBuffer;
+	struct strFinish *finishPtr;
+	struct strFlush *flushPtr;
 	
 	vocl_virtual_gpu *vgpuPtr;
 	vocl_proxy_context *contextPtr;
@@ -457,24 +462,22 @@ int main(int argc, char *argv[])
     voclMigWriteBufferInitializeAll();
     voclMigReadBufferInitializeAll();
     voclMigRWBufferInitializeAll();
-
 	voclProxyWinInitialize();
-
 	/*initialize the internal command queue in the proxy process */
 	voclProxyInternalQueueInit();
-
 	/* issue non-blocking receiving for messages from other processes */
 	voclProxyAcceptProxyMessages();
-
     /* wait for one app to issue connection request */
     voclProxyAcceptOneApp();
+	/* set migration condition to not migrate */
+	voclProxySetMigrationCondition(0);
 
     /* create a helper thread */
     pthread_barrier_init(&barrier, NULL, 2);
     pthread_create(&th, NULL, proxyHelperThread, NULL);
     pthread_create(&thAppComm, NULL, proxyCommAcceptThread, NULL);
 
-//	pthread_barrier_init(&barrierKernelLaunch, NULL, 2);
+	pthread_barrier_init(&barrierMigOperations, NULL, 2);
 	pthread_create(&thKernelLaunch, NULL, proxyEnqueueThread, NULL);
 
     while (1) {
@@ -558,7 +561,6 @@ int main(int argc, char *argv[])
             if (num_entries > 0 && tmpGetDeviceIDs.devices != NULL) {
                 free(devices);
             }
-
         }
 
         else if (status.MPI_TAG == CREATE_CONTEXT_FUNC) {
@@ -793,11 +795,14 @@ int main(int argc, char *argv[])
 			voclCmdQueuePtr->appRank = appRank;
 			voclCmdQueuePtr->appIndex = appIndex;
 			voclProxyUnlockItem(voclCmdQueuePtr);
-			//if (kernelLaunchThreadExecuting == 0)
-			//{
-			//	kernelLaunchThreadExecuting = 1;
-			//	pthread_barrier_wait(&barrierKernelLaunch);
-			//}
+
+			if (voclProxyGetMigrationCondition() == 1)
+			{
+				writeBuffer = (struct strEnqueueWriteBuffer *)voclCmdQueuePtr->conMsgBuffer;
+				cmdQueuePtr = voclProxyGetCmdQueuePtr(writeBuffer->command_queue);
+				voclProxyMigration(appIndex, cmdQueuePtr->deviceID);
+				voclProxySetMigrationCondition(0);
+			}
 
 //			memcpy(&tmpEnqueueWriteBuffer, conMsgBuffer[index], sizeof(tmpEnqueueWriteBuffer));
 //			requestNo = 0;
@@ -854,7 +859,7 @@ int main(int argc, char *argv[])
 ////				processAllWrites(appIndex);
 ////				voclProxySetMigrationCondition(rankNo, 1);
 ////				cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpEnqueueWriteBuffer.command_queue);
-////				voclProxyMigrationOneVGPUOverload(appIndex, cmdQueuePtr->deviceID);
+////				voclProxyMigration(appIndex, cmdQueuePtr->deviceID);
 ////			}
 ////			//end of debug----------------------------------------------------------
 //
@@ -937,7 +942,15 @@ int main(int argc, char *argv[])
 
 		else if (status.MPI_TAG == VOCL_MIG_LAST_MSG)
 		{
-			tmpMigSendLastMessage.reissueWriteNum
+			voclProxyMigrateCommandOperationsFlag = 1;
+
+			pthread_barrier_wait(&barrierMigOperations);
+			tmpMigSendLastMessage.reissueWriteNum = voclProxyMigReissueWriteNum;
+			tmpMigSendLastMessage.reissueReadNum = voclProxyMigReissueReadNum;
+			MPI_Isend(&tmpMigSendLastMessage, sizeof(struct strMigSendLastMessage), MPI_BYTE, 
+					  appRank, VOCL_MIG_LAST_MSG, appComm[commIndex], curRequest);
+			
+			MPI_Wait(curRequest, curStatus);
 		}
 
         else if (status.MPI_TAG == ENQUEUE_ND_RANGE_KERNEL) {
@@ -948,8 +961,8 @@ int main(int argc, char *argv[])
 			voclCmdQueuePtr->appCommData = appCommData[commIndex];
 			voclCmdQueuePtr->appRank = appRank;
 			voclCmdQueuePtr->appIndex = appIndex;
-			/* increase the number of kernels in the command queue by 1 */
 			enqueueNDRangeKernel = (struct strEnqueueNDRangeKernel *)voclCmdQueuePtr->conMsgBuffer;
+
 			/* if input arguments are available */
 			if (enqueueNDRangeKernel->dataSize > 0)
 			{
@@ -958,14 +971,18 @@ int main(int argc, char *argv[])
 						  appRank, ENQUEUE_ND_RANGE_KERNEL1, appCommData[commIndex], curRequest);
 				MPI_Wait(curRequest, curStatus);
 			}
+
+			/* increase the number of kernels in the command queue by 1 */
 			voclProxyIncreaseKernelNumInCmdQueue(enqueueNDRangeKernel->command_queue, 1);
 			voclProxyUnlockItem(voclCmdQueuePtr);
 
-			//if (kernelLaunchThreadExecuting == 0)
-			//{
-			//	kernelLaunchThreadExecuting = 1;
-			//	pthread_barrier_wait(&barrierKernelLaunch);
-			//}
+			if (voclProxyGetMigrationCondition() == 1)
+			{
+				cmdQueuePtr = voclProxyGetCmdQueuePtr(enqueueNDRangeKernel->command_queue);
+				voclProxyMigration(appIndex, cmdQueuePtr->deviceID);
+				voclProxySetMigrationCondition(0);
+			}
+
 //			memcpy(&tmpEnqueueNDRangeKernel, conMsgBuffer[index],
 //				   sizeof(tmpEnqueueNDRangeKernel));
 //			requestNo = 0;
@@ -1108,11 +1125,13 @@ int main(int argc, char *argv[])
 			voclCmdQueuePtr->appIndex = appIndex;
 			voclProxyUnlockItem(voclCmdQueuePtr);
 
-			//if (kernelLaunchThreadExecuting == 0)
-			//{
-			//	kernelLaunchThreadExecuting = 1;
-			//	pthread_barrier_wait(&barrierKernelLaunch);
-			//}
+			if (voclProxyGetMigrationCondition() == 1)
+			{
+				readBuffer = (struct strEnqueueReadBuffer *)voclCmdQueuePtr->conMsgBuffer;
+				cmdQueuePtr = voclProxyGetCmdQueuePtr(readBuffer->command_queue);
+				voclProxyMigration(appIndex, cmdQueuePtr->deviceID);
+				voclProxySetMigrationCondition(0);
+			}
 
 //			memcpy(&tmpEnqueueReadBuffer, conMsgBuffer[index], sizeof(tmpEnqueueReadBuffer));
 //			num_events_in_wait_list = tmpEnqueueReadBuffer.num_events_in_wait_list;
@@ -1213,24 +1232,24 @@ int main(int argc, char *argv[])
 			voclCmdQueuePtr->appIndex = appIndex;
 			voclProxyUnlockItem(voclCmdQueuePtr);
 
-			//if (kernelLaunchThreadExecuting == 0)
-			//{
-			//	kernelLaunchThreadExecuting = 1;
-			//	pthread_barrier_wait(&barrierKernelLaunch);
-			//}
+			if (voclProxyGetMigrationCondition() == 1)
+			{
+				finishPtr = (struct strFinish *)voclCmdQueuePtr->conMsgBuffer;
+				cmdQueuePtr = voclProxyGetCmdQueuePtr(finishPtr->command_queue);
+				voclProxyMigration(appIndex, cmdQueuePtr->deviceID);
+				voclProxySetMigrationCondition(0);
+			}
 
 //			memcpy(&tmpFinish, conMsgBuffer[index], sizeof(tmpFinish));
-//
 //			processAllWrites(appIndex);
 //			processAllReads(appIndex);
 //			mpiOpenCLFinish(&tmpFinish);
-//
+
 //			/* all kernels complete their computation */
 //			voclProxyResetKernelNumInCmdQueue(tmpFinish.command_queue);
-//
+
 //			MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, appRank,
 //					  FINISH_FUNC, appComm[commIndex], curRequest);
-//
 //			MPI_Wait(curRequest, curStatus);
         }
 
@@ -1408,12 +1427,27 @@ int main(int argc, char *argv[])
         }
 
         else if (status.MPI_TAG == FLUSH_FUNC) {
-            memcpy(&tmpFlush, conMsgBuffer[index], sizeof(tmpFlush));
-            mpiOpenCLFlush(&tmpFlush);
-            MPI_Isend(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, appRank,
-                      FLUSH_FUNC, appComm[commIndex], curRequest);
+			voclCmdQueuePtr = voclProxyGetInternalQueueTail();
+			voclCmdQueuePtr->msgTag = FLUSH_FUNC;
+			memcpy(voclCmdQueuePtr->conMsgBuffer, conMsgBuffer[index], sizeof(struct strFlush));
+			voclCmdQueuePtr->appComm = appComm[commIndex];
+			voclCmdQueuePtr->appCommData = appCommData[commIndex];
+			voclCmdQueuePtr->appRank = appRank;
+			voclCmdQueuePtr->appIndex = appIndex;
+			voclProxyUnlockItem(voclCmdQueuePtr);
 
-            MPI_Wait(curRequest, curStatus);
+			if (voclProxyGetMigrationCondition() == 1)
+			{
+				flushPtr = (struct strFlush *)voclCmdQueuePtr->conMsgBuffer;
+				cmdQueuePtr = voclProxyGetCmdQueuePtr(flushPtr->command_queue);
+				voclProxyMigration(appIndex, cmdQueuePtr->deviceID);
+				voclProxySetMigrationCondition(0);
+			}
+			//memcpy(&tmpFlush, conMsgBuffer[index], sizeof(tmpFlush));
+			//mpiOpenCLFlush(&tmpFlush);
+			//MPI_Isend(&tmpFlush, sizeof(tmpFlush), MPI_BYTE, appRank,
+			//		  FLUSH_FUNC, appComm[commIndex], curRequest);
+			//MPI_Wait(curRequest, curStatus);
         }
 
         else if (status.MPI_TAG == WAIT_FOR_EVENT_FUNC) {
@@ -1842,6 +1876,27 @@ int main(int argc, char *argv[])
 			free(migMsgBuffer);
 		}
 
+		else if (status.MPI_TAG == VOCL_REBALANCE)
+		{
+			memcpy(&tmpVoclRebalance, conMsgBuffer[index], sizeof(struct strVoclRebalance));
+			cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpVoclRebalance.command_queue);
+			/* perform migration for the virtual gpu */
+			voclProxyMigration(appIndex, cmdQueuePtr->deviceID);
+			
+			/*set the flag to  migrate commands in the internal */
+			/* queue to the target proxy process */
+			voclProxyMigrateCommandOperationsFlag = 1;
+			pthread_barrier_wait(&barrierMigOperations);
+			tmpVoclRebalance.isMigrated = 1;
+			tmpVoclRebalance.reissueWriteNum = voclProxyMigReissueWriteNum;
+			tmpVoclRebalance.reissueReadNum = voclProxyMigReissueReadNum;
+			
+			/* send back the response */
+			MPI_Isend(&tmpVoclRebalance, sizeof(struct strVoclRebalance), MPI_BYTE,
+					  appRank, VOCL_REBALANCE, appComm[commIndex], curRequest);
+			MPI_Wait(curRequest, curStatus);
+		}
+
 		else if (status.MPI_TAG == VOCL_MIG_CMD_OPERATIONS)
 		{
 			/* migration of the kernel launch operation */
@@ -1854,7 +1909,7 @@ int main(int argc, char *argv[])
 
 			/* for each cmd, updated to the migrated value */
 			paramOffset = 0;
-			for (i = 0; i < tmpMigQueueOperation.operationNum; i++)
+			for (i = 0; i < tmpMigQueueOperations.operationNum; i++)
 			{
 				/* decode the cmd message */
 				cmdPtr = (vocl_internal_command_queue *)(migMsgBuffer + paramOffset);
@@ -1933,6 +1988,7 @@ int main(int argc, char *argv[])
             memcpy(&tmpForcedMigration, conMsgBuffer[index],
                    sizeof(struct strForcedMigration));
             /* record forced migration status */
+			voclProxySetMigrationCondition(tmpForcedMigration.status);
             maintenanceMigrationStatus = tmpForcedMigration.status;
             tmpForcedMigration.res = 1;
             MPI_Send(&tmpForcedMigration, sizeof(struct strForcedMigration), MPI_BYTE,
@@ -1979,6 +2035,7 @@ int main(int argc, char *argv[])
         exit(1);
     }
     pthread_barrier_destroy(&barrier);
+	pthread_barrier_destroy(&barrierMigOperations);
 
 	if (pthread_join(thKernelLaunch, NULL) != 0) {
         printf("pthread_join of kernel launch thread error.\n");

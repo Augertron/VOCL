@@ -169,7 +169,7 @@ void reissueWriteBufferRequest(int proxyIndex, int reissueNum,
 {
     int i, index, startIndex, endIndex;
 	int bufferIndex;
-    struct strWriteBufferInfo *origWriteBufPtr, *destWrietBufPtr;
+    struct strWriteBufferInfo *origWriteBufPtr, *destWriteBufPtr;
 
 	if (destProxyIndex != proxyIndex)
 	{

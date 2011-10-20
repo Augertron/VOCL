@@ -265,9 +265,9 @@ extern void voclMigRWLocalBufferInitialize();
 extern void voclMigRWLocalBufferFinalize();
 extern void voclMigUpdateVirtualGPU(int origProxyIndex, vocl_device_id origDeviceID,
             	int proxyRank, int proxyIndex, MPI_Comm comm, MPI_Comm commData);
-
-//extern void voclSetTaskMigrationCondition();
-//extern int voclGetTaskMigrationCondition();
+extern void voclMigSendLastMsgToOrigProxy(int origProxyIndex, int origProxyRank,
+				MPI_Comm comm, MPI_Comm commData, int *reissueWriteNum,
+				int *reissueReadNum);
 
 extern void voclWinInfoInitialize();
 extern void voclWinInfoFinalize();
@@ -1188,6 +1188,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     cl_event *eventList = NULL;
     /* for migration check */
 	char vgpuMigStatus, cmdQueueMigStatus;
+	int reissueWriteNum, reissueReadNum;
 	vocl_device_id origDeviceID;
 	int origProxyIndex, destProxyIndex;
 
@@ -1216,19 +1217,40 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 	tmpEnqueueWriteBuffer.command_queue =
 		voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 												&proxyIndex, &proxyComm, &proxyCommData);
+
+    /* acquire the locker to make sure no */
+	/* migration happened on the proxy */
+	voclMigrationMutexLock(proxyIndex);
+
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
+
+	/* release the locker */
+	voclMigrationMutexUnlock(proxyIndex);
 
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
-		voclCompletePreviousDataTransfer(origProxyIndex);
+
+        /* send a NULL message to indicate the last message before migration */
+        /* and count the number of reissues for gpu memory write and write */
+        voclMigSendLastMsgToOrigProxy(origProxyIndex, proxyRank, proxyComm,
+                proxyCommData, &reissueWriteNum, &reissueReadNum);
+		
+		//voclCompletePreviousDataTransfer(origProxyIndex);
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
 		proxyCommData = voclProxyCommData[destProxyIndex];
+
+        /* call functions for issue requests */
+        reissueWriteBufferRequest(origProxyIndex, reissueWriteNum,
+            proxyCommData, proxyRank, destProxyIndex);
+        reissueReadBufferRequest(origProxyIndex, reissueReadNum,
+            proxyCommData, proxyRank, destProxyIndex);
+
 		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
 		tmpEnqueueWriteBuffer.command_queue =
 			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
@@ -1293,7 +1315,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
                   getWriteRequestPtr(proxyIndex, bufferIndex));
         /* current buffer is used */
         setWriteBufferInUse(proxyIndex, bufferIndex);
-		setWriteBufferMPICommInfo(proxyIndex, buferIndex,
+		setWriteBufferMPICommInfo(proxyIndex, bufferIndex,
             	(void *) ((char *) ptr + i * VOCL_WRITE_BUFFER_SIZE), 
 				bufferSize, VOCL_WRITE_TAG + bufferIndex);
     }
@@ -1428,7 +1450,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
     int proxyRank, proxyIndex, i, rankNo;
 	vocl_device_id origDeviceID;
 	int origProxyIndex, destProxyIndex;
-	int reissueReadNum, ieissueWriteNum;
+	int reissueWriteNum, reissueReadNum;
     MPI_Comm proxyComm, proxyCommData;
     char vgpuMigStatus, cmdQueueMigStatus;
     cl_event *eventList = NULL;
@@ -1646,6 +1668,7 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
 
 	/* for migration check */
 	char vgpuMigStatus, cmdQueueMigStatus;
+	int reissueWriteNum, reissueReadNum;
 
     if (num_events_in_wait_list > 0) {
         eventList = (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
@@ -1663,19 +1686,39 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
 	tmpEnqueueReadBuffer.command_queue =
 		voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 												&proxyIndex, &proxyComm, &proxyCommData);
+    /* acquire the locker to make sure no */
+	/* migration happened on the proxy */
+	voclMigrationMutexLock(proxyIndex);
+
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
+
+	/* release the locker */
+	voclMigrationMutexUnlock(proxyIndex);
 
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
-		voclCompletePreviousDataTransfer(origProxyIndex);
+
+        /* send a NULL message to indicate the last message before migration */
+        /* and count the number of reissues for gpu memory write and write */
+        voclMigSendLastMsgToOrigProxy(origProxyIndex, proxyRank, proxyComm,
+                proxyCommData, &reissueWriteNum, &reissueReadNum);
+
+		//voclCompletePreviousDataTransfer(origProxyIndex);
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
 		proxyCommData = voclProxyCommData[destProxyIndex];
+
+        /* call functions for issue requests */
+        reissueWriteBufferRequest(origProxyIndex, reissueWriteNum,
+            proxyCommData, proxyRank, destProxyIndex);
+        reissueReadBufferRequest(origProxyIndex, reissueReadNum,
+            proxyCommData, proxyRank, destProxyIndex);
+
 		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
 		tmpEnqueueReadBuffer.buffer =
 			voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
@@ -1862,6 +1905,7 @@ cl_int clFinish(cl_command_queue command_queue)
 	vocl_device_id origDeviceID;
 	char vgpuMigStatus, cmdQueueMigStatus;
 	int origProxyIndex, destProxyIndex;
+	int reissueWriteNum, reissueReadNum;
 
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
@@ -1870,19 +1914,39 @@ cl_int clFinish(cl_command_queue command_queue)
         voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
                                                 &proxyIndex, &proxyComm, &proxyCommData);
 
+    /* acquire the locker to make sure no */
+	/* migration happened on the proxy */
+	voclMigrationMutexLock(proxyIndex);
+
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
+
+	/* release the locker */
+	voclMigrationMutexUnlock(proxyIndex);
 
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
-		voclCompletePreviousDataTransfer(origProxyIndex);
+
+        /* send a NULL message to indicate the last message before migration */
+        /* and count the number of reissues for gpu memory write and write */
+        voclMigSendLastMsgToOrigProxy(origProxyIndex, proxyRank, proxyComm,
+                proxyCommData, &reissueWriteNum, &reissueReadNum);
+
+		//voclCompletePreviousDataTransfer(origProxyIndex);
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
 		proxyCommData = voclProxyCommData[destProxyIndex];
+
+        /* call functions for issue requests */
+        reissueWriteBufferRequest(origProxyIndex, reissueWriteNum,
+            proxyCommData, proxyRank, destProxyIndex);
+        reissueReadBufferRequest(origProxyIndex, reissueReadNum,
+            proxyCommData, proxyRank, destProxyIndex);
+
 		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
 		tmpFinish.command_queue =
 			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
@@ -2287,6 +2351,7 @@ cl_int clFlush(cl_command_queue command_queue)
 	vocl_device_id origDeviceID;
 	char vgpuMigStatus, cmdQueueMigStatus;
 	int origProxyIndex, destProxyIndex;
+	int reissueWriteNum, reissueReadNum;
 
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
@@ -2295,19 +2360,38 @@ cl_int clFlush(cl_command_queue command_queue)
         voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
                                                 &proxyIndex, &proxyComm, &proxyCommData);
 
+    /* acquire the locker to make sure no */
+	/* migration happened on the proxy */
+	voclMigrationMutexLock(proxyIndex);
+
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
+
+	/* release the locker */
+	voclMigrationMutexUnlock(proxyIndex);
 
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
-		printf("clFinish, origProxyIndex = %d\n", origProxyIndex);
+
+        /* send a NULL message to indicate the last message before migration */
+        /* and count the number of reissues for gpu memory write and write */
+        voclMigSendLastMsgToOrigProxy(origProxyIndex, proxyRank, proxyComm,
+                proxyCommData, &reissueWriteNum, &reissueReadNum);
+				
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
 		proxyCommData = voclProxyCommData[destProxyIndex];
+
+        /* call functions for issue requests */
+        reissueWriteBufferRequest(origProxyIndex, reissueWriteNum,
+            	proxyCommData, proxyRank, destProxyIndex);
+        reissueReadBufferRequest(origProxyIndex, reissueReadNum,
+				proxyCommData, proxyRank, destProxyIndex);
+
 		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
 		tmpFlush.command_queue =
 			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
@@ -3113,7 +3197,47 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue,
     return tmpEnqueueUnmapMemObject.res;
 }
 
-void voclRebalance()
+void voclRebalance(cl_command_queue command_queue)
 {
-	
+	MPI_Request request[2];
+	MPI_Status status[2];
+	int requestNo;
+	struct strVoclRebalance tmpVoclRebalance;
+	cl_command_queue cmdQueue;
+	vocl_device_id origDeviceID;
+	int proxyIndex, proxyRank;
+	int origProxyIndex, destProxyIndex;
+	int reissueWriteNum, reissueReadNum;
+	MPI_Comm proxyComm, proxyCommData;
+
+	cmdQueue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
+											&proxyIndex, &proxyComm, &proxyCommData);
+	requestNo = 0;
+	MPI_Isend(&tmpVoclRebalance, sizeof(struct strVoclRebalance), MPI_BYTE, proxyRank,
+			  VOCL_REBALANCE, proxyComm, request + (requestNo++));
+	MPI_Irecv(&tmpVoclRebalance, sizeof(struct strVoclRebalance), MPI_BYTE, proxyRank,
+			  VOCL_REBALANCE, proxyComm, request + (requestNo++));
+	MPI_Waitall(requestNo, request, status);
+
+	/* migration is performed in the proxy */
+	if (tmpVoclRebalance.isMigrated == 1)
+	{
+		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
+		origProxyIndex = proxyIndex;
+
+		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
+		proxyRank = voclProxyRank[destProxyIndex];
+		proxyComm = voclProxyComm[destProxyIndex];
+		proxyCommData = voclProxyCommData[destProxyIndex];
+
+		/* call functions for issue requests */
+		reissueWriteBufferRequest(origProxyIndex, tmpVoclRebalance.reissueWriteNum,
+			proxyCommData, proxyRank, destProxyIndex);
+		reissueReadBufferRequest(origProxyIndex, tmpVoclRebalance.reissueReadNum,
+			proxyCommData, proxyRank, destProxyIndex);
+
+		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
+	}
+
+	return;
 }

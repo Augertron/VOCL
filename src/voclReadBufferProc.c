@@ -173,7 +173,7 @@ void reissueReadBufferRequest(int proxyIndex, int reissueNum,
 	int bufferIndex;
 	struct strReadBufferInfo *origReadBufPtr, *destReadBufPtr;
 
-	if (origProxyIndex != proxyIndex)
+	if (destProxyIndex != proxyIndex)
 	{
 		endIndex = voclReadBufferPtr[proxyIndex].curReadBufferIndex;
 		startIndex = endIndex - reissueNum;

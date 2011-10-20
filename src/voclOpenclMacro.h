@@ -109,10 +109,11 @@ extern "C" {
 #define VOCL_MIGRATION              57
 #define VOCL_UPDATE_VGPU            58
 #define VOCL_MIG_LAST_MSG			59
-#define VOCL_MIG_CMD_OPERATIONS     60
-#define FORCED_MIGRATION            61
-#define LB_GET_KERNEL_NUM           62
-#define PROGRAM_END                 63
+#define VOCL_REBALANCE              60
+#define VOCL_MIG_CMD_OPERATIONS     61
+#define FORCED_MIGRATION            62
+#define LB_GET_KERNEL_NUM           63
+#define PROGRAM_END                 64
 
 #define CMSG_NUM                    64
 #define DATAMSG_NUM                 100
