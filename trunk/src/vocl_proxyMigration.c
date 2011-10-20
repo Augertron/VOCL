@@ -95,7 +95,8 @@ extern void voclProxySetMigStatus(int appIndex, char migStatus);
 extern void voclProxyMigrationMutexLock(int appIndex);
 extern void voclProxyMigrationMutexUnlock(int appIndex);
 
-int voclProxyGetInteranlQueueOperationNum(int appIndex);
+extern int voclProxyGetInteranlQueueOperationNum(int appIndex);
+extern void voclProxyUnlockItem(vocl_internal_command_queue *cmdPtr);
 vocl_internal_command_queue * voclProxyGetInternalQueueHead();
 vocl_internal_command_queue * voclProxyGetInternalQueueTail();
 
@@ -115,18 +116,20 @@ MPI_Comm voclMigDestComm;
 MPI_Comm voclMigDestCommData;
 int voclMigAppIndexOnOrigProxy;
 int voclMigAppIndexOnDestProxy;
+int voclProxyMigReissueWriteNum;
+int voclProxyMigReissueReadNum;
 
 //debug-----------------------------------------
-int voclMigrationCondition[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-void voclProxySetMigrationCondition(int rankNo, char condition)
+int voclMigrationCondition = 0;
+void voclProxySetMigrationCondition(int condition)
 {
-	voclMigrationCondition[rankNo] = condition;
+	voclMigrationCondition = condition;
 	return;
 }
 
-char voclProxyGetMigrationCondition(int rankNo)
+int voclProxyGetMigrationCondition()
 {
-	return voclMigrationCondition[rankNo];
+	return voclMigrationCondition;
 }
 //----------------------------------------------
 
@@ -510,9 +513,8 @@ cl_device_id voclProxyMigFindTargetGPU(struct strKernelNumOnDevice *gpuKernelNum
 	return deviceID;
 }
 
-cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, 
-			int *destProxyRank, MPI_Comm *destComm, MPI_Comm *destCommData,
-			int *appIndexOnDestProxy)
+cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank, 
+			MPI_Comm *destComm, MPI_Comm *destCommData)
 {
 	struct strKernelNumOnDevice *gpuKernelNum;
 	struct strVGPUMigration vgpuMigrationMsg;
@@ -534,7 +536,8 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 	//--------------------------------------------------
 
 	/* acquire the locker */
-	//voclProxyMigrationMutexLock(vgpuPtr->appIndex);
+	voclProxyMigrationMutexLock(vgpuPtr->appIndex);
+
 	comm = appComm[0];
 	commData = appCommData[0];
 
@@ -546,7 +549,6 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 	
 	gettimeofday(&t1, NULL);
 	deviceID = voclProxyMigFindTargetGPU(gpuKernelNum, proxyNum, &destRankNo, &destAppIndex);
-	*appIndexOnDestProxy = destAppIndex;
 
 	gettimeofday(&t2, NULL);
 	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
@@ -654,47 +656,21 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr,
 			transferDataTime,
 			updateStatusTime,
 			relVGPUTime);
-//	printf("queryLoadTime = %.3f\n", queryLoadTime);
-//	printf("findTargetGPU = %.3f\n", findTargetGPU);
-//	printf("packMsgTime = %.3f\n", packMsgTime);
-//	printf("newVGPUAllocTime = %.3f\n", newVGPUAllocTime);
-//	printf("transferDataTime = %.3f\n", transferDataTime);
-//	printf("updateStatusTime = %.3f\n", updateStatusTime);
-//	printf("relVGPUTime = %.3f\n", relVGPUTime);
 
-	/* acquire the locker */
-//	voclProxyMigrationMutexUnlock(vgpuPtr->appIndex);
+	/* release the locker */
+	voclProxyMigrationMutexUnlock(vgpuPtr->appIndex);
 
 	return vgpuMigrationMsg.retCode;
 }
 
-cl_int voclProxyMigrationOneVGPUOverload(int appIndex, cl_device_id deviceID, int *appIndexOnDestProxy)
-{
-	vocl_virtual_gpu *vgpuPtr;
-	int destProxyRank;
-	int appIndexOnDestProxy;
-	MPI_Comm destComm, destCommData;
-
-	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
-
-	return voclProxyMigrationOneVGPU(vgpuPtr, &destProxyRank, &destComm, 
-									 &destCommData, appIndexOnDestProxy);
-}
-
-void voclProxyMigration(int appIndex, cl_device_id deviceID, 
-						int appRank, MPI_Comm appComm)
+void voclProxyMigration(int appIndex, cl_device_id deviceID)
 {	
 	vocl_virtual_gpu *vgpuPtr;
-	int origProxyRank, destProxyRank;
-	int appIndexOnDestProxy;
+	int destProxyRank;
 	MPI_Comm destComm, destCommData;
 
 	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
-	origProxyRank = vgpuPtr->proxyRank;
-	voclProxyMigrationOneVGPU(vgpuPtr, &destProxyRank, &destComm, &destCommData,
-							  appIndexOnDestProxy);
-	voclProxyMigSendOperationsInCmdQueue(origProxyRank, destProxyRank, destComm, 
-				destCommData, appIndex, appIndexOnDestProxy);
+	voclProxyMigrationOneVGPU(vgpuPtr, &destProxyRank, &destComm, &destCommData);
 
 	return;
 }
@@ -977,7 +953,7 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 	int operationNum, i; 
 	struct strMigQueueOperations tmpMigQueueOpera;
 	struct strEnqueueNDRangeKernel *kernelLaunch;
-	struct strEnqueueWriteBuffer *memoroyWrite;
+	struct strEnqueueWriteBuffer *memoryWrite;
 	struct strEnqueueReadBuffer *memoryRead;
 	vocl_internal_command_queue *cmdPtr;
 	
@@ -987,6 +963,9 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 	
 	tmpMigQueueOpera.operationNum = operationNum;
 	tmpMigQueueOpera.appIndexOnDestProxy = appIndexOnDestProxy;
+
+	voclProxyMigReissueWriteNum = 0;
+	voclProxyMigReissueReadNum = 0;
 
 	offset = 0;
 	for (i = 0; i < operationNum; i++)
@@ -1001,6 +980,7 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 
 		memcpy((msgBuf + offset), cmdPtr, sizeof(vocl_internal_command_queue));
 		offset += sizeof(vocl_internal_command_queue);
+
 		if (cmdPtr->msgTag == ENQUEUE_ND_RANGE_KERNEL)
 		{
 			kernelLaunch = (struct strEnqueueNDRangeKernel *)cmdPtr->conMsgBuffer;
@@ -1014,6 +994,18 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 				memcpy((msgBuf + offset), cmdPtr->paramBuf, kernelLaunch->dataSize);
 				offset += kernelLaunch->dataSize;
 			}
+		}
+
+		else if (cmdPtr->msgTag == ENQUEUE_WRITE_BUFFER)
+		{
+			memoryWrite = (struct strEnqueueWriteBuffer *)cmdPtr->conMsgBuffer;
+			voclProxyMigReissueWriteNum += ((memoryWrite->cb - 1)/VOCL_PROXY_WRITE_BUFFER_SIZE + 1);
+		}
+
+		else if (cmdPtr->msgTag == ENQUEUE_READ_BUFFER)
+		{
+			memoryRead = (struct strEnqueueReadBuffer *)cmdPtr->conMsgBuffer;
+			voclProxyMigReissueReadNum += ((memoryRead->cb - 1)/VOCL_PROXY_READ_BUFFER_SIZE + 1);
 		}
 		voclProxyUnlockItem(cmdPtr);
 	}
