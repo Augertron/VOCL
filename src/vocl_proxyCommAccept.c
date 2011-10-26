@@ -169,10 +169,12 @@ void voclProxyDisconnectOneApp(int commIndex)
 {
 	int requestOffset, requestNo, i;
 	requestOffset = commIndex * CMSG_NUM;
-
 	/*disconnect connections */
+printf("disConnect1\n");
 	MPI_Comm_disconnect(&appComm[commIndex]);
+printf("disConnect2\n");
 	MPI_Comm_disconnect(&appCommData[commIndex]);
+printf("disConnect3\n");
 
 	/* get the locker to update communicator info */
 	pthread_mutex_lock(&commLock);

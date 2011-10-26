@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "voclOpenclMacro.h"
 #include "voclStructures.h"
 
@@ -11,6 +12,9 @@ static void initializeWriteBuffer(int proxyIndex)
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[i].isInUse = 0;
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[i].event = VOCL_EVENT_NULL;
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[i].bufferNum = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[i].ptr = NULL;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[i].size = 0;
+        voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[i].tag = -1;
     }
     voclWriteBufferPtr[proxyIndex].curWriteBufferIndex = 0;
     voclWriteBufferPtr[proxyIndex].writeDataRequestNum = 0;
@@ -190,7 +194,8 @@ void reissueWriteBufferRequest(int proxyIndex, int reissueNum,
 			destWriteBufPtr = &voclWriteBufferPtr[destProxyIndex].voclWriteBufferInfo[bufferIndex];
 			destWriteBufPtr->ptr = origWriteBufPtr->ptr;
 			destWriteBufPtr->size = origWriteBufPtr->size;
-			destWriteBufPtr->tag = VOCL_WRITE_TAG + bufferIndex;
+			//destWriteBufPtr->tag = VOCL_WRITE_TAG + bufferIndex;
+			destWriteBufPtr->tag = VOCL_WRITE_TAG;
 			
 			/* issue send to dest proxy process */
 			MPI_Isend(destWriteBufPtr->ptr, destWriteBufPtr->size, MPI_BYTE, destProxyRank,

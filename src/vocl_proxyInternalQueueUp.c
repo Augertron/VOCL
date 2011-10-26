@@ -27,6 +27,7 @@ extern int voclProxyAppIndex;
 extern pthread_barrier_t barrier;
 
 pthread_t thKernelLaunch;
+pthread_mutex_t internalQueueMutex;
 pthread_barrier_t barrierMigOperations;
 
 extern int voclMigOrigProxyRank;
@@ -139,7 +140,11 @@ vocl_internal_command_queue * voclProxyGetInternalQueueHead()
 		}
 		usleep(10);
 	}
+
+	/* this lock is for the current item to protect it from */
+	/* writting by the proxy main thread */
 	pthread_mutex_lock(&voclProxyInternalQueue[index].lock);
+
 	voclProxyCmdHead++;
 	if (voclProxyCmdHead >= voclProxyCmdNum)
 	{
@@ -173,8 +178,13 @@ void voclProxyInternalQueueReset()
 	return;
 }
 
+int voclProxyGetInternalQueueKernelLaunchNum(int appIndex)
+{
+	return voclProxyNumOfKernelsLaunched[appIndex];
+}
+
 /* get the num of operatoins queue up for a specific vgpu */
-int voclProxyGetInteranlQueueOperationNum(int appIndex)
+int voclProxyGetInternalQueueOperationNum(int appIndex)
 {
 	return voclProxyCmdTail - voclProxyCmdHead;
 }
@@ -229,30 +239,40 @@ void *proxyEnqueueThread(void *p)
 			break;
 		}
 
-		if (voclProxyMigrateCommandOperationsFlag == 1)
-		{
-			voclProxyMigSendOperationsInCmdQueue(voclMigOrigProxyRank, voclMigDestProxyRank,
-					voclMigDestComm, voclMigDestCommData, voclMigAppIndexOnOrigProxy,
-					voclMigAppIndexOnDestProxy);
+//		if (voclProxyMigrateCommandOperationsFlag == 1)
+//		{
+//			voclProxyMigSendOperationsInCmdQueue(voclMigOrigProxyRank, voclMigDestProxyRank,
+//					voclMigDestComm, voclMigDestCommData, voclMigAppIndexOnOrigProxy,
+//					voclMigAppIndexOnDestProxy);
+//
+//			/* migration completed */
+//			voclProxyMigrateCommandOperationsFlag = 0;
+//
+//			pthread_barrier_wait(&barrierMigOperations);
+//		}
 
-			/* migration completed */
-			voclProxyMigrateCommandOperationsFlag = 0;
-
-			pthread_barrier_wait(&barrierMigOperations);
-		}
+		/* this lock is to protect that when this command is executed */
+		/* migration cann't be performed. */
+printf("internalQ,beforeLock\n");
+		pthread_mutex_lock(&internalQueueMutex);
+printf("internalQ,afterLock\n");
 
 		/* get head of internal queue */
+printf("InternalQueue1\n");
 		cmdQueuePtr = voclProxyGetInternalQueueHead();
+printf("InternalQueue2\n");
 		if (cmdQueuePtr == NULL) /* terminate the helper thread */
 		{
 			break;
 		}
 
+printf("InternalQueue3\n");
 		appComm = cmdQueuePtr->appComm;
 		appCommData = cmdQueuePtr->appCommData;
 		appRank = cmdQueuePtr->appRank;
 		appIndex = cmdQueuePtr->appIndex;
 
+printf("InternalQueue4\n");
 		/* if the number of app process is larger than voclProxyAppNum */
 		/* reallocate memory */
 		if (appIndex >= voclProxyAppNum)
@@ -262,11 +282,11 @@ void *proxyEnqueueThread(void *p)
 			voclProxyAppNum = appIndex * 2;
 		}
 			
+printf("InternalQueue5, cmdTag = %d\n", cmdQueuePtr->msgTag);
 		if (cmdQueuePtr->msgTag == ENQUEUE_WRITE_BUFFER)
 		{
 			memcpy(&tmpEnqueueWriteBuffer, cmdQueuePtr->conMsgBuffer, sizeof(struct strEnqueueWriteBuffer));
 			pthread_mutex_unlock(&cmdQueuePtr->lock);
-			requestNo = 0;
 			event_wait_list = NULL;
 			num_events_in_wait_list = tmpEnqueueWriteBuffer.num_events_in_wait_list;
 			if (num_events_in_wait_list > 0) {
@@ -274,7 +294,8 @@ void *proxyEnqueueThread(void *p)
 					(cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
 				MPI_Irecv(event_wait_list, sizeof(cl_event) * num_events_in_wait_list,
 						  MPI_BYTE, appRank, tmpEnqueueWriteBuffer.tag, 
-						  appCommData, curRequest + (requestNo++));
+						  appCommData, curRequest);
+				MPI_Wait(curRequest, curStatus);
 			}
 
 			/* issue MPI data receive */
@@ -288,7 +309,8 @@ void *proxyEnqueueThread(void *p)
 				bufferIndex = getNextWriteBufferIndex(appIndex);
 				writeBufferInfoPtr = getWriteBufferInfoPtr(appIndex, bufferIndex);
 				MPI_Irecv(writeBufferInfoPtr->dataPtr, bufferSize, MPI_BYTE, appRank,
-						  VOCL_PROXY_WRITE_TAG + bufferIndex, appCommData,
+						  //VOCL_PROXY_WRITE_TAG + bufferIndex, appCommData,
+						  VOCL_PROXY_WRITE_TAG, appCommData,
 						  getWriteRequestPtr(appIndex, bufferIndex));
 
 				/* save information for writing to GPU memory */
@@ -307,11 +329,8 @@ void *proxyEnqueueThread(void *p)
 			}
 			voclResetWriteEnqueueFlag(appIndex);
 
+			requestNo = 0;
 			if (tmpEnqueueWriteBuffer.blocking_write == CL_TRUE) {
-				if (requestNo > 0) {
-					MPI_Waitall(requestNo, curRequest, curStatus);
-					requestNo = 0;
-				}
 
 				/* process all previous write and read */
 				tmpEnqueueWriteBuffer.res = processAllWrites(appIndex);
@@ -323,10 +342,6 @@ void *proxyEnqueueThread(void *p)
 			}
 			else {
 				if (tmpEnqueueWriteBuffer.event_null_flag == 0) {
-					if (requestNo > 0) {
-						MPI_Waitall(requestNo, curRequest, curStatus);
-						requestNo = 0;
-					}
 					tmpEnqueueWriteBuffer.res =
 						processWriteBuffer(appIndex, bufferIndex, bufferNum + 1);
 					tmpEnqueueWriteBuffer.event = writeBufferInfoPtr->event;
@@ -343,7 +358,7 @@ void *proxyEnqueueThread(void *p)
 			}
 
 			if (requestNo > 0) {
-				MPI_Wait(curRequest, curStatus);
+				MPI_Waitall(requestNo, curRequest, curStatus);
 			}
 		}
 		else if (cmdQueuePtr->msgTag == ENQUEUE_ND_RANGE_KERNEL)
@@ -478,7 +493,8 @@ void *proxyEnqueueThread(void *p)
 					bufferSize = remainingSize;
 				readBufferInfoPtr = getReadBufferInfoPtr(appIndex, bufferIndex);
 				readBufferInfoPtr->comm = appCommData;
-				readBufferInfoPtr->tag = VOCL_PROXY_READ_TAG + bufferIndex;
+				//readBufferInfoPtr->tag = VOCL_PROXY_READ_TAG + bufferIndex;
+				readBufferInfoPtr->tag = VOCL_PROXY_READ_TAG;
 				readBufferInfoPtr->dest = appRank;
 				readBufferInfoPtr->size = bufferSize;
 				tmpEnqueueReadBuffer.res =
@@ -502,6 +518,7 @@ void *proxyEnqueueThread(void *p)
 					tmpEnqueueReadBuffer.event = readBufferInfoPtr->event;
 					MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE,
 							  appRank, ENQUEUE_READ_BUFFER, appComm, curRequest);
+					MPI_Wait(curRequest, curStatus);
 				}
 			}
 			else {      /* blocking, reading is complete, send data to local node */
@@ -511,9 +528,8 @@ void *proxyEnqueueThread(void *p)
 				}
 				MPI_Isend(&tmpEnqueueReadBuffer, sizeof(tmpEnqueueReadBuffer), MPI_BYTE,
 						  appRank, ENQUEUE_READ_BUFFER, appComm, curRequest);
+				MPI_Wait(curRequest, curStatus);
 			}
-			MPI_Wait(curRequest, curStatus);
-		
 		}
 		else if (cmdQueuePtr->msgTag == FINISH_FUNC)
 		{
@@ -531,6 +547,10 @@ void *proxyEnqueueThread(void *p)
 					  FINISH_FUNC, appComm, curRequest);
 			MPI_Wait(curRequest, curStatus);
 		}
+printf("InternalQueue6\n");
+		pthread_mutex_unlock(&internalQueueMutex);
+printf("InternalQueue7\n");
+
 	}
 
 	return NULL;
