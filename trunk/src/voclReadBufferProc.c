@@ -192,7 +192,8 @@ void reissueReadBufferRequest(int proxyIndex, int reissueNum,
 			destReadBufPtr = &voclReadBufferPtr[destProxyIndex].voclReadBufferInfo[bufferIndex];
 			destReadBufPtr->ptr = origReadBufPtr->ptr;
 			destReadBufPtr->size = destReadBufPtr->size;
-			destReadBufPtr->tag = VOCL_READ_TAG + bufferIndex;
+			//destReadBufPtr->tag = VOCL_READ_TAG + bufferIndex;
+			destReadBufPtr->tag = VOCL_READ_TAG;
 
 			MPI_Irecv(destReadBufPtr->ptr, destReadBufPtr->size, MPI_BYTE, destProxyRank,
 					destReadBufPtr->tag, destCommData, &destReadBufPtr->request);
