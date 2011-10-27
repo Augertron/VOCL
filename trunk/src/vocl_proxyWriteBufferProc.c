@@ -43,8 +43,6 @@ static struct strWriteBufferInfo writeBufferInfo[VOCL_PROXY_WRITE_BUFFER_NUM];
 static struct voclWriteBufferInfo *voclProxyWriteBufferPtr = NULL;
 static int voclProxyWriteSupportAppNum;
 
-static int tempTotalWBufNum = 0;
-
 /* initialize write buffer pool */
 static void initializeWriteBuffer(int index)
 {
@@ -203,8 +201,7 @@ int getNextWriteBufferIndex(int rank)
         clWaitForEvents(1, &voclProxyWriteBufferPtr[rank].writeBufferInfo[index].event);
         setWriteBufferFlag(rank, index, WRITE_AVAILABLE);
     }
-tempTotalWBufNum++;
-printf("totalWriteBufNum = %d\n", tempTotalWBufNum);
+
     /* mpisend ready data to local node, issue the Isend as soon as possible */
     if (voclProxyWriteBufferPtr[rank].writeBufferInfo[index].sendProcInfo.toBeProcessedNum > 0) {
         pthread_barrier_wait(&barrier);

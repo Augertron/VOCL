@@ -4,9 +4,6 @@
 
 static struct voclReadBuffer *voclReadBufferPtr;
 static int voclReadBufferNum;
-//debug------------------
-static int tempTotalRBufNum[2] = {0,0};
-//----------------------------
 static void initializeReadBuffer(int proxyIndex)
 {
     int i = 0;
@@ -119,7 +116,6 @@ int getNextReadBufferIndex(int proxyIndex)
         MPI_Wait(getReadRequestPtr(proxyIndex, index), &status);
         voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].isInUse = 0;
     }
-tempTotalRBufNum[proxyIndex]++;
     if (++voclReadBufferPtr[proxyIndex].curReadBufferIndex >= VOCL_READ_BUFFER_NUM) {
         voclReadBufferPtr[proxyIndex].curReadBufferIndex = 0;
     }
@@ -213,8 +209,6 @@ void reissueReadBufferRequest(int proxyIndex, int reissueNum,
 				destReadBufPtr->size = origReadBufPtr->size;
 				destReadBufPtr->tag = VOCL_READ_TAG + bufferIndex;
 				destReadBufPtr->isInUse = 1;
-				//destReadBufPtr->tag = VOCL_READ_TAG;
-				printf("reissueReadTag = %d, size = %ld\n", destReadBufPtr->tag, destReadBufPtr->size);
 				MPI_Irecv(destReadBufPtr->ptr, destReadBufPtr->size, MPI_BYTE, destProxyRank,
 						destReadBufPtr->tag, destCommData, &destReadBufPtr->request);
 			}
@@ -250,7 +244,6 @@ void processAllReads(int proxyIndex)
         endIndex += VOCL_READ_BUFFER_NUM;
     }
 
-printf("read, startIndex = %d, endIndex = %d\n", startIndex, endIndex);
     requestNo = 0;
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
@@ -294,12 +287,9 @@ void checkReadBufferStatus(int proxyIndex)
         endIndex += VOCL_READ_BUFFER_NUM;
     }
 
-printf("check, read, startIndex = %d, endIndex = %d, bufNum = %d\n", startIndex, endIndex, tempTotalRBufNum[proxyIndex]);
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
 		MPI_Test(&voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].request, &flag, &status);
-		printf("readBufferIndex = %d, completed = %d, tag = %d\n",
-				index, flag, status.MPI_TAG);
     }
 
     return;

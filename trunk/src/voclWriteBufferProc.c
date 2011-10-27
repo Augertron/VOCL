@@ -5,9 +5,6 @@
 static struct voclWriteBuffer *voclWriteBufferPtr = NULL;
 static int voclWriteBufferNum;
 
-/* temp buffer number */
-int tempTotalWBufNum[2] = {0, 0};
-
 static void initializeWriteBuffer(int proxyIndex)
 {
     int i = 0;
@@ -122,8 +119,6 @@ int getNextWriteBufferIndex(int proxyIndex)
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 0;
     }
 
-	tempTotalWBufNum[proxyIndex]++;
-
     if (++voclWriteBufferPtr[proxyIndex].curWriteBufferIndex >= VOCL_WRITE_BUFFER_NUM) {
         voclWriteBufferPtr[proxyIndex].curWriteBufferIndex = 0;
     }
@@ -198,14 +193,11 @@ void reissueWriteBufferRequest(int proxyIndex, int reissueNum,
 		for (i = startIndex; i < endIndex; i++)
 		{
 			index = i % VOCL_WRITE_BUFFER_NUM;
-printf("reissueWriteIndex = %d ", index);
 			origWriteBufPtr = &voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index];
 			
 			if (i < completedThreshold)
 			{
-				printf("beforeMPIWait\n");
 				MPI_Wait(&origWriteBufPtr->request, &status);
-				printf("afterMPIWait\n");
 			}
 			else
 			{
@@ -220,8 +212,7 @@ printf("reissueWriteIndex = %d ", index);
 				destWriteBufPtr->size = origWriteBufPtr->size;
 				destWriteBufPtr->tag = VOCL_WRITE_TAG + bufferIndex;
 				destWriteBufPtr->isInUse = 1;
-				//destWriteBufPtr->tag = VOCL_WRITE_TAG;
-				printf("reissueWriteTag = %d, size = %ld\n", destWriteBufPtr->tag, destWriteBufPtr->size);			
+
 				/* issue send to dest proxy process */
 				MPI_Isend(destWriteBufPtr->ptr, destWriteBufPtr->size, MPI_BYTE, destProxyRank,
 						destWriteBufPtr->tag, destCommData, &destWriteBufPtr->request);
@@ -259,7 +250,6 @@ void processAllWrites(int proxyIndex)
         endIndex += VOCL_WRITE_BUFFER_NUM;
     }
 
-printf("write, startIndex = %d, endIndex = %d\n", startIndex, endIndex);
     requestNo = 0;
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
@@ -302,12 +292,9 @@ void checkWriteBufferStatus(int proxyIndex)
         endIndex += VOCL_WRITE_BUFFER_NUM;
     }
 
-printf("check, write, startIndex = %d, endIndex = %d, bufNum = %d\n", startIndex, endIndex, tempTotalWBufNum[proxyIndex]);
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
 		MPI_Test(&voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].request, &flag, &status);
-		printf("writeBuffIndex = %d, completed = %d, tag = %d\n", index, flag,
-				index, flag, status.MPI_TAG);
     }
 	return;
 }
