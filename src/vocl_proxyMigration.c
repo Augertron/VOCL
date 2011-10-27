@@ -555,10 +555,8 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 	//--------------------------------------------------
 
 	/* acquire the locker */
-printf("migOneVGPU1\n");
 	//voclProxyMigrationMutexLock(vgpuPtr->appIndex);
 	voclProxyIsInMigration = 1;
-printf("migOneVGPU2\n");
 
 	comm = appComm[0];
 	commData = appCommData[0];
@@ -679,11 +677,9 @@ printf("migOneVGPU2\n");
 			updateStatusTime,
 			relVGPUTime);
 
-printf("migOneVGPU3\n");
 	/* release the locker */
 	//voclProxyMigrationMutexUnlock(vgpuPtr->appIndex);
 	voclProxyIsInMigration = 0;
-printf("migOneVGPU4\n");
 
 	return vgpuMigrationMsg.retCode;
 }
@@ -998,7 +994,6 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 	offset = 0;
 	for (i = 0; i < operationNum; i++)
 	{
-printf("operationNo = %d\n", i);
 		/* current item is locked */
 		cmdPtr = voclProxyGetInternalQueueHead();
 		if (offset + sizeof(vocl_internal_command_queue) > msgSize)
@@ -1049,9 +1044,6 @@ printf("operationNo = %d\n", i);
 			  destProxyRank, VOCL_MIG_CMD_OPERATIONS, destCommData, 
 			  request+(requestNo++));
 	MPI_Waitall(requestNo, request, status);
-
-printf("reissueWriteNum = %d, reissueReadNum = %d\n", 
-		voclProxyMigReissueWriteNum, voclProxyMigReissueReadNum);
 
 	free(msgBuf);
 

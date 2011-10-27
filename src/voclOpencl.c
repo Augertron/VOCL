@@ -191,7 +191,6 @@ extern void setWriteBufferMPICommInfo(int proxyIndex, int index,
 extern void setWriteBufferEvent(int proxyIndex, int index, vocl_event event);
 extern int getWriteBufferIndexFromEvent(int proxyIndex, vocl_event event);
 extern int getWriteBufferNum(int proxyIndex, int index);
-extern void checkWriteBufferStatus(int proxyIndex);
 
 /* readBufferPool API functions */
 extern void initializeVoclReadBufferAll();
@@ -209,7 +208,6 @@ extern void setReadBufferMPICommInfo(int proxyIndex, int index,
 extern void setReadBufferEvent(int proxyIndex, int index, vocl_event event);
 extern int getReadBufferIndexFromEvent(int proxyIndex, vocl_event event);
 extern int getReadBufferNum(int proxyIndex, int index);
-extern void checkReadBufferStatus(int proxyIndex);
 
 /* vocl event processing API functions */
 extern void voclEventInitialize();
@@ -344,14 +342,6 @@ void voclFinalize()
 {
     int i;
 
-	//debug---------------------
-	for (i = 0; i < np; i++)
-	{
-		checkWriteBufferStatus(i);
-		checkReadBufferStatus(i);
-	}
-	//----------------------------------
-
     /* send empty msg to proxy to terminate its execution */
     for (i = 0; i < np; i++) {
         /* only for remote node */
@@ -359,11 +349,8 @@ void voclFinalize()
             MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
 			/* free the window */
 			voclWinInfoFree(i);
-printf("disconnect1\n");
             MPI_Comm_disconnect(&voclProxyComm[i]);
-printf("disconnect2\n");
             MPI_Comm_disconnect(&voclProxyCommData[i]);
-printf("disconnect3\n");
         }
     }
 
@@ -429,9 +416,6 @@ void voclInitialize()
     voclMigWriteLocalBufferInitializeAll();
     voclMigReadLocalBufferInitializeAll();
     voclMigRWLocalBufferInitialize();
-
-    /*initialize whether migration is requested */
-//    voclSetTaskMigrationCondition();
 
     return;
 }
@@ -1231,61 +1215,48 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 	tmpEnqueueWriteBuffer.command_queue =
 		voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 												&proxyIndex, &proxyComm, &proxyCommData);
-printf("=========>writeGPUMem1\n");
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	//voclMigrationMutexLock(proxyIndex);
 	voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
-printf("writeGPUMem2\n");
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
-printf("writeGPUMem3\n");
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
-printf("writeGPUMem4\n");
 
 	/* release the locker */
 	//voclMigrationMutexUnlock(proxyIndex);
-printf("writeGPUMem5, cmdQueueMigStatus = %d, vgpuMigStatus = %d\n", cmdQueueMigStatus, vgpuMigStatus);
 
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
-printf("writeGPUMem5.1\n");
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
-printf("writeGPUMem5.2\n");
 
         /* send a NULL message to indicate the last message before migration */
         /* and count the number of reissues for gpu memory write and write */
         voclMigSendLastMsgToOrigProxy(origProxyIndex, proxyRank, proxyComm,
                 proxyCommData, &reissueWriteNum, &reissueReadNum);
 		
-printf("writeGPUMem5.3\n");
 		//voclCompletePreviousDataTransfer(origProxyIndex);
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
 		proxyCommData = voclProxyCommData[destProxyIndex];
 
-printf("writeGPUMem5.4\n");
         /* call functions for issue requests */
         reissueWriteBufferRequest(origProxyIndex, reissueWriteNum,
             proxyCommData, proxyRank, destProxyIndex);
         reissueReadBufferRequest(origProxyIndex, reissueReadNum,
             proxyCommData, proxyRank, destProxyIndex);
 
-printf("writeGPUMem5.5\n");
 		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
 		tmpEnqueueWriteBuffer.command_queue =
 			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 													&proxyIndex, &proxyComm, &proxyCommData);
-printf("writeGPUMem5.6\n");
 		tmpEnqueueWriteBuffer.buffer =
 			voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
 										&proxyCommData);
-printf("writeGPUMem5.7\n");
 	}
-printf("writeGPUMem6\n");
     /* local GPU, call native opencl function */
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         errCode = dlCLEnqueueWriteBuffer(tmpEnqueueWriteBuffer.command_queue,
@@ -1372,15 +1343,8 @@ printf("writeGPUMem6\n");
         }
         return tmpEnqueueWriteBuffer.res;
     }
-//	else /* need updating local opencl resources */
-//	{
-//		MPI_Irecv(NULL, 0, MPI_BYTE,
-//				  proxyRank, ENQUEUE_WRITE_BUFFER, proxyComm, request + (requestNo++));
-//	}
 
-printf("writeGPUMem9\n");
 	MPI_Waitall(requestNo, request, status);
-printf("writeGPUMem10\n");
     /* delete buffer for vocl events */
     if (num_events_in_wait_list > 0) {
         free(eventList);
@@ -1490,7 +1454,6 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
     msgSize = 2048;
     msgBuffer = (char *) malloc(sizeof(char) * msgSize);
 
-printf("=========>kernelLaunch\n");
     /* initialize structure */
     kernel_info *kernelPtr = getKernelPtr(kernel);
 
@@ -1705,7 +1668,6 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
 	char vgpuMigStatus, cmdQueueMigStatus;
 	int reissueWriteNum, reissueReadNum;
 
-printf("readGPUMem1\n");
     if (num_events_in_wait_list > 0) {
         eventList = (cl_event *) malloc(sizeof(cl_event) * num_events_in_wait_list);
         if (eventList == NULL) {
@@ -1722,60 +1684,49 @@ printf("readGPUMem1\n");
 	tmpEnqueueReadBuffer.command_queue =
 		voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 												&proxyIndex, &proxyComm, &proxyCommData);
-printf("readGPUMem1\n");
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	//voclMigrationMutexLock(proxyIndex);
 	voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
-printf("readGPUMem2\n");
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 
-printf("readGPUMem3\n");
 	/* release the locker */
 	//voclMigrationMutexUnlock(proxyIndex);
 
-printf("readGPUMem4\n");
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
 
-printf("readGPUMem5\n");
         /* send a NULL message to indicate the last message before migration */
         /* and count the number of reissues for gpu memory write and write */
         voclMigSendLastMsgToOrigProxy(origProxyIndex, proxyRank, proxyComm,
                 proxyCommData, &reissueWriteNum, &reissueReadNum);
 
-printf("readGPUMem6\n");
 		//voclCompletePreviousDataTransfer(origProxyIndex);
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
 		proxyCommData = voclProxyCommData[destProxyIndex];
 
-printf("readGPUMem7\n");
         /* call functions for issue requests */
         reissueWriteBufferRequest(origProxyIndex, reissueWriteNum,
             proxyCommData, proxyRank, destProxyIndex);
         reissueReadBufferRequest(origProxyIndex, reissueReadNum,
             proxyCommData, proxyRank, destProxyIndex);
-printf("readGPUMem8\n");
 
 		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
 		tmpEnqueueReadBuffer.buffer =
 			voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
 										&proxyCommData);
-printf("readGPUMem9\n");
 		tmpEnqueueReadBuffer.command_queue =
 			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 													&proxyIndex, &proxyComm, &proxyCommData);
-printf("readGPUMem10\n");
 	}
 
-printf("readGPUMem11\n");
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         errCode =
             dlCLEnqueueReadBuffer(tmpEnqueueReadBuffer.command_queue,
@@ -1794,7 +1745,6 @@ printf("readGPUMem11\n");
         return errCode;
     }
 
-printf("readGPUMem12\n");
     tmpEnqueueReadBuffer.blocking_read = blocking_read;
     tmpEnqueueReadBuffer.readBufferTag = ENQUEUE_READ_BUFFER1;
     tmpEnqueueReadBuffer.offset = offset;
@@ -1807,7 +1757,6 @@ printf("readGPUMem12\n");
         tmpEnqueueReadBuffer.event_null_flag = 0;
     }
 
-printf("readGPUMem13\n");
     /* send parameters to remote node */
     MPI_Isend(&tmpEnqueueReadBuffer, sizeof(struct strEnqueueReadBuffer), MPI_BYTE, proxyRank,
               ENQUEUE_READ_BUFFER, proxyComm, request + (requestNo++));
@@ -1818,7 +1767,6 @@ printf("readGPUMem13\n");
     }
     MPI_Waitall(requestNo, request, status);
 
-printf("readGPUMem14\n");
     /* delete buffer for vocl events */
     if (num_events_in_wait_list > 0) {
         free(eventList);
@@ -1846,21 +1794,18 @@ printf("readGPUMem14\n");
     }
     setReadBufferNum(proxyIndex, bufferIndex, bufferNum + 1);
 
-printf("readGPUMem15\n");
 	tmpEnqueueReadBuffer.res = CL_SUCCESS;
     if (blocking_read == CL_TRUE || event != NULL) {
         MPI_Irecv(&tmpEnqueueReadBuffer, sizeof(struct strEnqueueReadBuffer), MPI_BYTE,
                   proxyRank, ENQUEUE_READ_BUFFER, proxyComm, request);
     }
 
-printf("readGPUMem16\n");
 	if (blocking_read == CL_TRUE)
 	{
 		processAllReads(proxyIndex);
 	}
 	MPI_Wait(request, status);
 
-printf("readGPUMem17\n");
     if (event != NULL) {
         voclEvent = voclCLEvent2VOCLEvent(tmpEnqueueReadBuffer.event,
                                           proxyRank, proxyIndex, proxyComm, proxyCommData);
@@ -1868,7 +1813,6 @@ printf("readGPUMem17\n");
         *event = (cl_event) voclEvent;
     }
 
-printf("readGPUMem18\n");
     return tmpEnqueueReadBuffer.res;
 }
 
@@ -1981,47 +1925,39 @@ cl_int clFinish(cl_command_queue command_queue)
 
 	/* release the locker */
 	//voclMigrationMutexUnlock(proxyIndex);
-printf("clFinish1\n");
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
-printf("clFinish2\n");
 		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
 		origProxyIndex = proxyIndex;
-printf("clFinish3\n");
 
         /* send a NULL message to indicate the last message before migration */
         /* and count the number of reissues for gpu memory write and write */
         voclMigSendLastMsgToOrigProxy(origProxyIndex, proxyRank, proxyComm,
                 proxyCommData, &reissueWriteNum, &reissueReadNum);
 
-printf("clFinish4\n");
 		//voclCompletePreviousDataTransfer(origProxyIndex);
 		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
 		proxyRank = voclProxyRank[destProxyIndex];
 		proxyComm = voclProxyComm[destProxyIndex];
 		proxyCommData = voclProxyCommData[destProxyIndex];
 
-printf("clFinish5\n");
         /* call functions for issue requests */
         reissueWriteBufferRequest(origProxyIndex, reissueWriteNum,
             proxyCommData, proxyRank, destProxyIndex);
         reissueReadBufferRequest(origProxyIndex, reissueReadNum,
             proxyCommData, proxyRank, destProxyIndex);
 
-printf("clFinish6\n");
 		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
 		tmpFinish.command_queue =
 			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 													&proxyIndex, &proxyComm, &proxyCommData);
-printf("clFinish7\n");
 	}
 
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         tmpFinish.res = dlCLFinish(tmpFinish.command_queue);
     }
     else {
-printf("clFinish8\n");
         MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, proxyRank, FINISH_FUNC, proxyComm,
                   &request1);
 
@@ -2032,7 +1968,6 @@ printf("clFinish8\n");
                   &request2);
         MPI_Wait(&request1, status);
         MPI_Wait(&request2, status);
-printf("clFinish9\n");
     }
 
     return tmpFinish.res;

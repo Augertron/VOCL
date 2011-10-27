@@ -507,15 +507,8 @@ int main(int argc, char *argv[])
         conMsgRequestForWait[commIndex] = conMsgRequest[conMsgRequestIndex[commIndex]];
 
         //debug-----------------------------
-		if (rankNo == 0)
-		{
-			if (voclProxyGetInternalQueueKernelLaunchNum(appIndex) == 10)
-			{
-				voclProxySetMigrationCondition(1);
-			}
-		}
-        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
-              rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+        //printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
+        //      rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
         //-------------------------------------
 
 		if (status.MPI_TAG == GET_PROXY_COMM_INFO) {
@@ -964,12 +957,7 @@ int main(int argc, char *argv[])
 
 		else if (status.MPI_TAG == VOCL_MIG_LAST_MSG)
 		{
-			//voclProxyMigSendOperationsInCmdQueue(voclMigOrigProxyRank, voclMigDestProxyRank,
-			//        voclMigDestComm, voclMigDestCommData, voclMigAppIndexOnOrigProxy,
-			//        voclMigAppIndexOnDestProxy);
-
 			/* barrier for starting mig unexecuted commands */
-printf("LastMessageIsRecvd\n");
 			pthread_barrier_wait(&barrierMigOperations);
 
 			/* wait for end of unexecuted commands */
@@ -981,7 +969,6 @@ printf("LastMessageIsRecvd\n");
 			MPI_Isend(&tmpMigSendLastMessage, sizeof(struct strMigSendLastMessage), MPI_BYTE, 
 					  appRank, VOCL_MIG_LAST_MSG, appComm[commIndex], curRequest);
 			MPI_Wait(curRequest, curStatus);
-			//pthread_mutex_unlock(&internalQueueMutex);
 		}
 
         else if (status.MPI_TAG == ENQUEUE_ND_RANGE_KERNEL) {
@@ -2016,14 +2003,10 @@ printf("LastMessageIsRecvd\n");
 
 		else if (status.MPI_TAG == VOCL_CHK_PROYX_INMIG)
 		{
-printf("rankNo = %d, checkMig1\n", rankNo);
 			pthread_mutex_lock(&internalQueueMutex);
-printf("rankNo = %d, checkMig2\n", rankNo);
 			isInMigration = voclProxyGetIsInMigration();
-printf("rankNo = %d, checkMig3\n", rankNo);
 			MPI_Send(&isInMigration, sizeof(int), MPI_BYTE, appRank, 
 					 VOCL_CHK_PROYX_INMIG, appComm[commIndex]);
-printf("rankNo = %d, checkMig4, isInMigration = %d\n", rankNo, isInMigration);
 			if (isInMigration == 1)
 			{
 				do 
@@ -2031,14 +2014,11 @@ printf("rankNo = %d, checkMig4, isInMigration = %d\n", rankNo, isInMigration);
 					isInMigration = voclProxyGetIsInMigration();
 				}
 				while (isInMigration == 1);
-printf("rankNo = %d, checkMig5\n", rankNo);
 
 				MPI_Send(NULL, 0, MPI_BYTE, appRank, 
 					 	 VOCL_CHK_PROYX_INMIG, appComm[commIndex]);
-printf("rankNo = %d, checkMig6\n", rankNo);
 			}
 			pthread_mutex_unlock(&internalQueueMutex);
-printf("rankNo = %d, checkMig7\n", rankNo);
 		}
 
         else if (status.MPI_TAG == FORCED_MIGRATION) {

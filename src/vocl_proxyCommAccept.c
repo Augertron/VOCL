@@ -26,12 +26,6 @@ extern char **conMsgBuffer;
 pthread_t thAppComm;
 static pthread_mutex_t commLock;
 
-//debug----------------------------------------------------
-extern void voclProxySetMigrationCondition(int rankNo, char condition);
-extern char voclProxyGetMigrationCondition(int rankNo);
-//----------------------------------------------------------
-
-
 void voclProxyCommInitialize()
 {
 	int i;
@@ -170,11 +164,8 @@ void voclProxyDisconnectOneApp(int commIndex)
 	int requestOffset, requestNo, i;
 	requestOffset = commIndex * CMSG_NUM;
 	/*disconnect connections */
-printf("disConnect1\n");
 	MPI_Comm_disconnect(&appComm[commIndex]);
-printf("disConnect2\n");
 	MPI_Comm_disconnect(&appCommData[commIndex]);
-printf("disConnect3\n");
 
 	/* get the locker to update communicator info */
 	pthread_mutex_lock(&commLock);
@@ -238,12 +229,6 @@ void *proxyCommAcceptThread(void *p)
         MPI_Comm_dup(appComm[index], &appCommData[index]);
         voclIssueConMsgIrecv(index);
 		pthread_mutex_unlock(&commLock);
-
-		//debug----------------------------------
-		int rankNo;
-		MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
-		voclProxySetMigrationCondition(rankNo, 0);
-		//----------------------------------------
 	}
     return NULL;
 }
