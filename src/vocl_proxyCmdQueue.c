@@ -58,6 +58,29 @@ vocl_proxy_command_queue *voclProxyGetCmdQueuePtr(cl_command_queue command_queue
 	return cmdQueuePtr;
 }
 
+cl_device_id voclProxyGetCmdQueueDeviceID(cl_command_queue command_queue)
+{	
+	vocl_proxy_command_queue *cmdQueuePtr;
+	cmdQueuePtr = voclProxyCmdQueuePtr;
+	while (cmdQueuePtr != NULL)
+	{
+		if (cmdQueuePtr->command_queue == command_queue)
+		{
+			break;
+		}
+
+		cmdQueuePtr = cmdQueuePtr->next;
+	}
+
+	if (cmdQueuePtr == NULL)
+	{
+		printf("voclProxyGetCmdQueueDeviceID, command queue %p does not exist!\n", command_queue);
+		exit (1);
+	}
+
+	return cmdQueuePtr->deviceID;
+}
+
 void voclProxySetCommandQueueMigStatus(cl_command_queue command_queue, char migStatus)
 {
 	vocl_proxy_command_queue *cmdQueuePtr;

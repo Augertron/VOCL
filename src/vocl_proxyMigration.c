@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/time.h>
 #include <pthread.h>
+#include <unistd.h>
 #include "vocl_proxy.h"
 #include "vocl_proxyWinProc.h"
 #include "vocl_proxyBufferProc.h"
@@ -106,11 +107,8 @@ void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo,
 void voclProxyMigSendRecvDeviceMemoryData(vocl_virtual_gpu *sourceVGPUPtr, 
 			vocl_virtual_gpu *destVGPUPtr);
 
-void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
-		MPI_Comm destComm, MPI_Comm destCommData, int appIndex, int appIndexOnDestProxy);
-
 extern MPI_Comm *appComm, *appCommData;
-extern pthread_mutex_t internalQueueMutex;
+//extern pthread_mutex_t internalQueueMutex;
 
 int voclMigOrigProxyRank;
 int voclMigDestProxyRank;
@@ -122,10 +120,13 @@ int voclProxyMigReissueWriteNum;
 int voclProxyMigReissueReadNum;
 
 //debug-----------------------------------------
+int voclProxyIsInMigration = 0;
 int voclMigrationCondition = 1;
+int voclProxyMigrationFlag = 0;
 void voclProxySetMigrationCondition(int condition)
 {
 	voclMigrationCondition = condition;
+
 	return;
 }
 
@@ -133,6 +134,22 @@ int voclProxyGetMigrationCondition()
 {
 	return voclMigrationCondition;
 }
+
+void voclProxySetMigrated()
+{
+	voclProxyMigrationFlag = 1;
+}
+
+int voclProxyIsMigrated()
+{
+	return voclProxyMigrationFlag;
+}
+
+int voclProxyGetIsInMigration()
+{
+	return voclProxyIsInMigration;
+}
+
 //----------------------------------------------
 
 void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id deviceID, char *bufPtr)
@@ -539,7 +556,8 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 
 	/* acquire the locker */
 printf("migOneVGPU1\n");
-	voclProxyMigrationMutexLock(vgpuPtr->appIndex);
+	//voclProxyMigrationMutexLock(vgpuPtr->appIndex);
+	voclProxyIsInMigration = 1;
 printf("migOneVGPU2\n");
 
 	comm = appComm[0];
@@ -663,7 +681,8 @@ printf("migOneVGPU2\n");
 
 printf("migOneVGPU3\n");
 	/* release the locker */
-	voclProxyMigrationMutexUnlock(vgpuPtr->appIndex);
+	//voclProxyMigrationMutexUnlock(vgpuPtr->appIndex);
+	voclProxyIsInMigration = 0;
 printf("migOneVGPU4\n");
 
 	return vgpuMigrationMsg.retCode;
@@ -677,12 +696,9 @@ void voclProxyMigration(int appIndex, cl_device_id deviceID)
 	
 	/* prevent the help thread from issuing any additional */
 	/* commands to the native OpenCL library */
-printf("BerforeInternalLock1\n");
-	pthread_mutex_lock(&internalQueueMutex);
-printf("BerforeInternalLock2\n");
+	//pthread_mutex_lock(&internalQueueMutex);
 	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
 	voclProxyMigrationOneVGPU(vgpuPtr, &destProxyRank, &destComm, &destCommData);
-printf("BerforeInternalLock3\n");
 
 	return;
 }
@@ -1033,6 +1049,10 @@ printf("operationNo = %d\n", i);
 			  destProxyRank, VOCL_MIG_CMD_OPERATIONS, destCommData, 
 			  request+(requestNo++));
 	MPI_Waitall(requestNo, request, status);
+
+printf("reissueWriteNum = %d, reissueReadNum = %d\n", 
+		voclProxyMigReissueWriteNum, voclProxyMigReissueReadNum);
+
 	free(msgBuf);
 
 	return;

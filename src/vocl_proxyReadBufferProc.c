@@ -22,6 +22,8 @@ static struct voclReadBufferInfo *voclProxyReadBufferPtr = NULL;
 static int voclProxyReadSupportAppNum;
 cl_int processAllReads(int rank);
 
+static int tempTotalRBufNum = 0;
+
 /* for sending data from GPU to local node */
 static void initializeReadBuffer(int rank)
 {
@@ -138,7 +140,8 @@ int getNextReadBufferIndex(int rank)
     }
 
     index = voclProxyReadBufferPtr[rank].curReadBufferIndex;
-
+tempTotalRBufNum++;
+printf("totalReadNum = %d\n", tempTotalRBufNum);
     /* check if any buffer is used */
     if (index == 0 && isReadBufferInUse(rank)) {
         processAllReads(rank);
@@ -279,6 +282,5 @@ cl_int processAllReads(int rank)
     }
     voclProxyReadBufferPtr[rank].curReadBufferIndex = 0;
     voclProxyReadBufferPtr[rank].readDataRequestNum = 0;
-
     return err;
 }
