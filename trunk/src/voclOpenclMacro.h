@@ -23,7 +23,7 @@ extern "C" {
 
 /* parameters of buffer pool */
 /* write buffer */
-#define VOCL_WRITE_BUFFER_NUM 8
+#define VOCL_WRITE_BUFFER_NUM 16
 //#define VOCL_WRITE_BUFFER_SIZE 64108864 /* 64MB 1024 X 1024 X 64 */
 #define VOCL_WRITE_BUFFER_SIZE 33554432 /* 64MB 1024 X 1024 X 64 */
 #define VOCL_WRITE_TAG 5000
@@ -114,6 +114,7 @@ extern "C" {
 #define FORCED_MIGRATION            62
 #define LB_GET_KERNEL_NUM           63
 #define PROGRAM_END                 64
+#define VOCL_CHK_PROYX_INMIG		65
 
 #define CMSG_NUM                    64
 #define DATAMSG_NUM                 100
