@@ -20,9 +20,8 @@ static int voclProxyCmdTail;
 static int voclProxyAppNum = 100;
 static int *voclProxyNumOfKernelsLaunched = NULL;
 int voclProxyThreadInternalTerminateFlag = 0;
-int voclProxyMigrateCommandOperationsFlag = 0;
-static cl_command_queue voclProxyMigCmdQueue;
-static int voclProxyMigAppIndex;
+cl_command_queue voclProxyMigCmdQueue;
+int voclProxyMigAppIndex;
 
 extern int helperThreadOperFlag;
 extern int voclProxyAppIndex;
@@ -89,7 +88,6 @@ void voclProxyInternalQueueInit()
 	voclProxyCmdNum = VOCL_PROXY_CMDQUEUE_SIZE;
 	voclProxyCmdHead = 0;
 	voclProxyCmdTail = 0;
-	voclProxyMigrateCommandOperationsFlag = 0;
 	voclProxyNumOfKernelsLaunched = (int *)malloc(sizeof(int) * voclProxyAppNum);
 	memset(voclProxyNumOfKernelsLaunched, 0, sizeof(int) * voclProxyAppNum);
 	voclProxyInternalQueue = (vocl_internal_command_queue *)malloc(sizeof(vocl_internal_command_queue) * voclProxyCmdNum);
@@ -237,9 +235,8 @@ void *proxyEnqueueThread(void *p)
 //		if (voclProxyGetInternalQueueKernelLaunchNum(appIndex) >= 4 && 
 //			voclProxyIsMigrated() == 0 &&
 //			rankNo == 0)
-		if (voclProxyGetMigrationCondition() == 1 &&
-			voclProxyGetInternalQueueKernelLaunchNum(appIndex) > voclProxyGetKernelNumThreshold() &&
-			voclProxyIsMigrated() == 0)
+		if (voclProxyGetMigrationCondition() == 1 && voclProxyIsMigrated() == 0)
+			//voclProxyGetInternalQueueKernelLaunchNum(appIndex) > voclProxyGetKernelNumThreshold()
 		{
 			voclProxySetMigrated();
 			pthread_mutex_lock(&internalQueueMutex);
@@ -262,10 +259,6 @@ void *proxyEnqueueThread(void *p)
 					voclMigAppIndexOnDestProxy);
 			pthread_barrier_wait(&barrierMigOperations);
 		}
-
-		/* this lock is to protect that when this command is executed */
-		/* migration cann't be performed. */
-		//pthread_mutex_lock(&internalQueueMutex);
 
 		/* get head of internal queue */
 		cmdQueuePtr = voclProxyGetInternalQueueHead();

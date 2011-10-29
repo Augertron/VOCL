@@ -556,6 +556,40 @@ void voclProxyRemoveCommandQueueFromVGPU(int appIndex, vocl_proxy_command_queue 
 	return;
 }
 
+int voclProxyGetKernelNumOnOneGPU(cl_device_id deviceID)
+{
+	int i, j, k;
+	int totalKernelNum = 0;
+	vocl_virtual_gpu *vgpuPtr;
+	vocl_proxy_context **contextPtr;
+	vocl_proxy_command_queue **cmdQueuePtr;
+
+	struct strKernelNumOnDevice kernelNumOnGPU;
+	kernelNumOnGPU.deviceNum = voclProxyDeviceNum;
+	for (i = 0; i < voclProxyDeviceNum; i++)
+	{
+		vgpuPtr = virtualGPUPtr;
+		while (vgpuPtr != NULL)
+		{
+			if (vgpuPtr->deviceID == deviceID)
+			{
+				contextPtr = vgpuPtr->contextPtr;
+				for (j = 0; j < vgpuPtr->contextNo; j++)
+				{
+					cmdQueuePtr = contextPtr[j]->cmdQueuePtr;
+					for (k = 0; k < contextPtr[j]->cmdQueueNo; k++)
+					{
+						totalKernelNum += cmdQueuePtr[k]->kernelNumInCmdQueue;
+					}
+				}
+			}
+			vgpuPtr = vgpuPtr->next;
+		}
+	}
+
+	return totalKernelNum;
+}
+
 void vocl_proxyGetKernelNumsOnGPUs(struct strKernelNumOnDevice *gpuKernelNum)
 {
 	/* go through each gpu and add the numbers of all kernels in the waiting state together */

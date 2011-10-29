@@ -96,7 +96,6 @@ extern int voclProxyAppIndex;
 
 /* thread for kernel launch on proxy */
 extern int voclProxyThreadInternalTerminateFlag;
-extern int voclProxyMigrateCommandOperationsFlag;
 extern int voclProxyMigReissueWriteNum;
 extern int voclProxyMigReissueReadNum;
 extern pthread_t thKernelLaunch;
@@ -328,12 +327,16 @@ extern void voclProxyMigRecvDeviceMemoryData(int appIndex, cl_device_id deviceID
 extern void voclProxyMigrationOneVGPUInKernelLaunch(int appIndex, int appRank,
                     MPI_Comm appComm, cl_device_id deviceID,
                     struct strEnqueueNDRangeKernel *conMsgKernelLaunch, char *kernelDimInfo);
+extern int voclProxyCheckIsMigrationNeeded(int appIndex, cl_device_id deviceID);
 extern int voclMigOrigProxyRank;
 extern int voclMigDestProxyRank;
 extern MPI_Comm voclMigDestComm;
 extern MPI_Comm voclMigDestCommData;
 extern int voclMigAppIndexOnOrigProxy;
 extern int voclMigAppIndexOnDestProxy;
+extern int voclProxyMigAppIndex;
+extern cl_command_queue voclProxyMigCmdQueue;
+
 extern void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
             	MPI_Comm destComm, MPI_Comm destCommData, int appIndex, int appIndexOnDestProxy);
 extern void voclProxyInternalQueueInit();
@@ -1899,12 +1902,21 @@ int main(int argc, char *argv[])
 		{
 			memcpy(&tmpVoclRebalance, conMsgBuffer[index], sizeof(struct strVoclRebalance));
 			cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpVoclRebalance.command_queue);
-			/* perform migration for the virtual gpu */
-			voclProxyMigration(appIndex, cmdQueuePtr->deviceID);
-			
-			/*set the flag to  migrate commands in the internal */
-			/* queue to the target proxy process */
-			voclProxyMigrateCommandOperationsFlag = 1;
+
+			/* check whether migration is needed */
+			tmpVoclRebalance.isMigrated = voclProxyCheckIsMigrationNeeded(appIndex, cmdQueuePtr->deviceID);
+			if (tmpVoclRebalance.isMigrated == 1)
+			{
+				voclProxyMigAppIndex = appIndex;
+				voclProxyMigCmdQueue = tmpVoclRebalance.command_queue;
+				voclProxySetMigrationCondition(1);
+			}
+
+			/* wait for migration of commands in internal queues */
+			pthread_barrier_wait(&barrierMigOperations);
+
+			pthread_barrier_wait(&barrierMigOperations);
+
 			//pthread_barrier_wait(&barrierMigOperations);
 			tmpVoclRebalance.isMigrated = 1;
 			tmpVoclRebalance.reissueWriteNum = voclProxyMigReissueWriteNum;
