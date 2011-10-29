@@ -341,12 +341,15 @@ void voclObjCountDecrease(int proxyIndex)
 void voclFinalize()
 {
     int i;
+	struct strVoclProgramEnd tmpVoclProgramEnd;
+	tmpVoclProgramEnd.isFreeWindow = 1;
 
     /* send empty msg to proxy to terminate its execution */
     for (i = 0; i < np; i++) {
         /* only for remote node */
         if (voclIsOnLocalNode(i) == VOCL_FALSE) {
-            MPI_Send(NULL, 0, MPI_BYTE, voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
+            MPI_Send(&tmpVoclProgramEnd, sizeof(struct strVoclProgramEnd), MPI_BYTE, 
+					 voclProxyRank[i], PROGRAM_END, voclProxyComm[i]);
 			/* free the window */
 			voclWinInfoFree(i);
             MPI_Comm_disconnect(&voclProxyComm[i]);

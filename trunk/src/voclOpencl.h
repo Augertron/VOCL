@@ -384,6 +384,10 @@ extern "C" {
         cl_int res;
     };
 
+	struct strVoclProgramEnd {
+		int isFreeWindow;
+	};
+
 /* define pointer to each opencl function to be used */
 /* to process the opencl function call in the local node */
     typedef cl_int

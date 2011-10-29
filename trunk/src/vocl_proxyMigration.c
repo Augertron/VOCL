@@ -123,6 +123,8 @@ int voclProxyMigReissueReadNum;
 int voclProxyIsInMigration = 0;
 int voclMigrationCondition = 1;
 int voclProxyMigrationFlag = 0;
+int voclProxyMigKernelNumThreshold = 0;
+
 void voclProxySetMigrationCondition(int condition)
 {
 	voclMigrationCondition = condition;
@@ -150,6 +152,21 @@ int voclProxyGetIsInMigration()
 	return voclProxyIsInMigration;
 }
 
+void voclProxySetInMigrationStatus(int isInMigration)
+{
+	voclProxyIsInMigration = isInMigration;
+	return;
+}
+
+void voclProxySetKernelNumThreshold(int kernelNum)
+{
+	voclProxyMigKernelNumThreshold = kernelNum;
+}
+
+int voclProxyGetKernelNumThreshold()
+{
+	return voclProxyMigKernelNumThreshold;
+}
 //----------------------------------------------
 
 void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id deviceID, char *bufPtr)
@@ -556,7 +573,8 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 
 	/* acquire the locker */
 	//voclProxyMigrationMutexLock(vgpuPtr->appIndex);
-	voclProxyIsInMigration = 1;
+	/* set in migration */
+	voclProxySetInMigrationStatus(1);
 
 	comm = appComm[0];
 	commData = appCommData[0];
@@ -679,7 +697,8 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 
 	/* release the locker */
 	//voclProxyMigrationMutexUnlock(vgpuPtr->appIndex);
-	voclProxyIsInMigration = 0;
+	/* migration completed */
+	voclProxySetInMigrationStatus(0);
 
 	return vgpuMigrationMsg.retCode;
 }
