@@ -22,6 +22,7 @@ extern void voclProxyReleaseVirtualGPU(int appIndex, cl_device_id deviceID);
 extern void vocl_proxyGetKernelNumsOnGPUs(struct strKernelNumOnDevice *gpuKernelNum);
 extern void voclProxyGetMessageSizeForVGPU(vocl_virtual_gpu *vgpuPtr, vocl_vgpu_msg *msgPtr);
 extern void voclProxyPackMessageForVGPU(vocl_virtual_gpu *vgpuPtr, char *bufPtr);
+extern int voclProxyGetKernelNumOnOneGPU(cl_device_id deviceID);
 
 extern void voclProxyAddContext(cl_context context, cl_uint deviceNum, cl_device_id *deviceIDs);
 extern vocl_proxy_context *voclProxyGetContextPtr(cl_context context);
@@ -106,6 +107,7 @@ void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo,
 			MPI_Comm migComm, MPI_Comm migCommData);
 void voclProxyMigSendRecvDeviceMemoryData(vocl_virtual_gpu *sourceVGPUPtr, 
 			vocl_virtual_gpu *destVGPUPtr);
+struct strKernelNumOnDevice *voclProxyMigQueryLoadOnGPUs(int appIndex, int *proxyNum);
 
 extern MPI_Comm *appComm, *appCommData;
 //extern pthread_mutex_t internalQueueMutex;
@@ -453,6 +455,44 @@ void voclProxyMigReleaseVirtualGPUOverload(int appIndex, cl_device_id deviceID)
 	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
 
 	voclProxyMigReleaseVirtualGPU(vgpuPtr);
+}
+
+int voclProxyCheckIsMigrationNeeded(int appIndex, cl_device_id deviceID)
+{
+	struct strKernelNumOnDevice *loadPtr;
+	int kernelNumOnGPU, minKernelNumOnGPU;
+	int proxyNum, i, j, k;
+	int myRank;
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+	kernelNumOnGPU = voclProxyGetKernelNumOnOneGPU(deviceID);
+
+	/* query the load on each proxy process */
+	loadPtr = voclProxyMigQueryLoadOnGPUs(appIndex, &proxyNum);
+	
+	/* find the min kernel num on all devices */
+	minKernelNumOnGPU = 10000000;
+	for (i = 0; i < proxyNum; i++)
+	{
+		for (k = 0; k < loadPtr[i].deviceNum; k++)
+		{
+			if (minKernelNumOnGPU > loadPtr[i].kernelNums[j])
+			{
+				minKernelNumOnGPU = loadPtr[i].kernelNums[j];
+			}
+		}
+	}
+
+	/* kernel num difference on different GPUs are larger than the threshold */
+	/* migration is needed. */
+	if (kernelNumOnGPU > minKernelNumOnGPU + voclProxyGetKernelNumThreshold())
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 /* go through each proxy process and obtain the */
