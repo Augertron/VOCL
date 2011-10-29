@@ -71,9 +71,7 @@ static struct strMigRemoteGPURWCmpd tmpMigGPUMemRWCmpd;
 static struct strForcedMigration tmpForcedMigration;
 static struct strDeviceCmdQueueNums tmpDeviceCmdQueueNums;
 static struct strKernelNumOnDevice tmpKernelNumOnDevice;
-/* forced migration status */
-static int maintenanceMigrationStatus = 0;
-//static int voclRankThreshold = 1000;
+static struct strVoclProgramEnd tmpVoclProgramEnd;
 
 /* control message requests */
 MPI_Request *conMsgRequest;
@@ -355,7 +353,8 @@ extern int voclProxyGetInternalQueueKernelLaunchNum(int appIndex);
 extern void voclProxySetMigrationCondition(int condition);
 extern int voclProxyGetMigrationCondition();
 extern int voclProxyGetIsInMigration();
-int rankNo;
+extern void voclProxySetKernelNumThreshold(int kernelNum);
+//int rankNo;
 //----------------------------------------------------------
 
 /* proxy process */
@@ -378,7 +377,7 @@ int main(int argc, char *argv[])
     MPI_Request *curRequest;
     int requestNo, index;
     int requestOffset;
-    //int rankNo;
+    int rankNo;
     int bufferNum, bufferIndex;
     size_t bufferSize, remainingSize;
 
@@ -482,8 +481,11 @@ int main(int argc, char *argv[])
 	voclProxyAcceptProxyMessages();
     /* wait for one app to issue connection request */
     voclProxyAcceptOneApp();
+
 	/* set migration condition to not migrate */
 	voclProxySetMigrationCondition(0);
+	/* set kernel num threshold for migration, a very large num */
+	voclProxySetKernelNumThreshold(1000000);
 
     /* create a helper thread */
     pthread_barrier_init(&barrier, NULL, 2);
@@ -507,8 +509,8 @@ int main(int argc, char *argv[])
         conMsgRequestForWait[commIndex] = conMsgRequest[conMsgRequestIndex[commIndex]];
 
         //debug-----------------------------
-        //printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
-        //      rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
+              rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
         //-------------------------------------
 
 		if (status.MPI_TAG == GET_PROXY_COMM_INFO) {
@@ -2024,9 +2026,15 @@ int main(int argc, char *argv[])
         else if (status.MPI_TAG == FORCED_MIGRATION) {
             memcpy(&tmpForcedMigration, conMsgBuffer[index],
                    sizeof(struct strForcedMigration));
+
             /* record forced migration status */
 			voclProxySetMigrationCondition(tmpForcedMigration.status);
-            maintenanceMigrationStatus = tmpForcedMigration.status;
+			voclProxySetKernelNumThreshold(tmpForcedMigration.kernelNumThreshold);
+
+			//debug----------------------
+			printf("migrationStatus = %d\n", tmpForcedMigration.status);
+			printf("migKernelNumThreshold = %d\n", tmpForcedMigration.kernelNumThreshold);
+
             tmpForcedMigration.res = 1;
             MPI_Send(&tmpForcedMigration, sizeof(struct strForcedMigration), MPI_BYTE,
                      appRank, FORCED_MIGRATION, appComm[commIndex]);
@@ -2040,6 +2048,8 @@ int main(int argc, char *argv[])
         }
 
         else if (status.MPI_TAG == PROGRAM_END) {
+			memcpy(&tmpVoclProgramEnd, conMsgBuffer[index], sizeof(struct strVoclProgramEnd));
+				
             /* cancel the corresponding requests */
             requestOffset = commIndex * CMSG_NUM;
             for (requestNo = 0; requestNo < CMSG_NUM; requestNo++) {
@@ -2050,7 +2060,10 @@ int main(int argc, char *argv[])
             }
 
             /* remove the correponding requests, communicator, etc */
-			voclProxyFreeWin(commIndex);
+			if (tmpVoclProgramEnd.isFreeWindow)
+			{
+				voclProxyFreeWin(commIndex);
+			}
             voclProxyDisconnectOneApp(commIndex);
 
             continue;

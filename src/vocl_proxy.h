@@ -458,7 +458,7 @@ struct strMigQueueOperations {
 
 struct strForcedMigration {
 	int status;
-//	int rankThreshold;
+	int kernelNumThreshold;
 	int res;
 };
 
@@ -468,6 +468,10 @@ struct strKernelNumOnDevice {
 	int appIndex;
 	cl_device_id deviceIDs[MAX_DEVICE_NUM_PER_NODE];
 	int kernelNums[MAX_DEVICE_NUM_PER_NODE];
+};
+
+struct strVoclProgramEnd {
+	int isFreeWindow;
 };
 
 union CMSG_UNION {
@@ -524,6 +528,7 @@ union CMSG_UNION {
 	struct strMigRemoteGPURWCmpd tmpMigGPUMemRWCmpd;
 	struct strForcedMigration tmpForcedMigration;
 	struct strKernelNumOnDevice tmpKernelNumOnDevice;
+	struct strVoclProgramEnd tmpVoclProgramEnd;
 } CONTROL_MSG_UNION;
 
 #endif
