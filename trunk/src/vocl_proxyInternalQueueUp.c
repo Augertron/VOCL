@@ -236,7 +236,7 @@ void *proxyEnqueueThread(void *p)
 //			voclProxyIsMigrated() == 0 &&
 //			rankNo == 0)
 		if (voclProxyGetMigrationCondition() == 1 && voclProxyIsMigrated() == 0)
-			//voclProxyGetInternalQueueKernelLaunchNum(appIndex) > voclProxyGetKernelNumThreshold()
+			//voclProxyGetInternalQueueKernelLaunchNum(appIndex) > voclProxyGetKernelNumThreshold())
 		{
 			voclProxySetMigrated();
 			pthread_mutex_lock(&internalQueueMutex);
