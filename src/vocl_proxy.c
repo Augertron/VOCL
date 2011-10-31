@@ -512,8 +512,8 @@ int main(int argc, char *argv[])
         conMsgRequestForWait[commIndex] = conMsgRequest[conMsgRequestIndex[commIndex]];
 
         //debug-----------------------------
-        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
-              rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+        //printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
+        //      rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
         //-------------------------------------
 
 		if (status.MPI_TAG == GET_PROXY_COMM_INFO) {
@@ -1910,17 +1910,16 @@ int main(int argc, char *argv[])
 				voclProxyMigAppIndex = appIndex;
 				voclProxyMigCmdQueue = tmpVoclRebalance.command_queue;
 				voclProxySetMigrationCondition(1);
+
+				/* wait for migration of commands in internal queues */
+				pthread_barrier_wait(&barrierMigOperations);
+
+				pthread_barrier_wait(&barrierMigOperations);
+
+				//pthread_barrier_wait(&barrierMigOperations);
+				tmpVoclRebalance.reissueWriteNum = voclProxyMigReissueWriteNum;
+				tmpVoclRebalance.reissueReadNum = voclProxyMigReissueReadNum;
 			}
-
-			/* wait for migration of commands in internal queues */
-			pthread_barrier_wait(&barrierMigOperations);
-
-			pthread_barrier_wait(&barrierMigOperations);
-
-			//pthread_barrier_wait(&barrierMigOperations);
-			tmpVoclRebalance.isMigrated = 1;
-			tmpVoclRebalance.reissueWriteNum = voclProxyMigReissueWriteNum;
-			tmpVoclRebalance.reissueReadNum = voclProxyMigReissueReadNum;
 			
 			/* send back the response */
 			MPI_Isend(&tmpVoclRebalance, sizeof(struct strVoclRebalance), MPI_BYTE,

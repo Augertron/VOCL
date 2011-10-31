@@ -2044,7 +2044,7 @@ clGetProgramBuildInfo(cl_program program,
         voclVOCLDeviceID2CLDeviceIDComm((vocl_device_id) device, &proxyRank, &proxyIndex,
                                         &proxyComm, &proxyCommData);
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
-        tmpGetProgramBuildInfo.res = dlCLetProgramBuildInfo(tmpGetProgramBuildInfo.program,
+        tmpGetProgramBuildInfo.res = dlCLGetProgramBuildInfo(tmpGetProgramBuildInfo.program,
                                                             tmpGetProgramBuildInfo.device,
                                                             param_name, param_value_size,
                                                             param_value, param_value_size_ret);
@@ -3029,7 +3029,7 @@ cl_int clRetainEvent(cl_event event)
                                                      &proxyRank, &proxyIndex, &proxyComm,
                                                      &proxyCommData);
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
-        tmpRetainEvent.res = clDLRetainEvent(tmpRetainEvent.event);
+        tmpRetainEvent.res = dlCLRetainEvent(tmpRetainEvent.event);
     }
     else {
         MPI_Isend(&tmpRetainEvent, sizeof(tmpRetainEvent), MPI_BYTE, proxyRank,
@@ -3218,6 +3218,7 @@ void voclRebalance(cl_command_queue command_queue)
 	cmdQueue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 											&proxyIndex, &proxyComm, &proxyCommData);
 	requestNo = 0;
+	tmpVoclRebalance.command_queue = cmdQueue;
 	MPI_Isend(&tmpVoclRebalance, sizeof(struct strVoclRebalance), MPI_BYTE, proxyRank,
 			  VOCL_REBALANCE, proxyComm, request + (requestNo++));
 	MPI_Irecv(&tmpVoclRebalance, sizeof(struct strVoclRebalance), MPI_BYTE, proxyRank,

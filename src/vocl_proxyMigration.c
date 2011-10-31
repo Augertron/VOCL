@@ -129,6 +129,7 @@ int voclProxyMigKernelNumThreshold = 0;
 
 void voclProxySetMigrationCondition(int condition)
 {
+	printf("setMigCondition = %d\n", condition);
 	voclMigrationCondition = condition;
 
 	return;
@@ -461,7 +462,7 @@ int voclProxyCheckIsMigrationNeeded(int appIndex, cl_device_id deviceID)
 {
 	struct strKernelNumOnDevice *loadPtr;
 	int kernelNumOnGPU, minKernelNumOnGPU;
-	int proxyNum, i, j, k;
+	int proxyNum, i, k;
 	int myRank;
 
 	MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
@@ -476,16 +477,17 @@ int voclProxyCheckIsMigrationNeeded(int appIndex, cl_device_id deviceID)
 	{
 		for (k = 0; k < loadPtr[i].deviceNum; k++)
 		{
-			if (minKernelNumOnGPU > loadPtr[i].kernelNums[j])
+			if (minKernelNumOnGPU > loadPtr[i].kernelNums[k])
 			{
-				minKernelNumOnGPU = loadPtr[i].kernelNums[j];
+				minKernelNumOnGPU = loadPtr[i].kernelNums[k];
 			}
 		}
 	}
 
 	/* kernel num difference on different GPUs are larger than the threshold */
 	/* migration is needed. */
-	if (kernelNumOnGPU > minKernelNumOnGPU + voclProxyGetKernelNumThreshold())
+	//if (kernelNumOnGPU > minKernelNumOnGPU + voclProxyGetKernelNumThreshold())
+	if (kernelNumOnGPU > minKernelNumOnGPU)
 	{
 		return 1;
 	}
