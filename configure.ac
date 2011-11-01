@@ -179,8 +179,8 @@ AC_SUBST(abs_srcdir)
 AC_SUBST(top_srcdir)
 
 AC_ARG_ENABLE([rebalance], [--enable-rebalance  enable whether function voclRebalance() is called in application.],
-		voclrebalance="$enableval", voclrebalance=0)
-if test "$voclrebalance" = 0; then
+		voclrebalance="$enableval", voclrebalance="no")
+if test "$voclrebalance" = "no"; then
 	vocl_rebalance=0
 else
 	vocl_rebalance=1

@@ -26,6 +26,10 @@ extern char **conMsgBuffer;
 pthread_t thAppComm;
 static pthread_mutex_t commLock;
 
+extern void voclProxyResetMigrated();
+extern void voclProxySetMigrationCondition(int condition);
+
+
 void voclProxyCommInitialize()
 {
 	int i;
@@ -192,6 +196,9 @@ void voclProxyDisconnectOneApp(int commIndex)
 		voclCommUsedSize = i+1;
 		voclTotalRequestNum = voclCommUsedSize * CMSG_NUM;
 	}
+
+	voclProxyResetMigrated();
+	voclProxySetMigrationCondition(0);
 
 	/* release the locker */
 	pthread_mutex_unlock(&commLock);
