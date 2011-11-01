@@ -108,11 +108,22 @@ vocl_internal_command_queue * voclProxyGetInternalQueueTail()
 {
 	int index;
 
+	/* goes back to see if there is available */
+	index = (voclProxyCmdTail - 1) % voclProxyCmdNum;
+	while (voclProxyCmdTail > voclProxyCmdHead &&
+		   (voclProxyInternalQueue[index].status == VOCL_PROXY_CMD_MIG ||
+		   voclProxyInternalQueue[index].status == VOCL_PROXY_CMD_AVABL))
+	{
+		voclProxyCmdTail--;
+		index = (voclProxyCmdTail - 1) % voclProxyCmdNum;
+	}
+
 	index = voclProxyCmdTail % voclProxyCmdNum;
-	while (voclProxyCmdHead + voclProxyCmdNum == voclProxyCmdTail)
+	while (voclProxyCmdHead + voclProxyCmdNum <= voclProxyCmdTail)
 	{
 		usleep(10);
 	}
+	voclProxyInternalQueue[index].status = VOCL_PROXY_CMD_INUSE;
 	pthread_mutex_lock(&voclProxyInternalQueue[index].lock);
 	voclProxyCmdTail++;
 
@@ -123,6 +134,21 @@ vocl_internal_command_queue * voclProxyGetInternalQueueTail()
 vocl_internal_command_queue * voclProxyGetInternalQueueHead()
 {
 	int index;
+
+	/* get the next valid command, i.e., status is NOT */
+	/* VOCL_PROXY_CMD_MIG or VOCL_PROXY_CMD_AVABL */
+	while (voclProxyCmdHead < voclProxyCmdTail &&
+		   (voclProxyInternalQueue[voclProxyCmdHead].status == VOCL_PROXY_CMD_MIG || 
+		    voclProxyInternalQueue[voclProxyCmdHead].status == VOCL_PROXY_CMD_AVABL))
+	{
+		voclProxyCmdHead++;
+		if (voclProxyCmdHead >= voclProxyCmdNum)
+		{
+			voclProxyCmdHead = 0;
+			voclProxyCmdTail -= voclProxyCmdNum;
+		}
+	}
+
 	index = voclProxyCmdHead;
 
 	while (voclProxyCmdHead == voclProxyCmdTail)
@@ -146,6 +172,25 @@ vocl_internal_command_queue * voclProxyGetInternalQueueHead()
 	}
 
 	return &voclProxyInternalQueue[index];
+}
+
+/* get commands in the internal queue to be migrated */
+vocl_internal_command_queue * voclProxyMigGetAppCmds(int appIndex, int cmdIndex)
+{
+	int index;
+	index = voclProxyCmdHead + cmdIndex;
+
+	/* current commands is inuse and equal to the appIndex */
+	if (voclProxyInternalQueue[index].appIndex == appIndex &&
+		voclProxyInternalQueue[index].status == VOCL_PROXY_CMD_INUSE)
+	{
+		voclProxyInternalQueue[index].status = VOCL_PROXY_CMD_MIG;
+		return &voclProxyInternalQueue[index];
+	}
+	else
+	{
+		return NULL;
+	}
 }
 
 void voclProxyUnlockItem(vocl_internal_command_queue *cmdPtr)
@@ -286,6 +331,7 @@ void *proxyEnqueueThread(void *p)
 		{
 			memcpy(&tmpEnqueueWriteBuffer, cmdQueuePtr->conMsgBuffer, sizeof(struct strEnqueueWriteBuffer));
 			voclProxyMigCmdQueue = tmpEnqueueWriteBuffer.command_queue;
+			cmdQueuePtr->status = VOCL_PROXY_CMD_AVABL;
 			pthread_mutex_unlock(&cmdQueuePtr->lock);
 			event_wait_list = NULL;
 			num_events_in_wait_list = tmpEnqueueWriteBuffer.num_events_in_wait_list;
@@ -361,6 +407,7 @@ void *proxyEnqueueThread(void *p)
 			memcpy(&tmpEnqueueNDRangeKernel, cmdQueuePtr->conMsgBuffer, sizeof(struct strEnqueueNDRangeKernel));
 			voclProxyMigCmdQueue = tmpEnqueueNDRangeKernel.command_queue;
 			internalWaitFlag = cmdQueuePtr->internalWaitFlag;
+			cmdQueuePtr->status = VOCL_PROXY_CMD_AVABL;
 			pthread_mutex_unlock(&cmdQueuePtr->lock);
 			requestNo = 0;
 			event_wait_list = NULL;
@@ -467,6 +514,7 @@ void *proxyEnqueueThread(void *p)
 		{
 			memcpy(&tmpEnqueueReadBuffer, cmdQueuePtr->conMsgBuffer, sizeof(struct strEnqueueReadBuffer));
 			voclProxyMigCmdQueue = tmpEnqueueReadBuffer.command_queue;
+			cmdQueuePtr->status = VOCL_PROXY_CMD_AVABL;
 			pthread_mutex_unlock(&cmdQueuePtr->lock);
 			num_events_in_wait_list = tmpEnqueueReadBuffer.num_events_in_wait_list;
 			event_wait_list = NULL;
@@ -529,6 +577,7 @@ void *proxyEnqueueThread(void *p)
 		{
 			memcpy(&tmpFinish, cmdQueuePtr->conMsgBuffer, sizeof(struct strFinish));
 			voclProxyMigCmdQueue = tmpFinish.command_queue;
+			cmdQueuePtr->status = VOCL_PROXY_CMD_AVABL;
 			pthread_mutex_unlock(&cmdQueuePtr->lock);
 			processAllWrites(appIndex);
 			processAllReads(appIndex);

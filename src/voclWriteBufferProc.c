@@ -193,6 +193,7 @@ void reissueWriteBufferRequest(int proxyIndex, int reissueNum,
 		for (i = startIndex; i < endIndex; i++)
 		{
 			index = i % VOCL_WRITE_BUFFER_NUM;
+printf("reissueWrite, proxyIndex = %d, index = %d\n", proxyIndex, i);
 			origWriteBufPtr = &voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index];
 			
 			if (i < completedThreshold)
@@ -225,12 +226,15 @@ void reissueWriteBufferRequest(int proxyIndex, int reissueNum,
 			origWriteBufPtr->tag = -1;
 		}
 
-		voclWriteBufferPtr[proxyIndex].curWriteBufferIndex -= reissueNum;
-		if (voclWriteBufferPtr[proxyIndex].curWriteBufferIndex < 0)
-		{
-			voclWriteBufferPtr[proxyIndex].curWriteBufferIndex += VOCL_WRITE_BUFFER_NUM;
-		}
-		voclWriteBufferPtr[proxyIndex].writeDataRequestNum -= reissueNum;
+//		voclWriteBufferPtr[proxyIndex].curWriteBufferIndex -= reissueNum;
+//		if (voclWriteBufferPtr[proxyIndex].curWriteBufferIndex < 0)
+//		{
+//			voclWriteBufferPtr[proxyIndex].curWriteBufferIndex += VOCL_WRITE_BUFFER_NUM;
+//		}
+//		voclWriteBufferPtr[proxyIndex].writeDataRequestNum -= reissueNum;
+
+		voclWriteBufferPtr[proxyIndex].curWriteBufferIndex = 0;
+		voclWriteBufferPtr[proxyIndex].writeDataRequestNum = 0;
 	}
 
     return;
@@ -252,6 +256,7 @@ void processAllWrites(int proxyIndex)
 
     requestNo = 0;
     for (i = startIndex; i < endIndex; i++) {
+printf("all, proxyIndex = %d, processAllWrites, i = %d\n", proxyIndex, i);
         index = i % VOCL_WRITE_BUFFER_NUM;
         if (voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse == 1) {
             request[requestNo++] = *getWriteRequestPtr(proxyIndex, index);

@@ -9,6 +9,7 @@
 #define VOCL_CMDQUEUE_IN_EXECUTION 20
 #define VOCL_PROXY_CMD_AVABL 0
 #define VOCL_PROXY_CMD_INUSE 1
+#define VOCL_PROXY_CMD_MIG   2
 
 typedef struct strVoclCmddQueue {
 	pthread_mutex_t  lock;
