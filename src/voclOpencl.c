@@ -1928,6 +1928,7 @@ cl_int clFinish(cl_command_queue command_queue)
 
 	/* release the locker */
 	//voclMigrationMutexUnlock(proxyIndex);
+
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{

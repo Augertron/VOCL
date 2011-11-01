@@ -55,6 +55,7 @@ void voclProxyCreateWin(MPI_Comm comm, int appIndex, int proxyIndexInApp)
 	voclProxyWinComm[appIndex] = winComm;
 
 	voclProxyLockers[appIndex] = MPIX_Mutex_create(0, winComm);
+	//voclProxyLockers[appIndex] = MPIX_Mutex_create(1, winComm);
 
 	/* create the window, window home rank is 0 */
 	MPI_Win_create(NULL, 0, 1, MPI_INFO_NULL, winComm, &voclProxyWinPtr[appIndex]);
@@ -108,12 +109,14 @@ void voclProxyPrintWinInfo()
 void voclProxyMigrationMutexLock(int appIndex)
 {
 	MPIX_Mutex_lock(voclProxyLockers[appIndex], 0, 0);
+	//MPIX_Mutex_lock(voclProxyLockers[appIndex], 0, 1);
 	return;
 }
 
 void voclProxyMigrationMutexUnlock(int appIndex)
 {
 	MPIX_Mutex_unlock(voclProxyLockers[appIndex], 0, 0);
+	//MPIX_Mutex_unlock(voclProxyLockers[appIndex], 0, 1);
 	return;
 }
 

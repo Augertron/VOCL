@@ -80,7 +80,7 @@ extern cl_device_id voclProxyGetCmdQueueDeviceID(cl_command_queue command_queue)
 extern void voclProxySetMigrated();
 extern int voclProxyIsMigrated();
 extern int voclProxyGetKernelNumThreshold();
-//extern int rankNo;
+extern int rankNo;
 
 void voclProxyInternalQueueInit()
 {
@@ -235,8 +235,8 @@ void *proxyEnqueueThread(void *p)
 //		if (voclProxyGetInternalQueueKernelLaunchNum(appIndex) >= 4 && 
 //			voclProxyIsMigrated() == 0 &&
 //			rankNo == 0)
-		if (voclProxyGetMigrationCondition() == 1 && voclProxyIsMigrated() == 0)
-			//voclProxyGetInternalQueueKernelLaunchNum(appIndex) > voclProxyGetKernelNumThreshold())
+		if (voclProxyGetMigrationCondition() == 1 && voclProxyIsMigrated() == 0) /* &&  rankNo == 0 &&
+			voclProxyGetInternalQueueKernelLaunchNum(appIndex) > voclProxyGetKernelNumThreshold() */
 		{
 			voclProxySetMigrated();
 			pthread_mutex_lock(&internalQueueMutex);

@@ -4,6 +4,13 @@
 #include <CL/opencl.h>
 #include <sched.h>
 #include "mm_timer.h"
+#include "mpi.h"
+
+/* if enable vocl reablance, include these files */
+#if VOCL_BALANCE
+#include <dlfcn.h>
+#include "vocl.h"
+#endif
 
 /**********************************************************************
  *1. Create the scenario that each time a different kernel is created.
@@ -60,8 +67,10 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    cpu_set_t set;
-    CPU_ZERO(&set);
+    //cpu_set_t set;
+    //CPU_ZERO(&set);
+
+	MPI_Init(&argc, &argv);
 
     float *a, *b, *c;
     int numIterations = 20, iterationNo;
@@ -77,6 +86,14 @@ int main(int argc, char **argv)
 
     size_t blockSize[2] = { BLOCK_SIZE, BLOCK_SIZE };
     size_t globalSize[2];
+	int rankNo; 
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
+
+#if VOCL_BALANCE
+	void *voclModulePtr;
+	dlVOCLRebalance *dlvbPtr;
+#endif
 
     //initialize timer
     memset(&strTime, 0, sizeof(STRUCT_TIME));
@@ -109,8 +126,8 @@ int main(int argc, char **argv)
     timerEnd();
     strTime.getPlatform = elapsedTime();
 
-    sched_getaffinity(0, sizeof(cpu_set_t), &set);
-    printf("cpuid = %d\n", set.__bits[0]);
+    //sched_getaffinity(0, sizeof(cpu_set_t), &set);
+    //printf("cpuid = %d\n", set.__bits[0]);
 
     timerStart();
     totalDeviceNum = 0;
@@ -254,6 +271,11 @@ int main(int argc, char **argv)
     timerEnd();
     strTime.createKernel += elapsedTime();
 
+#if VOCL_BALANCE
+	voclModulePtr = dlopen("/home/scxiao/workplace/vocl/install/lib/libvocl.so", RTLD_LAZY);
+	dlvbPtr = dlsym(voclModulePtr, "voclRebalance");
+#endif
+
     timerStart();
     //copy the matrix to device memory
     for (iterationNo = 0; iterationNo < numIterations; iterationNo++) {
@@ -293,6 +315,16 @@ int main(int argc, char **argv)
                                       sizeC * sizeof(cl_float), c, 0, 0, 0);
             CHECK_ERR(err, "Enqueue read buffer error");
         }
+
+#if VOCL_BALANCE
+		if (rankNo == 0 && iterationNo == 10)
+		{
+			for (i = 0; i  <usedDeviceNum; i++)
+			{
+				(*dlvbPtr)(hCmdQueues[i]);
+			}
+		}
+#endif
     }
 
     for (i = 0; i < usedDeviceNum; i++) {
@@ -318,13 +350,13 @@ int main(int argc, char **argv)
     strTime.releaseMemObj += elapsedTime();
 
     timerStart();
-//	for (i = 0; i < hA; i++)
-//	{
-//		for (j = 0; j < 1; j++)
-//		{
-//			printf("c[%d][%d] = %lf\n", i, j, c[i * wB + j]);
-//		}
-//	}
+	for (i = 0; i < hA - 5; i++)
+	{
+		for (j = 0; j < 1; j++)
+		{
+			printf("c[%d][%d] = %lf\n", i, j, c[i * wB + j]);
+		}
+	}
     timerEnd();
     strTime.printMatrix = elapsedTime();
 
@@ -361,8 +393,14 @@ int main(int argc, char **argv)
     free(hKernels);
     free(deviceMems);
 
+#if VOCL_BALANCE
+	dlclose(voclModulePtr);
+#endif
+
     printTime_toStandardOutput();
     printTime_toFile();
+
+	MPI_Finalize();
 
     return 0;
 }

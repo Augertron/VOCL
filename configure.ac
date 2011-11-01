@@ -174,10 +174,19 @@ AC_CHECK_SIZEOF(CONTROL_MSG_UNION, ,[#include "src/vocl_proxy.h"])
 control_msg_size=$ac_cv_sizeof_CONTROL_MSG_UNION
 AC_SUBST(control_msg_size)
 
-
 abs_srcdir=`(cd $srcdir && pwd)`
 AC_SUBST(abs_srcdir)
 AC_SUBST(top_srcdir)
+
+AC_ARG_ENABLE([rebalance], [--enable-rebalance  enable whether function voclRebalance() is called in application.],
+		voclrebalance="$enableval", voclrebalance=0)
+if test "$voclrebalance" = 0; then
+	vocl_rebalance=0
+else
+	vocl_rebalance=1
+	CPPFLAGS="$CPPFLAGS -I${abs_srcdir}/src"
+fi
+AC_SUBST(vocl_rebalance)
 
 ## Final output
 AC_OUTPUT(Makefile

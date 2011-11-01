@@ -3,8 +3,10 @@
 #
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CPPFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024 -DPROXY_PATH_NAME=\"$(exec_prefix)\" -DPROXY_PATH_NAME_LEN=256
-AM_CXXFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024 -DPROXY_PATH_NAME=\"$(exec_prefix)\" -DPROXY_PATH_NAME_LEN=256
+AM_CPPFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024 -DPROXY_PATH_NAME=\"$(exec_prefix)\" \
+              -DPROXY_PATH_NAME_LEN=256 -DVOCL_BALANCE=$(vocl_rebalance)
+AM_CXXFLAGS = -DABS_SRCDIR=\"$(abs_srcdir)\" -DKERNEL_SOURCE_FILE_LEN=1024 -DPROXY_PATH_NAME=\"$(exec_prefix)\" \
+              -DPROXY_PATH_NAME_LEN=256 -DVOCL_BALANCE=$(vocl_rebalance)
 
 lib_LTLIBRARIES = libvocl.la
 libvocl_la_SOURCES = $(top_srcdir)/src/voclOpencl.c \
