@@ -145,6 +145,11 @@ void voclProxySetMigrated()
 	voclProxyMigrationFlag = 1;
 }
 
+void voclProxyResetMigrated()
+{
+	voclProxyMigrationFlag = 0;
+}
+
 int voclProxyIsMigrated()
 {
 	return voclProxyMigrationFlag;
@@ -240,6 +245,7 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 			voclProxySetCommandQueueMigStatus(cmdQueue, migStatus);
 
 			/* store the command queue value before migration */
+			printf("oldCmdQueue = %p\n", cmdQueuePtr->command_queue);
 			voclProxyStoreOldCommandQueueValue(cmdQueue, cmdQueuePtr->command_queue);
 
 			cqPtr = voclProxyGetCmdQueuePtr(cmdQueue);

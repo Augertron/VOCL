@@ -826,6 +826,7 @@ clCreateCommandQueue(cl_context context,
     voclObjCountIncrease(proxyIndex);
 
     /* convert cl command queue to vocl command queue */
+printf("cmdQueue = %p\n", tmpCreateCommandQueue.clCommand);
     command_queue =
         voclCLCommandQueue2VOCLCommandQueue(tmpCreateCommandQueue.clCommand, proxyRankContext,
                                             proxyIndex, proxyComm, proxyCommData);

@@ -92,13 +92,14 @@ int main(int argc, char **argv)
 
 #if VOCL_BALANCE
 	void *voclModulePtr;
-	dlVOCLRebalance *dlvbPtr;
+	dlVOCLRebalance dlvbPtr;
 #endif
 
     //initialize timer
     memset(&strTime, 0, sizeof(STRUCT_TIME));
 
     cl_int err;
+	const char *error;
     cl_uint platformNum, *deviceNums;
     cl_uint totalDeviceNum, usedDeviceNum, deviceNo = 0;
     cl_platform_id *platformIDs;
@@ -272,8 +273,18 @@ int main(int argc, char **argv)
     strTime.createKernel += elapsedTime();
 
 #if VOCL_BALANCE
-	voclModulePtr = dlopen("/home/scxiao/workplace/vocl/install/lib/libvocl.so", RTLD_LAZY);
+	voclModulePtr = dlopen("libvocl.so", RTLD_NOW);
+	if (voclModulePtr == NULL)
+	{
+		printf("open libvocl.so error, %s\n", dlerror());
+		exit (1);
+	}
+
 	dlvbPtr = dlsym(voclModulePtr, "voclRebalance");
+	if (error = dlerror()) {
+		printf("Could find voclRebalance: %s\n", error);
+		exit(1);
+	}
 #endif
 
     timerStart();
@@ -319,7 +330,7 @@ int main(int argc, char **argv)
 #if VOCL_BALANCE
 		if (rankNo == 0 && iterationNo == 10)
 		{
-			for (i = 0; i  <usedDeviceNum; i++)
+			for (i = 0; i  < usedDeviceNum; i++)
 			{
 				(*dlvbPtr)(hCmdQueues[i]);
 			}
