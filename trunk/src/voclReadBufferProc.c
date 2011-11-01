@@ -184,13 +184,13 @@ void reissueReadBufferRequest(int proxyIndex, int reissueNum,
 			startIndex += VOCL_READ_BUFFER_NUM;
 			endIndex += VOCL_READ_BUFFER_NUM;
 		}
-
 		completedThreshold = startIndex + completedNum;
 
 		/* reissue read and write request */
 		for (i = startIndex; i < endIndex; i++)
 		{
 			index = i % VOCL_READ_BUFFER_NUM;
+printf("reissueRead, proxyIndex = %d, index = %d\n", proxyIndex, index);
 			origReadBufPtr = &voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index];
 			if (i < completedThreshold)
 			{
@@ -220,11 +220,13 @@ void reissueReadBufferRequest(int proxyIndex, int reissueNum,
             origReadBufPtr->tag = -1;
 		}
 
-		voclReadBufferPtr[proxyIndex].curReadBufferIndex -= reissueNum;
-		if (voclReadBufferPtr[proxyIndex].curReadBufferIndex < 0) {
-			voclReadBufferPtr[proxyIndex].curReadBufferIndex += VOCL_READ_BUFFER_NUM;
-		}
-		voclReadBufferPtr[proxyIndex].readDataRequestNum -= reissueNum;
+//		voclReadBufferPtr[proxyIndex].curReadBufferIndex -= reissueNum;
+//		if (voclReadBufferPtr[proxyIndex].curReadBufferIndex < 0) {
+//			voclReadBufferPtr[proxyIndex].curReadBufferIndex += VOCL_READ_BUFFER_NUM;
+//		}
+//		voclReadBufferPtr[proxyIndex].readDataRequestNum -= reissueNum;
+		voclReadBufferPtr[proxyIndex].curReadBufferIndex = 0;
+		voclReadBufferPtr[proxyIndex].readDataRequestNum = 0;
 	}
 
 	return;
@@ -247,6 +249,7 @@ void processAllReads(int proxyIndex)
     requestNo = 0;
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
+printf("read, proxyIndex = %d, index = %d\n", proxyIndex, i);
         if (voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].isInUse == 1) {
             request[requestNo++] = *getReadRequestPtr(proxyIndex, index);
         }

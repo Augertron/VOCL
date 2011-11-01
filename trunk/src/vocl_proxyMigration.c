@@ -100,8 +100,10 @@ extern void voclProxyMigrationMutexUnlock(int appIndex);
 
 extern int voclProxyGetInternalQueueOperationNum(int appIndex);
 extern void voclProxyUnlockItem(vocl_internal_command_queue *cmdPtr);
-vocl_internal_command_queue * voclProxyGetInternalQueueHead();
-vocl_internal_command_queue * voclProxyGetInternalQueueTail();
+extern vocl_internal_command_queue * voclProxyGetInternalQueueHead();
+extern vocl_internal_command_queue * voclProxyGetInternalQueueTail();
+extern vocl_internal_command_queue * voclProxyMigGetAppCmds(int appIndex, int cmdIndex);
+
 
 void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo, 
 			MPI_Comm migComm, MPI_Comm migCommData);
@@ -245,7 +247,6 @@ void voclProxyMigCreateVirtualGPU(int appIndex, int proxyRank, cl_device_id devi
 			voclProxySetCommandQueueMigStatus(cmdQueue, migStatus);
 
 			/* store the command queue value before migration */
-			printf("oldCmdQueue = %p\n", cmdQueuePtr->command_queue);
 			voclProxyStoreOldCommandQueueValue(cmdQueue, cmdQueuePtr->command_queue);
 
 			cqPtr = voclProxyGetCmdQueuePtr(cmdQueue);
@@ -1041,28 +1042,35 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 	int requestNo = 0;
 	size_t msgSize, offset;
 	char *msgBuf;
-	int operationNum, i; 
+	int totalOperationNum, actualOperaNum, i; 
 	struct strMigQueueOperations tmpMigQueueOpera;
 	struct strEnqueueNDRangeKernel *kernelLaunch;
 	struct strEnqueueWriteBuffer *memoryWrite;
 	struct strEnqueueReadBuffer *memoryRead;
 	vocl_internal_command_queue *cmdPtr;
 	
-	operationNum = voclProxyGetInternalQueueOperationNum(appIndex);
-	msgSize = operationNum * sizeof(vocl_internal_command_queue) + 10000;
+	totalOperationNum = voclProxyGetInternalQueueOperationNum(appIndex);
+	msgSize = totalOperationNum * sizeof(vocl_internal_command_queue) + 10000;
 	msgBuf = (char *)malloc(msgSize);
 	
-	tmpMigQueueOpera.operationNum = operationNum;
 	tmpMigQueueOpera.appIndexOnDestProxy = appIndexOnDestProxy;
 
 	voclProxyMigReissueWriteNum = 0;
 	voclProxyMigReissueReadNum = 0;
 
 	offset = 0;
-	for (i = 0; i < operationNum; i++)
+	actualOperaNum = 0;
+	for (i = 0; i < totalOperationNum; i++)
 	{
 		/* current item is locked */
-		cmdPtr = voclProxyGetInternalQueueHead();
+		//cmdPtr = voclProxyGetInternalQueueHead();
+		cmdPtr = voclProxyMigGetAppCmds(appIndex, i);
+
+		/* for commands that are not related to the current application */
+		/* get the next command queue */
+		if (cmdPtr == NULL) continue;
+		
+		actualOperaNum++;
 		if (offset + sizeof(vocl_internal_command_queue) > msgSize)
 		{
 			msgSize = offset + sizeof(vocl_internal_command_queue) + 10000;
@@ -1101,6 +1109,7 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 		voclProxyUnlockItem(cmdPtr);
 	}
 	tmpMigQueueOpera.msgSize = offset;
+	tmpMigQueueOpera.operationNum = actualOperaNum;
 
 	/* send message to the destination proxy process */
 	MPI_Isend(&tmpMigQueueOpera, sizeof(vocl_internal_command_queue), MPI_BYTE,

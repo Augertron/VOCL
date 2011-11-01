@@ -826,7 +826,6 @@ clCreateCommandQueue(cl_context context,
     voclObjCountIncrease(proxyIndex);
 
     /* convert cl command queue to vocl command queue */
-printf("cmdQueue = %p\n", tmpCreateCommandQueue.clCommand);
     command_queue =
         voclCLCommandQueue2VOCLCommandQueue(tmpCreateCommandQueue.clCommand, proxyRankContext,
                                             proxyIndex, proxyComm, proxyCommData);
@@ -1926,10 +1925,9 @@ cl_int clFinish(cl_command_queue command_queue)
 
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
-
+printf("InclFinish\n");
 	/* release the locker */
 	//voclMigrationMutexUnlock(proxyIndex);
-
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
