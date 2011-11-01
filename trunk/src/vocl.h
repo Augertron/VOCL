@@ -10,6 +10,9 @@ struct strVoclRebalance {
 	int reissueReadNum;
 };
 
-void vocl_rebalance(cl_command_queue);
+void voclRebalance(cl_command_queue);
+
+typedef void 
+	(*dlVOCLRebalance) (cl_command_queue queue);
 
 #endif

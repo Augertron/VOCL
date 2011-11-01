@@ -357,7 +357,7 @@ extern void voclProxySetMigrationCondition(int condition);
 extern int voclProxyGetMigrationCondition();
 extern int voclProxyGetIsInMigration();
 extern void voclProxySetKernelNumThreshold(int kernelNum);
-//int rankNo;
+int rankNo;
 //----------------------------------------------------------
 
 /* proxy process */
@@ -380,7 +380,7 @@ int main(int argc, char *argv[])
     MPI_Request *curRequest;
     int requestNo, index;
     int requestOffset;
-    int rankNo;
+//    int rankNo;
     int bufferNum, bufferIndex;
     size_t bufferSize, remainingSize;
 
@@ -488,7 +488,7 @@ int main(int argc, char *argv[])
 	/* set migration condition to not migrate */
 	voclProxySetMigrationCondition(0);
 	/* set kernel num threshold for migration, a very large num */
-	voclProxySetKernelNumThreshold(1000000);
+	voclProxySetKernelNumThreshold(10);
 
     /* create a helper thread */
     pthread_barrier_init(&barrier, NULL, 2);
