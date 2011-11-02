@@ -391,7 +391,7 @@ cl_int enqueuePreviousWrites(int rank)
     MPI_Status tmpStatus;
     cl_event event[VOCL_PROXY_WRITE_BUFFER_NUM];
     int eventNo;
-    int getPreviousFlag = 0;
+    //int getPreviousFlag = 0;
     cl_int err = CL_SUCCESS;
 
     if (!isWriteBufferInUse(rank)) {
@@ -410,13 +410,13 @@ cl_int enqueuePreviousWrites(int rank)
         index = i % VOCL_PROXY_WRITE_BUFFER_NUM;
 
         if (voclProxyWriteBufferPtr[rank].writeBufferInfo[index].isInUse == WRITE_RECV_DATA) {
-            if (getPreviousFlag == 0) {
-                /* process all previous read buffer */
-                if (voclProxyWriteBufferPtr[rank].allReadBuffersAreCovered == 0) {
-                    getAllPreviousReadBuffers(rank, index);
-                }
-                getPreviousFlag = 1;
-            }
+            //if (getPreviousFlag == 0) {
+            //    /* process all previous read buffer */
+            //    if (voclProxyWriteBufferPtr[rank].allReadBuffersAreCovered == 0) {
+            //        getAllPreviousReadBuffers(rank, index);
+            //    }
+            //    getPreviousFlag = 1;
+            //}
 
             MPI_Wait(getWriteRequestPtr(rank, index), &tmpStatus);
             err = writeToGPUMemory(rank, index);

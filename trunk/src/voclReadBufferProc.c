@@ -190,11 +190,13 @@ void reissueReadBufferRequest(int proxyIndex, int reissueNum,
 		for (i = startIndex; i < endIndex; i++)
 		{
 			index = i % VOCL_READ_BUFFER_NUM;
-printf("reissueRead, proxyIndex = %d, index = %d\n", proxyIndex, index);
 			origReadBufPtr = &voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index];
 			if (i < completedThreshold)
 			{
-				MPI_Wait(&origReadBufPtr->request, &status);
+				if (origReadBufPtr->isInUse == 1)
+				{
+					MPI_Wait(&origReadBufPtr->request, &status);
+				}
 			}
 			else
 			{
@@ -249,7 +251,6 @@ void processAllReads(int proxyIndex)
     requestNo = 0;
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_READ_BUFFER_NUM;
-printf("read, proxyIndex = %d, index = %d\n", proxyIndex, i);
         if (voclReadBufferPtr[proxyIndex].voclReadBufferInfo[index].isInUse == 1) {
             request[requestNo++] = *getReadRequestPtr(proxyIndex, index);
         }
