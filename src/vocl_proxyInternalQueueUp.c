@@ -270,6 +270,8 @@ void *proxyEnqueueThread(void *p)
 	kernel_args *args_ptr;
 	int internalWaitFlag; 
 
+	voclProxyMigAppIndex = 0;
+
 	while (1)
 	{
 		if (voclProxyThreadInternalTerminateFlag == 1)
@@ -288,8 +290,8 @@ void *proxyEnqueueThread(void *p)
 
 			/* make sure issued commands completed */
 			clFinish(voclProxyMigCmdQueue);
-			processAllWrites(appIndex);
-			processAllReads(appIndex);
+			processAllWrites(voclProxyMigAppIndex);
+			processAllReads(voclProxyMigAppIndex);
 
 			/* migration a vgpu */
 			voclProxyMigration(voclProxyMigAppIndex, voclProxyGetCmdQueueDeviceID(voclProxyMigCmdQueue));
@@ -316,7 +318,6 @@ void *proxyEnqueueThread(void *p)
 		appCommData = cmdQueuePtr->appCommData;
 		appRank = cmdQueuePtr->appRank;
 		appIndex = cmdQueuePtr->appIndex;
-		voclProxyMigAppIndex = appIndex;
 
 		/* if the number of app process is larger than voclProxyAppNum */
 		/* reallocate memory */
