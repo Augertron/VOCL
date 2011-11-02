@@ -4,12 +4,12 @@
 #include <CL/opencl.h>
 #include <sched.h>
 #include "mm_timer.h"
-#include "mpi.h"
 
 /* if enable vocl reablance, include these files */
 #if VOCL_BALANCE
 #include <dlfcn.h>
 #include "vocl.h"
+#include "mpi.h"
 #endif
 
 /**********************************************************************
@@ -69,8 +69,9 @@ int main(int argc, char **argv)
 
     //cpu_set_t set;
     //CPU_ZERO(&set);
-
+#if VOCL_BALANCE
 	MPI_Init(&argc, &argv);
+#endif
 
     float *a, *b, *c;
     int numIterations = 20, iterationNo;
@@ -86,13 +87,12 @@ int main(int argc, char **argv)
 
     size_t blockSize[2] = { BLOCK_SIZE, BLOCK_SIZE };
     size_t globalSize[2];
-	int rankNo; 
-
-	MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
 
 #if VOCL_BALANCE
+	int rankNo; 
 	void *voclModulePtr;
 	dlVOCLRebalance dlvbPtr;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
 #endif
 
     //initialize timer
@@ -361,7 +361,7 @@ int main(int argc, char **argv)
     strTime.releaseMemObj += elapsedTime();
 
     timerStart();
-	for (i = 0; i < hA - 5; i++)
+	for (i = hA-5; i < hA; i++)
 	{
 		for (j = 0; j < 1; j++)
 		{
@@ -404,14 +404,13 @@ int main(int argc, char **argv)
     free(hKernels);
     free(deviceMems);
 
-#if VOCL_BALANCE
-	dlclose(voclModulePtr);
-#endif
-
     printTime_toStandardOutput();
     printTime_toFile();
 
+#if VOCL_BALANCE
+	dlclose(voclModulePtr);
 	MPI_Finalize();
+#endif
 
     return 0;
 }
