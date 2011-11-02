@@ -33,11 +33,14 @@ pthread_barrier_t barrierMigOperations;
 
 extern int voclMigOrigProxyRank;
 extern int voclMigDestProxyRank;
+extern cl_device_id voclMigOrigDeviceID;
+extern cl_device_id voclMigDestDeviceID;
 extern MPI_Comm voclMigDestComm;
 extern MPI_Comm voclMigDestCommData;
 extern int voclMigAppIndexOnOrigProxy;
 extern int voclMigAppIndexOnDestProxy;
 extern void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
+			cl_device_id origDeviceID, cl_device_id destDeviceID,
         	MPI_Comm destComm, MPI_Comm destCommData, int appIndex, int appIndexOnDestProxy);
 extern void voclProxyStoreKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
 extern int getNextWriteBufferIndex(int rank);
@@ -184,7 +187,6 @@ vocl_internal_command_queue * voclProxyMigGetAppCmds(int appIndex, int cmdIndex)
 	if (voclProxyInternalQueue[index].appIndex == appIndex &&
 		voclProxyInternalQueue[index].status == VOCL_PROXY_CMD_INUSE)
 	{
-		voclProxyInternalQueue[index].status = VOCL_PROXY_CMD_MIG;
 		return &voclProxyInternalQueue[index];
 	}
 	else
@@ -302,6 +304,7 @@ void *proxyEnqueueThread(void *p)
 
 			/* send unexecuted commands to destination proxy process */
 			voclProxyMigSendOperationsInCmdQueue(voclMigOrigProxyRank, voclMigDestProxyRank,
+					voclMigOrigDeviceID, voclMigDestDeviceID,
 					voclMigDestComm, voclMigDestCommData, voclMigAppIndexOnOrigProxy,
 					voclMigAppIndexOnDestProxy);
 			pthread_barrier_wait(&barrierMigOperations);

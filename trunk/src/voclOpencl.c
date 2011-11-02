@@ -1925,7 +1925,7 @@ cl_int clFinish(cl_command_queue command_queue)
 
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
-printf("InclFinish\n");
+
 	/* release the locker */
 	//voclMigrationMutexUnlock(proxyIndex);
 	/* only migration status of command queue is considered */
