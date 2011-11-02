@@ -8,6 +8,7 @@
 #include "vocl_proxyWinProc.h"
 #include "vocl_proxyBufferProc.h"
 #include "vocl_proxyStructures.h"
+#include "vocl_proxyKernelArgProc.h"
 #include "vocl_proxyInternalQueueUp.h"
 
 extern vocl_virtual_gpu *voclProxyGetVirtualGPUPtr(int appIndex, cl_device_id deviceID);
@@ -94,6 +95,7 @@ extern void voclMigSetRWBufferFlag(int rank, int index, int flag);
 extern int voclMigFinishDataRWOnSameNode(int rank);
 extern void voclProxyUpdateMigStatus(int appIndex, int destProxyIndex, int isOnSameNode);
 extern void voclProxySetMigStatus(int appIndex, char migStatus);
+extern void voclProxyUpdateKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
 
 extern void voclProxyMigrationMutexLock(int appIndex);
 extern void voclProxyMigrationMutexUnlock(int appIndex);
@@ -116,6 +118,8 @@ extern MPI_Comm *appComm, *appCommData;
 
 int voclMigOrigProxyRank;
 int voclMigDestProxyRank;
+cl_device_id voclMigOrigDeviceID;
+cl_device_id voclMigDestDeviceID;
 MPI_Comm voclMigDestComm;
 MPI_Comm voclMigDestCommData;
 int voclMigAppIndexOnOrigProxy;
@@ -131,7 +135,6 @@ int voclProxyMigKernelNumThreshold = 0;
 
 void voclProxySetMigrationCondition(int condition)
 {
-	printf("setMigCondition = %d\n", condition);
 	voclMigrationCondition = condition;
 
 	return;
@@ -661,6 +664,8 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 	/* store mpi info of proxy process */
 	voclMigOrigProxyRank = vgpuPtr->proxyRank;
 	voclMigDestProxyRank = destRankNo;
+	voclMigOrigDeviceID = vgpuPtr->deviceID;
+	voclMigDestDeviceID = deviceID;
 	voclMigAppIndexOnDestProxy = destAppIndex;
 	voclMigAppIndexOnOrigProxy = vgpuPtr->appIndex;
 	voclMigDestComm = comm;
@@ -1033,8 +1038,76 @@ void vocl_proxyUpdateVirtualGPUInfo(int appIndex, char *msgBuf)
     return;
 }
 
+/* return the size of buffer corresponding to the current command */
+size_t voclProxyMigUpdateInternalCommand(vocl_internal_command_queue *cmdPtr, char *msgBuffer)
+{
+	struct strEnqueueWriteBuffer *writeBuffer;
+	struct strEnqueueNDRangeKernel *enqueueNDRangeKernel;
+	struct strEnqueueReadBuffer *readBuffer;
+	kernel_args *args_ptr;
+	size_t migOffset;
+	size_t paramSize;
+	int work_dim;
+
+	migOffset = 0;
+	paramSize = 0;
+	/* update the kernel, command queue,and buffer info */
+	if(cmdPtr->msgTag == ENQUEUE_WRITE_BUFFER)
+	{
+		writeBuffer = (struct strEnqueueWriteBuffer *)cmdPtr->conMsgBuffer;
+		/* update command queue and buffer */
+		writeBuffer->command_queue = voclProxyGetNewCommandQueueValue(writeBuffer->command_queue);
+		writeBuffer->buffer = voclProxyGetNewMemValue(writeBuffer->buffer);
+	}
+	else if (cmdPtr->msgTag == ENQUEUE_ND_RANGE_KERNEL)
+	{
+		enqueueNDRangeKernel = (struct strEnqueueNDRangeKernel *)cmdPtr->conMsgBuffer;
+		enqueueNDRangeKernel->command_queue = voclProxyGetNewCommandQueueValue(enqueueNDRangeKernel->command_queue);
+		enqueueNDRangeKernel->kernel = voclProxyGetNewKernelValue(enqueueNDRangeKernel->kernel);
+
+		/* for kernel arguments update if migration is across proxy processes */
+		if (enqueueNDRangeKernel->dataSize > 0 && msgBuffer != NULL)
+		{
+			cmdPtr->paramBuf = (char *)malloc(enqueueNDRangeKernel->dataSize);
+			memcpy(cmdPtr->paramBuf, msgBuffer, enqueueNDRangeKernel->dataSize);
+			paramSize = enqueueNDRangeKernel->dataSize;
+		}
+
+		/* there is args set for the kernel launch */
+		if (enqueueNDRangeKernel->args_num > 0) {
+			/* calc the offset value for args for the current kernel launch */
+			migOffset = 0;
+			work_dim = enqueueNDRangeKernel->work_dim;
+			if (enqueueNDRangeKernel->global_work_offset_flag == 1) {
+				migOffset += work_dim * sizeof(size_t);
+			}
+			if (enqueueNDRangeKernel->global_work_size_flag == 1) {
+				migOffset += work_dim * sizeof(size_t);
+			}
+			if (enqueueNDRangeKernel->local_work_size_flag == 1) {
+				migOffset += work_dim * sizeof(size_t);
+			}
+
+			args_ptr = (kernel_args *) (cmdPtr->paramBuf + migOffset);
+
+			/* update parameters in the arguments */
+			voclProxyUpdateKernelArgs(enqueueNDRangeKernel->kernel, enqueueNDRangeKernel->args_num, args_ptr);
+		}
+	}
+	else if (cmdPtr->msgTag == ENQUEUE_READ_BUFFER)
+	{
+		readBuffer = (struct strEnqueueReadBuffer *)cmdPtr->conMsgBuffer;
+		/* update command queue and buffer */
+		readBuffer->command_queue = voclProxyGetNewCommandQueueValue(readBuffer->command_queue);
+		readBuffer->buffer = voclProxyGetNewMemValue(readBuffer->buffer);
+	}
+
+	return paramSize;
+}
+
 /* transfer the kernel launch command to the target proxy process */
 void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank, 
+			cl_device_id origDeviceID, cl_device_id destDeviceID,
 			MPI_Comm destComm, MPI_Comm destCommData, int appIndex, int appIndexOnDestProxy)
 {
 	MPI_Request request[3];
@@ -1051,75 +1124,107 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 	
 	totalOperationNum = voclProxyGetInternalQueueOperationNum(appIndex);
 	msgSize = totalOperationNum * sizeof(vocl_internal_command_queue) + 10000;
-	msgBuf = (char *)malloc(msgSize);
-	
-	tmpMigQueueOpera.appIndexOnDestProxy = appIndexOnDestProxy;
 
+	msgBuf = (char *)malloc(msgSize);
 	voclProxyMigReissueWriteNum = 0;
 	voclProxyMigReissueReadNum = 0;
 
-	offset = 0;
-	actualOperaNum = 0;
-	for (i = 0; i < totalOperationNum; i++)
+	/* migrate to a different proxy process */
+	if (origProxyRank != destProxyRank)
 	{
-		/* current item is locked */
-		//cmdPtr = voclProxyGetInternalQueueHead();
-		cmdPtr = voclProxyMigGetAppCmds(appIndex, i);
-
-		/* for commands that are not related to the current application */
-		/* get the next command queue */
-		if (cmdPtr == NULL) continue;
-		
-		actualOperaNum++;
-		if (offset + sizeof(vocl_internal_command_queue) > msgSize)
+		offset = 0;
+		actualOperaNum = 0;
+		for (i = 0; i < totalOperationNum; i++)
 		{
-			msgSize = offset + sizeof(vocl_internal_command_queue) + 10000;
-			msgBuf = (char *)realloc(msgBuf, msgSize);
-		}
+			/* current item is locked */
+			//cmdPtr = voclProxyGetInternalQueueHead();
+			cmdPtr = voclProxyMigGetAppCmds(appIndex, i);
 
-		memcpy((msgBuf + offset), cmdPtr, sizeof(vocl_internal_command_queue));
-		offset += sizeof(vocl_internal_command_queue);
+			/* for commands that are not related to the current application */
+			/* get the next command queue */
+			if (cmdPtr == NULL) continue;
 
-		if (cmdPtr->msgTag == ENQUEUE_ND_RANGE_KERNEL)
-		{
-			kernelLaunch = (struct strEnqueueNDRangeKernel *)cmdPtr->conMsgBuffer;
-			if (kernelLaunch->dataSize > 0)
+			/* set this command to be migrated */
+			cmdPtr->status = VOCL_PROXY_CMD_MIG;
+			
+			actualOperaNum++;
+			if (offset + sizeof(vocl_internal_command_queue) > msgSize)
 			{
-				if (offset + kernelLaunch->dataSize > msgSize)
+				msgSize = offset + sizeof(vocl_internal_command_queue) + 10000;
+				msgBuf = (char *)realloc(msgBuf, msgSize);
+			}
+
+			memcpy((msgBuf + offset), cmdPtr, sizeof(vocl_internal_command_queue));
+			offset += sizeof(vocl_internal_command_queue);
+
+			if (cmdPtr->msgTag == ENQUEUE_ND_RANGE_KERNEL)
+			{
+				kernelLaunch = (struct strEnqueueNDRangeKernel *)cmdPtr->conMsgBuffer;
+				if (kernelLaunch->dataSize > 0)
 				{
-					msgSize = offset + kernelLaunch->dataSize + 10000;
-					msgBuf = (char *)realloc(msgBuf, msgSize);
+					if (offset + kernelLaunch->dataSize > msgSize)
+					{
+						msgSize = offset + kernelLaunch->dataSize + 10000;
+						msgBuf = (char *)realloc(msgBuf, msgSize);
+					}
+					memcpy((msgBuf + offset), cmdPtr->paramBuf, kernelLaunch->dataSize);
+					offset += kernelLaunch->dataSize;
+
+					/* release buffer for kernel launch arguments */
+					free(cmdPtr->paramBuf);
 				}
-				memcpy((msgBuf + offset), cmdPtr->paramBuf, kernelLaunch->dataSize);
-				offset += kernelLaunch->dataSize;
+			}
+
+			else if (cmdPtr->msgTag == ENQUEUE_WRITE_BUFFER)
+			{
+				memoryWrite = (struct strEnqueueWriteBuffer *)cmdPtr->conMsgBuffer;
+				voclProxyMigReissueWriteNum += ((memoryWrite->cb - 1)/VOCL_PROXY_WRITE_BUFFER_SIZE + 1);
+			}
+
+			else if (cmdPtr->msgTag == ENQUEUE_READ_BUFFER)
+			{
+				memoryRead = (struct strEnqueueReadBuffer *)cmdPtr->conMsgBuffer;
+				voclProxyMigReissueReadNum += ((memoryRead->cb - 1)/VOCL_PROXY_READ_BUFFER_SIZE + 1);
 			}
 		}
+		tmpMigQueueOpera.msgSize = offset;
+		tmpMigQueueOpera.operationNum = actualOperaNum;
+		tmpMigQueueOpera.appIndexOnDestProxy = appIndexOnDestProxy;
 
-		else if (cmdPtr->msgTag == ENQUEUE_WRITE_BUFFER)
-		{
-			memoryWrite = (struct strEnqueueWriteBuffer *)cmdPtr->conMsgBuffer;
-			voclProxyMigReissueWriteNum += ((memoryWrite->cb - 1)/VOCL_PROXY_WRITE_BUFFER_SIZE + 1);
-		}
-
-		else if (cmdPtr->msgTag == ENQUEUE_READ_BUFFER)
-		{
-			memoryRead = (struct strEnqueueReadBuffer *)cmdPtr->conMsgBuffer;
-			voclProxyMigReissueReadNum += ((memoryRead->cb - 1)/VOCL_PROXY_READ_BUFFER_SIZE + 1);
-		}
-		voclProxyUnlockItem(cmdPtr);
+		/* send message to the destination proxy process if */
+		/*migration is across different proxy process */
+		MPI_Isend(&tmpMigQueueOpera, sizeof(vocl_internal_command_queue), MPI_BYTE,
+				  destProxyRank, VOCL_MIG_CMD_OPERATIONS, destComm, request+(requestNo++));
+		MPI_Isend(msgBuf, tmpMigQueueOpera.msgSize, MPI_BYTE, destProxyRank, 
+				  VOCL_MIG_CMD_OPERATIONS, destCommData, request+(requestNo++));
+		MPI_Irecv(&tmpMigQueueOpera, sizeof(vocl_internal_command_queue), MPI_BYTE,
+				  destProxyRank, VOCL_MIG_CMD_OPERATIONS, destCommData, 
+				  request+(requestNo++));
+		MPI_Waitall(requestNo, request, status);
 	}
-	tmpMigQueueOpera.msgSize = offset;
-	tmpMigQueueOpera.operationNum = actualOperaNum;
+	else /* on the same node, but different GPUs */
+	{
+		/* across GPUs on the same node, just need to update */
+		/* opencl handles in the command */
+		if (origDeviceID != destDeviceID)
+		{
+			for (i = 0; i < totalOperationNum; i++)
+			{
+				/* current item is locked */
+				//cmdPtr = voclProxyGetInternalQueueHead();
+				cmdPtr = voclProxyMigGetAppCmds(appIndex, i);
 
-	/* send message to the destination proxy process */
-	MPI_Isend(&tmpMigQueueOpera, sizeof(vocl_internal_command_queue), MPI_BYTE,
-			  destProxyRank, VOCL_MIG_CMD_OPERATIONS, destComm, request+(requestNo++));
-	MPI_Isend(msgBuf, tmpMigQueueOpera.msgSize, MPI_BYTE, destProxyRank, 
-			  VOCL_MIG_CMD_OPERATIONS, destCommData, request+(requestNo++));
-	MPI_Irecv(&tmpMigQueueOpera, sizeof(vocl_internal_command_queue), MPI_BYTE,
-			  destProxyRank, VOCL_MIG_CMD_OPERATIONS, destCommData, 
-			  request+(requestNo++));
-	MPI_Waitall(requestNo, request, status);
+				/* for commands that are not related to the current application */
+				/* get the next command queue */
+				if (cmdPtr == NULL) continue;
+
+				/* update the contents in the internal command */
+				/* since parameters for kernel launch is already stored, no need */
+				/* to copy the parameter buffer from other message buffer */
+				voclProxyMigUpdateInternalCommand(cmdPtr, NULL);
+			}
+		}
+	}
 
 	free(msgBuf);
 
