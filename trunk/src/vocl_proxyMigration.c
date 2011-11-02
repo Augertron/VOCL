@@ -1044,6 +1044,8 @@ size_t voclProxyMigUpdateInternalCommand(vocl_internal_command_queue *cmdPtr, ch
 	struct strEnqueueWriteBuffer *writeBuffer;
 	struct strEnqueueNDRangeKernel *enqueueNDRangeKernel;
 	struct strEnqueueReadBuffer *readBuffer;
+	struct strFinish *finish;
+	struct strFlush *flush;
 	kernel_args *args_ptr;
 	size_t migOffset;
 	size_t paramSize;
@@ -1100,6 +1102,18 @@ size_t voclProxyMigUpdateInternalCommand(vocl_internal_command_queue *cmdPtr, ch
 		/* update command queue and buffer */
 		readBuffer->command_queue = voclProxyGetNewCommandQueueValue(readBuffer->command_queue);
 		readBuffer->buffer = voclProxyGetNewMemValue(readBuffer->buffer);
+	}
+
+	else if (cmdPtr->msgTag == FINISH_FUNC)
+	{
+		finish = (struct strFinish *)cmdPtr->conMsgBuffer;
+		finish->command_queue = voclProxyGetNewCommandQueueValue(finish->command_queue);
+	}
+
+	else if (cmdPtr->msgTag == FLUSH_FUNC)
+	{
+		flush = (struct strFlush *)cmdPtr->conMsgBuffer;
+		flush->command_queue = voclProxyGetNewCommandQueueValue(flush->command_queue);
 	}
 
 	return paramSize;
