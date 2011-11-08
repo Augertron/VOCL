@@ -2,6 +2,12 @@
 #include <oclUtils.h>
 #include <sched.h>
 #include "mt_timer.h"
+/* if enable vocl reablance, include these files */
+#if VOCL_BALANCE
+#include <dlfcn.h>
+#include "vocl.h"
+#include "mpi.h"
+#endif
 
 #define BLOCK_DIM 16
 
@@ -26,6 +32,10 @@ extern "C" void computeGold( float* reference, float* idata,
 // *********************************************************************
 int main( int argc, const char** argv) 
 { 
+#if VOCL_BALANCE
+    MPI_Init(&argc, (char ***)&argv);
+#endif
+
     // set logfile name and start logs
     shrSetLogFileName ("oclTranspose.txt");
     shrLog("%s Starting...\n\n", argv[0]); 
@@ -39,6 +49,10 @@ int main( int argc, const char** argv)
 
 	printTime_toStandardOutput();
     printTime_toFile();
+
+#if VOCL_BALANCE
+	MPI_Finalize();
+#endif
 
 	return 0;
 }
@@ -56,6 +70,14 @@ double transposeGPU(const char* kernelName, bool useLocalMem,  cl_uint ciDeviceC
 
 	struct timeval t1, t2;
 	float tmpTime;
+
+#if VOCL_BALANCE
+    int rankNo;
+    void *voclModulePtr;
+	const char *error;
+    dlVOCLRebalance dlvbPtr;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
+#endif
  
     // Create buffers for each GPU
     // Each GPU will compute sizePerGPU rows of the result
@@ -86,6 +108,21 @@ double transposeGPU(const char* kernelName, bool useLocalMem,  cl_uint ciDeviceC
 		timerEnd();
 		strTime.createBuffer += elapsedTime();
 	}
+
+#if VOCL_BALANCE
+	voclModulePtr = dlopen("libvocl.so", RTLD_NOW);
+	if (voclModulePtr == NULL)
+	{
+		printf("open libvocl.so error, %s\n", dlerror());
+		exit (1);
+	}
+
+	dlvbPtr = (dlVOCLRebalance)dlsym(voclModulePtr, "voclRebalance");
+	if (error = dlerror()) {
+		printf("Could find voclRebalance: %s\n", error);
+		exit(1);
+	}
+#endif
 
     // execute the kernel numIterations times
     shrLog("\nProcessing a %d by %d matrix of floats for %d iterations\n\n", size_x, size_y, numIterations);
@@ -131,6 +168,17 @@ double transposeGPU(const char* kernelName, bool useLocalMem,  cl_uint ciDeviceC
 			ciErrNum |= clEnqueueReadBuffer(commandQueues[i], d_odata[i], CL_FALSE, 0,
 									mem_size, h_odata, 0, NULL, NULL);
 		}
+
+#if VOCL_BALANCE
+        if (rankNo == 0 && iterNo == 10)
+        {
+            for (i = 0; i  < ciDeviceCount; i++)
+            {
+                (*dlvbPtr)(commandQueues[i]);
+            }
+        }
+#endif
+
 	}
 
 	for(i = 0; i < ciDeviceCount; ++i)
@@ -157,6 +205,10 @@ double transposeGPU(const char* kernelName, bool useLocalMem,  cl_uint ciDeviceC
 	}
 	timerEnd();
 	strTime.releaseKernel += elapsedTime();
+
+#if VOCL_BALANCE
+	dlclose(voclModulePtr);
+#endif
 
 	free(ckKernels);
 	free(d_idata);

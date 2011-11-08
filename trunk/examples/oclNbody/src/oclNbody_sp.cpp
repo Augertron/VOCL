@@ -16,7 +16,12 @@
 // Project includes
 #include "oclBodySystemOpencl_sp.h"
 #include "oclBodySystemCpu_sp.h"
-
+/* if enable vocl reablance, include these files */
+#if VOCL_BALANCE
+#include <dlfcn.h>
+#include "vocl.h"
+#include "mpi.h"
+#endif
 
 // view, GLUT and display params
 static int ox = 0, oy = 0;
@@ -126,9 +131,15 @@ void TriggerFPSUpdate();
 //*****************************************************************************
 int main(int argc, char **argv)
 {
+
+#if VOCL_BALANCE
+	MPI_Init(&argc, &argv);
+#endif
+
     // Locals used with command line args
     int p = 256;                // workgroup X dimension
     int q = 1;                  // workgroup Y dimension
+
     int i, deviceNo = 0, index;
     bool bUseAllDevices = false;
     struct timeval t1, t2;
@@ -164,6 +175,14 @@ int main(int argc, char **argv)
             (shrTRUE == shrCheckCmdLineFlag(argc, (const char **) argv, "deviceall"));
     }
     bQATest = shrTRUE;
+
+#if VOCL_BALANCE
+	int rankNo; 
+	void *voclModulePtr;
+	const char *error;
+	dlVOCLRebalance dlvbPtr;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
+#endif
 
     shrLog("Initialize timer...\n\n");
     memset(&strTime, sizeof(STRUCT_TIME), 0);
@@ -293,6 +312,21 @@ int main(int argc, char **argv)
     }
     shrLog("Workgroup Dims = (%d x %d)\n\n", p, q);
 
+#if VOCL_BALANCE
+	voclModulePtr = dlopen("libvocl.so", RTLD_NOW);
+	if (voclModulePtr == NULL)
+	{
+		printf("open libvocl.so error, %s\n", dlerror());
+		exit (1); 
+	}
+
+	dlvbPtr = (dlVOCLRebalance) dlsym(voclModulePtr, "voclRebalance");
+	if (error = dlerror()) {
+		printf("Could find voclRebalance: %s\n", error);
+		exit(1);
+	}
+#endif
+
     // CL/GL interop disabled
     for (i = 0; i < deviceNumUsed; i++) {
         index = i + deviceNo;
@@ -323,6 +357,16 @@ int main(int argc, char **argv)
         for (i = 0; i < deviceNumUsed; i++) {
             copyDataD2H(nbody[i]);
         }
+
+#if VOCL_BALANCE
+        if (rankNo == 0 && iterNo == 10)
+        {
+            for (i = 0; i  < deviceNumUsed; i++)
+            {
+                (*dlvbPtr)(cqCommandQueues[i]);
+            }
+        }
+#endif
     }
 
     for (i = 0; i < deviceNumUsed; i++) {
@@ -349,6 +393,11 @@ int main(int argc, char **argv)
 
     printTime_toStandardOutput();
     printTime_toFile();
+
+#if VOCL_BALANCE
+	dlclose(voclModulePtr);
+	MPI_Finalize();
+#endif
 
     exit(EXIT_SUCCESS);
 }

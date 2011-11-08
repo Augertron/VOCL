@@ -183,6 +183,7 @@ int voclGetMigrationDestProxyIndex(int proxyIndex)
 
 	winPtr = (vocl_wins *)malloc(sizeof(vocl_wins));
 	MPI_Win_lock(MPI_LOCK_EXCLUSIVE, 0, 0, voclWinPtr[proxyIndex]);
+
 	/* get all the window info */
 	MPI_Get(winPtr, sizeof(vocl_wins), MPI_BYTE, 0, 0,
 			sizeof(vocl_wins), MPI_BYTE, voclWinPtr[proxyIndex]);
@@ -202,7 +203,8 @@ int voclGetMigrationDestProxyIndex(int proxyIndex)
 
 	if (destProxyIndex == -1)
 	{
-		printf("voclGetMigrationDestProxyIndex, destProxyRank %d does not exist!\n");
+		printf("voclGetMigrationDestProxyIndex, destProxyRank %d does not exist!\n",
+				destProxyIndex);
 		exit (1);
 	}
 

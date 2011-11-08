@@ -91,6 +91,7 @@ int main(int argc, char **argv)
 #if VOCL_BALANCE
 	int rankNo; 
 	void *voclModulePtr;
+	const char *error;
 	dlVOCLRebalance dlvbPtr;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
 #endif
@@ -99,7 +100,6 @@ int main(int argc, char **argv)
     memset(&strTime, 0, sizeof(STRUCT_TIME));
 
     cl_int err;
-	const char *error;
     cl_uint platformNum, *deviceNums;
     cl_uint totalDeviceNum, usedDeviceNum, deviceNo = 0;
     cl_platform_id *platformIDs;

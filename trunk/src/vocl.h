@@ -5,7 +5,7 @@
 
 struct strVoclRebalance {
 	cl_command_queue command_queue;
-	int isMigrated;
+	int isMigratedNecessary;
 	int reissueWriteNum;
 	int reissueReadNum;
 };

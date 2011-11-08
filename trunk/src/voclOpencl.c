@@ -1470,7 +1470,7 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	//voclMigrationMutexLock(proxyIndex);
-	voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
+	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
@@ -3197,8 +3197,6 @@ clEnqueueUnmapMemObject(cl_command_queue command_queue,
         eventList = NULL;
     }
 
-    printf("end of migration!\n");
-
     return tmpEnqueueUnmapMemObject.res;
 }
 
@@ -3213,37 +3211,47 @@ void voclRebalance(cl_command_queue command_queue)
 	int proxyIndex, proxyRank;
 	int origProxyIndex, destProxyIndex;
 	int reissueWriteNum, reissueReadNum;
+	int cmdQueueMigStatus;
 	MPI_Comm proxyComm, proxyCommData;
 
 	cmdQueue = voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 											&proxyIndex, &proxyComm, &proxyCommData);
-	requestNo = 0;
-	tmpVoclRebalance.command_queue = cmdQueue;
-	MPI_Isend(&tmpVoclRebalance, sizeof(struct strVoclRebalance), MPI_BYTE, proxyRank,
-			  VOCL_REBALANCE, proxyComm, request + (requestNo++));
-	MPI_Irecv(&tmpVoclRebalance, sizeof(struct strVoclRebalance), MPI_BYTE, proxyRank,
-			  VOCL_REBALANCE, proxyComm, request + (requestNo++));
-	MPI_Waitall(requestNo, request, status);
 
-	/* migration is performed in the proxy */
-	if (tmpVoclRebalance.isMigrated == 1)
+	/* check whether migration has been performed */
+    cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
+
+	/* migration has not been performed yet */
+	if (cmdQueueMigStatus == 0)
 	{
-		origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
-		origProxyIndex = proxyIndex;
+		requestNo = 0;
+		tmpVoclRebalance.command_queue = cmdQueue;
+		MPI_Isend(&tmpVoclRebalance, sizeof(struct strVoclRebalance), MPI_BYTE, proxyRank,
+				  VOCL_REBALANCE, proxyComm, request + (requestNo++));
+		MPI_Irecv(&tmpVoclRebalance, sizeof(struct strVoclRebalance), MPI_BYTE, proxyRank,
+				  VOCL_REBALANCE, proxyComm, request + (requestNo++));
+		MPI_Waitall(requestNo, request, status);
 
-		destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
-		proxyRank = voclProxyRank[destProxyIndex];
-		proxyComm = voclProxyComm[destProxyIndex];
-		proxyCommData = voclProxyCommData[destProxyIndex];
+		/* migration is performed in the proxy */
+		if (tmpVoclRebalance.isMigratedNecessary == 1)
+		{
+			origDeviceID = voclGetCommandQueueDeviceID((vocl_command_queue)command_queue);
+			origProxyIndex = proxyIndex;
 
-		/* call functions for issue requests */
-		reissueWriteBufferRequest(origProxyIndex, tmpVoclRebalance.reissueWriteNum,
-			proxyCommData, proxyRank, destProxyIndex);
-		reissueReadBufferRequest(origProxyIndex, tmpVoclRebalance.reissueReadNum,
-			proxyCommData, proxyRank, destProxyIndex);
+			destProxyIndex = voclGetMigrationDestProxyIndex(origProxyIndex);
+			proxyRank = voclProxyRank[destProxyIndex];
+			proxyComm = voclProxyComm[destProxyIndex];
+			proxyCommData = voclProxyCommData[destProxyIndex];
 
-		voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
+			/* call functions for issue requests */
+			reissueWriteBufferRequest(origProxyIndex, tmpVoclRebalance.reissueWriteNum,
+				proxyCommData, proxyRank, destProxyIndex);
+			reissueReadBufferRequest(origProxyIndex, tmpVoclRebalance.reissueReadNum,
+				proxyCommData, proxyRank, destProxyIndex);
+
+			voclMigUpdateVirtualGPU(origProxyIndex, origDeviceID, proxyRank, destProxyIndex, proxyComm, proxyCommData);
+		}
 	}
 
 	return;
 }
+

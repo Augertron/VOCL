@@ -4,6 +4,13 @@
 #include <CL/opencl.h>
 #include <sched.h>
 
+/* if enable vocl reablance, include these files */
+#if VOCL_BALANCE 
+#include <dlfcn.h>
+#include "vocl.h"
+#include "mpi.h"
+#endif
+
 #define CHECK_ERR(err, str) \
 	if (err != CL_SUCCESS)  \
 	{ \
@@ -57,6 +64,10 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
+#if VOCL_BALANCE
+	MPI_Init(&argc, &argv);
+#endif
+
 	char queryFilePathName[255], dbDataFilePathName[255], dbLenFilePathName[255];
 	int querySize, subSequenceNum, subSequenceSize, iterNo, i, index;
 	float openPenalty, extensionPenalty;
@@ -67,6 +78,15 @@ int main(int argc, char ** argv)
 	cl_uint deviceNo = 0;
   	char kernel_source[KERNEL_SOURCE_FILE_LEN];
 	int blockNum;
+
+#if VOCL_BALANCE
+	int rankNo;
+	void *voclModulePtr;
+	const char *error;
+	dlVOCLRebalance dlvbPtr;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rankNo);
+#endif
+
 	cpu_set_t set;
 	CPU_ZERO(&set);
 
@@ -353,6 +373,21 @@ int main(int argc, char ** argv)
 	//read the total number of sequences
 	fread(&subSequenceNum, sizeof(int), 1, pDBLenFile);
 
+#if VOCL_BALANCE
+	voclModulePtr = dlopen("libvocl.so", RTLD_NOW);
+	if (voclModulePtr == NULL)
+	{
+		printf("open libvocl.so error, %s\n", dlerror());
+		exit (1); 
+	}
+
+	dlvbPtr = (dlVOCLRebalance)dlsym(voclModulePtr, "voclRebalance");
+	if (error = dlerror()) {
+		printf("Could find voclRebalance: %s\n", error);
+		exit(1);
+	}
+#endif
+
 	//get the larger and smaller of the row and colum number
 	int subSequenceNo, launchNum, launchNo;
 	int rowNum, columnNum, matrixIniNum;
@@ -520,6 +555,16 @@ int main(int argc, char ** argv)
 										   outSeq2, 0, 0, 0);
 				CHECK_ERR(err, "Read output sequence error!");
 			}
+
+#if VOCL_BALANCE
+			if (rankNo == 0 && iterNo == 10)
+			{
+				for (i = 0; i  < usedDeviceNum; i++)
+				{
+					(*dlvbPtr)(hCmdQueues[i]);
+				}
+			}
+#endif
 		}
 
 		for (i = 0; i < usedDeviceNum; i++)
@@ -534,7 +579,7 @@ int main(int argc, char ** argv)
 		//call the print function to print the match result
 		printf("============================================================\n");
 		printf("Sequence pair %d:\n", subSequenceNo);
-		PrintAlignment(outSeq1, outSeq2, nlength, CHAR_PER_LINE, openPenalty, extensionPenalty);
+		//PrintAlignment(outSeq1, outSeq2, nlength, CHAR_PER_LINE, openPenalty, extensionPenalty);
 		printf("Max alignment score (on device) is %.1f\n", maxInfo->fmaxscore);
 
 		printf("openPenalty = %.1f, extensionPenalty = %.1f\n", openPenalty, extensionPenalty);
@@ -638,6 +683,11 @@ int main(int argc, char ** argv)
 
 	printTime_toStandardOutput();
 	printTime_toFile();
+
+#if VOCL_BALANCE
+	dlclose(voclModulePtr);
+	MPI_Finalize();
+#endif
 
 	return 0;
 }
