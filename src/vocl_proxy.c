@@ -1903,9 +1903,19 @@ int main(int argc, char *argv[])
 			memcpy(&tmpVoclRebalance, conMsgBuffer[index], sizeof(struct strVoclRebalance));
 			cmdQueuePtr = voclProxyGetCmdQueuePtr(tmpVoclRebalance.command_queue);
 
-			/* check whether migration is needed */
-			tmpVoclRebalance.isMigrated = voclProxyCheckIsMigrationNeeded(appIndex, cmdQueuePtr->deviceID);
-			if (tmpVoclRebalance.isMigrated == 1)
+			/* migration has been performed for the current command queue */
+			/* no need to migrate once more */
+			if (cmdQueuePtr->migStatus > 0)
+			{
+				tmpVoclRebalance.isMigratedNecessary = 0;
+			}
+			else
+			{
+				/* check whether migration is needed */
+				tmpVoclRebalance.isMigratedNecessary = voclProxyCheckIsMigrationNeeded(appIndex, cmdQueuePtr->deviceID);
+			}
+
+			if (tmpVoclRebalance.isMigratedNecessary == 1)
 			{
 				voclProxyMigAppIndex = appIndex;
 				voclProxyMigCmdQueue = tmpVoclRebalance.command_queue;

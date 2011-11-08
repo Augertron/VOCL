@@ -110,7 +110,6 @@ void voclProxyInternalQueueInit()
 vocl_internal_command_queue * voclProxyGetInternalQueueTail()
 {
 	int index;
-
 	/* goes back to see if there is available */
 	index = (voclProxyCmdTail - 1) % voclProxyCmdNum;
 	while (voclProxyCmdTail > voclProxyCmdHead &&
@@ -121,15 +120,16 @@ vocl_internal_command_queue * voclProxyGetInternalQueueTail()
 		index = (voclProxyCmdTail - 1) % voclProxyCmdNum;
 	}
 
-	index = voclProxyCmdTail % voclProxyCmdNum;
+	/* the internal queue is full. */
 	while (voclProxyCmdHead + voclProxyCmdNum <= voclProxyCmdTail)
 	{
 		usleep(10);
 	}
+
+	index = voclProxyCmdTail % voclProxyCmdNum;
 	voclProxyInternalQueue[index].status = VOCL_PROXY_CMD_INUSE;
 	pthread_mutex_lock(&voclProxyInternalQueue[index].lock);
 	voclProxyCmdTail++;
-
 	return &voclProxyInternalQueue[index];
 }
 
@@ -154,7 +154,7 @@ vocl_internal_command_queue * voclProxyGetInternalQueueHead()
 
 	index = voclProxyCmdHead;
 
-	while (voclProxyCmdHead == voclProxyCmdTail)
+	while (voclProxyCmdHead >= voclProxyCmdTail)
 	{
 		if (voclProxyThreadInternalTerminateFlag == 1)
 		{
