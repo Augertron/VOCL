@@ -22,6 +22,8 @@ static int *voclProxyNumOfKernelsLaunched = NULL;
 int voclProxyThreadInternalTerminateFlag = 0;
 cl_command_queue voclProxyMigCmdQueue;
 int voclProxyMigAppIndex;
+static cl_command_queue voclProxyLastCmdQueueStored;
+static int voclProxyLastAppIndexStored;
 
 extern int helperThreadOperFlag;
 extern int voclProxyAppIndex;
@@ -83,6 +85,7 @@ extern cl_device_id voclProxyGetCmdQueueDeviceID(cl_command_queue command_queue)
 extern void voclProxySetMigrated();
 extern int voclProxyIsMigrated();
 extern int voclProxyGetKernelNumThreshold();
+extern int voclProxyGetForcedMigrationFlag();
 extern int rankNo;
 
 void voclProxyInternalQueueInit()
@@ -273,7 +276,6 @@ void *proxyEnqueueThread(void *p)
 	int internalWaitFlag; 
 
 	voclProxyMigAppIndex = 0;
-
 	while (1)
 	{
 		if (voclProxyThreadInternalTerminateFlag == 1)
@@ -289,6 +291,12 @@ void *proxyEnqueueThread(void *p)
 		{
 			voclProxySetMigrated();
 			pthread_mutex_lock(&internalQueueMutex);
+
+			if (voclProxyGetForcedMigrationFlag() == 1)
+			{
+				voclProxyMigCmdQueue = voclProxyLastCmdQueueStored;
+				voclProxyMigAppIndex = voclProxyLastAppIndexStored;
+			}
 
 			/* make sure issued commands completed */
 			clFinish(voclProxyMigCmdQueue);
@@ -321,6 +329,7 @@ void *proxyEnqueueThread(void *p)
 		appCommData = cmdQueuePtr->appCommData;
 		appRank = cmdQueuePtr->appRank;
 		appIndex = cmdQueuePtr->appIndex;
+		voclProxyLastAppIndexStored = appIndex;
 
 		/* if the number of app process is larger than voclProxyAppNum */
 		/* reallocate memory */
@@ -334,7 +343,7 @@ void *proxyEnqueueThread(void *p)
 		if (cmdQueuePtr->msgTag == ENQUEUE_WRITE_BUFFER)
 		{
 			memcpy(&tmpEnqueueWriteBuffer, cmdQueuePtr->conMsgBuffer, sizeof(struct strEnqueueWriteBuffer));
-			voclProxyMigCmdQueue = tmpEnqueueWriteBuffer.command_queue;
+			voclProxyLastCmdQueueStored = tmpEnqueueWriteBuffer.command_queue;
 			cmdQueuePtr->status = VOCL_PROXY_CMD_AVABL;
 			pthread_mutex_unlock(&cmdQueuePtr->lock);
 			event_wait_list = NULL;
@@ -409,7 +418,7 @@ void *proxyEnqueueThread(void *p)
 		else if (cmdQueuePtr->msgTag == ENQUEUE_ND_RANGE_KERNEL)
 		{
 			memcpy(&tmpEnqueueNDRangeKernel, cmdQueuePtr->conMsgBuffer, sizeof(struct strEnqueueNDRangeKernel));
-			voclProxyMigCmdQueue = tmpEnqueueNDRangeKernel.command_queue;
+			voclProxyLastCmdQueueStored = tmpEnqueueNDRangeKernel.command_queue;
 			internalWaitFlag = cmdQueuePtr->internalWaitFlag;
 			cmdQueuePtr->status = VOCL_PROXY_CMD_AVABL;
 			pthread_mutex_unlock(&cmdQueuePtr->lock);
@@ -517,7 +526,7 @@ void *proxyEnqueueThread(void *p)
 		else if (cmdQueuePtr->msgTag == ENQUEUE_READ_BUFFER)
 		{
 			memcpy(&tmpEnqueueReadBuffer, cmdQueuePtr->conMsgBuffer, sizeof(struct strEnqueueReadBuffer));
-			voclProxyMigCmdQueue = tmpEnqueueReadBuffer.command_queue;
+			voclProxyLastCmdQueueStored = tmpEnqueueReadBuffer.command_queue;
 			cmdQueuePtr->status = VOCL_PROXY_CMD_AVABL;
 			pthread_mutex_unlock(&cmdQueuePtr->lock);
 			num_events_in_wait_list = tmpEnqueueReadBuffer.num_events_in_wait_list;
@@ -580,7 +589,7 @@ void *proxyEnqueueThread(void *p)
 		else if (cmdQueuePtr->msgTag == FINISH_FUNC)
 		{
 			memcpy(&tmpFinish, cmdQueuePtr->conMsgBuffer, sizeof(struct strFinish));
-			voclProxyMigCmdQueue = tmpFinish.command_queue;
+			voclProxyLastCmdQueueStored = tmpFinish.command_queue;
 			cmdQueuePtr->status = VOCL_PROXY_CMD_AVABL;
 			pthread_mutex_unlock(&cmdQueuePtr->lock);
 			processAllWrites(appIndex);

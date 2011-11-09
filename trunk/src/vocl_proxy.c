@@ -356,6 +356,7 @@ extern int voclProxyGetInternalQueueKernelLaunchNum(int appIndex);
 extern void voclProxySetMigrationCondition(int condition);
 extern int voclProxyGetMigrationCondition();
 extern int voclProxyGetIsInMigration();
+extern void voclProxySetForcedMigrationFlag(int flag);
 extern void voclProxySetKernelNumThreshold(int kernelNum);
 int rankNo;
 //----------------------------------------------------------
@@ -482,22 +483,23 @@ int main(int argc, char *argv[])
 	voclProxyInternalQueueInit();
 	/* issue non-blocking receiving for messages from other processes */
 	voclProxyAcceptProxyMessages();
-    /* wait for one app to issue connection request */
-    voclProxyAcceptOneApp();
 
 	/* set migration condition to not migrate */
 	voclProxySetMigrationCondition(0);
 	/* set kernel num threshold for migration, a very large num */
 	voclProxySetKernelNumThreshold(10);
 
+	pthread_barrier_init(&barrierMigOperations, NULL, 2);
+	pthread_mutex_init(&internalQueueMutex, NULL);
+	pthread_create(&thKernelLaunch, NULL, proxyEnqueueThread, NULL);
+
+    /* wait for one app to issue connection request */
+    voclProxyAcceptOneApp();
+
     /* create a helper thread */
     pthread_barrier_init(&barrier, NULL, 2);
     pthread_create(&th, NULL, proxyHelperThread, NULL);
     pthread_create(&thAppComm, NULL, proxyCommAcceptThread, NULL);
-
-	pthread_barrier_init(&barrierMigOperations, NULL, 2);
-	pthread_create(&thKernelLaunch, NULL, proxyEnqueueThread, NULL);
-	pthread_mutex_init(&internalQueueMutex, NULL);
 
     while (1) {
         /* wait for any msg from the master process */
@@ -2003,6 +2005,9 @@ int main(int argc, char *argv[])
 
             /* record forced migration status */
 			voclProxySetMigrationCondition(tmpForcedMigration.status);
+
+			/* it is a forced migration */
+			voclProxySetForcedMigrationFlag(1);
 			voclProxySetKernelNumThreshold(tmpForcedMigration.kernelNumThreshold);
 
 			//debug----------------------

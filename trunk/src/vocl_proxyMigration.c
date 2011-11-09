@@ -131,12 +131,13 @@ int voclProxyMigReissueReadNum;
 int voclProxyIsInMigration = 0;
 int voclMigrationCondition = 1;
 int voclProxyMigrationFlag = 0;
+int voclProxyForcedMigrationFlag = 0;
 int voclProxyMigKernelNumThreshold = 0;
 
 void voclProxySetMigrationCondition(int condition)
 {
 	voclMigrationCondition = condition;
-
+printf("condition = %d\n", condition);
 	return;
 }
 
@@ -179,6 +180,17 @@ void voclProxySetKernelNumThreshold(int kernelNum)
 int voclProxyGetKernelNumThreshold()
 {
 	return voclProxyMigKernelNumThreshold;
+}
+
+void voclProxySetForcedMigrationFlag(int flag)
+{
+	voclProxyForcedMigrationFlag = flag;
+	return;
+}
+
+int voclProxyGetForcedMigrationFlag()
+{
+	return voclProxyForcedMigrationFlag;
 }
 //----------------------------------------------
 
