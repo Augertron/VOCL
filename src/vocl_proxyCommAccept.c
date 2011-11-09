@@ -27,6 +27,7 @@ pthread_t thAppComm;
 static pthread_mutex_t commLock;
 
 extern void voclProxyResetMigrated();
+extern void voclProxySetForcedMigrationFlag(int flag);
 extern void voclProxySetMigrationCondition(int condition);
 
 
@@ -198,7 +199,8 @@ void voclProxyDisconnectOneApp(int commIndex)
 	}
 
 	voclProxyResetMigrated();
-	voclProxySetMigrationCondition(0);
+//	voclProxySetMigrationCondition(0);
+//	voclProxySetForcedMigrationFlag(0);
 
 	/* release the locker */
 	pthread_mutex_unlock(&commLock);
