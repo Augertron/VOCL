@@ -137,7 +137,6 @@ int voclProxyMigKernelNumThreshold = 0;
 void voclProxySetMigrationCondition(int condition)
 {
 	voclMigrationCondition = condition;
-printf("condition = %d\n", condition);
 	return;
 }
 
