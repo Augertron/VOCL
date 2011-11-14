@@ -44,6 +44,10 @@ extern int voclMigAppIndexOnDestProxy;
 extern void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 			cl_device_id origDeviceID, cl_device_id destDeviceID,
         	MPI_Comm destComm, MPI_Comm destCommData, int appIndex, int appIndexOnDestProxy);
+
+extern void voclProxyMigrationMutexLock(int appIndex);
+extern void voclProxyMigrationMutexUnlock(int appIndex);
+
 extern void voclProxyStoreKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
 extern int getNextWriteBufferIndex(int rank);
 extern struct strWriteBufferInfo *getWriteBufferInfoPtr(int rank, int index);
@@ -298,6 +302,9 @@ void *proxyEnqueueThread(void *p)
 				voclProxyMigAppIndex = voclProxyLastAppIndexStored;
 			}
 
+			/* acquire the locker to prevent library from issuing more function calls */
+			voclProxyMigrationMutexLock(voclProxyMigAppIndex);
+
 			/* make sure issued commands completed */
 			clFinish(voclProxyMigCmdQueue);
 			processAllWrites(voclProxyMigAppIndex);
@@ -305,6 +312,10 @@ void *proxyEnqueueThread(void *p)
 
 			/* migration a vgpu */
 			voclProxyMigration(voclProxyMigAppIndex, voclProxyGetCmdQueueDeviceID(voclProxyMigCmdQueue));
+			
+			/* release the locker */
+			voclProxyMigrationMutexUnlock(voclProxyMigAppIndex);
+
 			pthread_mutex_unlock(&internalQueueMutex);
 
 			/* wait for barrier for transfer commands */
