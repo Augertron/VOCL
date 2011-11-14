@@ -557,7 +557,7 @@ int main(int argc, char ** argv)
 			}
 
 #if VOCL_BALANCE
-			if (rankNo == 0 && iterNo == 10)
+			if (rankNo == 0 && iterNo == 1)
 			{
 				for (i = 0; i  < usedDeviceNum; i++)
 				{
