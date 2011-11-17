@@ -503,7 +503,6 @@ int main(int argc, char *argv[])
 
     while (1) {
         /* wait for any msg from the master process */
-		printf("BeforewaitAny\n");
         MPI_Waitany(voclCommUsedSize, conMsgRequestForWait, &commIndex, &status);
         appRank = status.MPI_SOURCE;
         appIndex = commIndex;
@@ -515,8 +514,8 @@ int main(int argc, char *argv[])
         conMsgRequestForWait[commIndex] = conMsgRequest[conMsgRequestIndex[commIndex]];
 
         //debug-----------------------------
-        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
-              rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+        //printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
+        //      rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
         //-------------------------------------
 
 		if (status.MPI_TAG == GET_PROXY_COMM_INFO) {
@@ -1968,6 +1967,7 @@ printf("lastMsg\n");
 				voclCmdQueuePtr->appRank = appRank; /* this appRank info is invalid */
 				voclCmdQueuePtr->appIndex = tmpMigQueueOperations.appIndexOnDestProxy;
 				memcpy(voclCmdQueuePtr->conMsgBuffer, cmdPtr->conMsgBuffer, MAX_CMSG_SIZE);
+
 				/* update the kernel, command queue,and buffer info */
 				paramOffset += voclProxyMigUpdateInternalCommand(voclCmdQueuePtr, migMsgBuffer + paramOffset);
 

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <sys/time.h>
 #include "voclOpencl.h"
 #include "voclStructures.h"
@@ -10,6 +11,7 @@ extern void voclPackVGPUMigMsg(int proxyIndex, vocl_device_id device, char *msgB
 extern void voclUpdateVirtualGPU(int proxyIndex, vocl_device_id device,
                int newProxyRank, int newProxyIndex, MPI_Comm newProxyComm, 
 			   MPI_Comm newProxyCommData, char *msgBuf);
+extern cl_mem voclVOCLMemory2CLMemory(vocl_mem memory);
 
 /* whether migration is needed. no migration by default */
 static int voclTaskMigrationCheckCondition = 0;
@@ -147,3 +149,28 @@ void voclMigIsProxyInMigration(int proxyIndex, int proxyRank,
 
 	return;
 }
+
+void voclMigUpdateKernelArgs(kernel_info *kernelPtr)
+{
+	cl_uint i, argIndex, argNum;
+	kernel_args *argPtr;
+	cl_mem mem;
+
+	argNum = kernelPtr->args_num;
+	argPtr = kernelPtr->args_ptr;
+
+	/* if migration happens, mem handles need to be updated to migrated values */
+	for (i = 0; i < argNum; i++)
+	{
+		argIndex = argPtr[i].arg_index;
+		/* it is a memory */
+		if (kernelPtr->args_flag[argIndex] == 1)
+		{
+			mem = voclVOCLMemory2CLMemory((vocl_mem)argPtr[i].memory);
+			memcpy(argPtr[i].arg_value, (void *)&mem, argPtr[i].arg_size);
+		}
+	}
+
+	return;
+}
+

@@ -691,6 +691,13 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 		vgpuMigrationMsg.contextNum = vgpuMsg.contextNum;
 		vgpuMigrationMsg.appIndex = destAppIndex;
 
+		/* update the mapping information in the library side */
+		gettimeofday(&t1, NULL);
+		voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo, 0);
+		gettimeofday(&t2, NULL);
+		tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+		updateStatusTime = tmpTime;
+
 		MPI_Isend(&vgpuMigrationMsg, sizeof(struct strVGPUMigration), MPI_BYTE, 
 				  destRankNo, VOCL_MIGRATION, comm, request+(requestNo++));
 		MPI_Isend(msgBuf, vgpuMsg.size, MPI_BYTE, destRankNo, VOCL_MIGRATION,
@@ -704,30 +711,24 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 
 		/* finish data transfer for migration */
 		gettimeofday(&t1, NULL);
-//		voclProxyMigSendDeviceMemoryData(vgpuPtr, destRankNo, comm, commData);
+		voclProxyMigSendDeviceMemoryData(vgpuPtr, destRankNo, comm, commData);
 		gettimeofday(&t2, NULL);
 		tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
 		transferDataTime = tmpTime;
 
-		/* update the mapping information in the library side */
-		gettimeofday(&t1, NULL);
-		voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo, 0);
-		gettimeofday(&t2, NULL);
-		tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
-		updateStatusTime = tmpTime;
 	}
 	else
 	{
 		/* in the same proxy process, but in different devices */
 		if (vgpuPtr->deviceID != deviceID)
 		{
+			/* update the mapping information in the library side */
+			voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo, 1);
+
 			voclProxyMigCreateVirtualGPU(vgpuPtr->appIndex, destRankNo, 
 					deviceID, msgBuf);
 			newVGPUPtr = voclProxyGetVirtualGPUPtr(vgpuPtr->appIndex, deviceID);
 			voclProxyMigSendRecvDeviceMemoryData(vgpuPtr, newVGPUPtr);
-
-			/* update the mapping information in the library side */
-			voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo, 1);
 		}
 		else {   } /* same device, no migration is needed */
 	}

@@ -115,7 +115,9 @@ int getNextWriteBufferIndex(int proxyIndex)
     MPI_Status status;
 
     if (voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse == 1) {
+printf("beforeWait\n");
         MPI_Wait(getWriteRequestPtr(proxyIndex, index), &status);
+printf("afterWait\n");
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 0;
     }
 
