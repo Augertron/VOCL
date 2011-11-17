@@ -15,6 +15,7 @@ void voclProxyAddMem(cl_mem mem, cl_mem_flags flags, size_t size, cl_context con
 	memPtr->flags = flags;
 	memPtr->context = context;
 	memPtr->migStatus = 0;
+	memPtr->isWritten = 0;
 
     memPtr->next = voclProxyMemPtr;
     voclProxyMemPtr = memPtr;

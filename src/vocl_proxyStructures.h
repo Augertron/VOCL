@@ -3,6 +3,7 @@
 
 #include <CL/opencl.h>
 #include "vocl_proxyKernelArgProc.h"
+#include "mpi.h"
 
 typedef struct strVoclProxyMemory {
 	cl_mem         mem, oldMem;
@@ -110,6 +111,9 @@ typedef struct strVoclVirtualGPU {
 	char migStatus;
 	char padding[3];
 
+	/* dest proxy info uses the memory in the vocl virtual GPU */
+	MPI_Win migWin;
+
 	struct strVoclVirtualGPU *next;
 } vocl_virtual_gpu;
 
@@ -174,6 +178,13 @@ typedef struct strVOCLMigContext {
     cl_uint samplerNo;
     cl_sampler *samplerPtr;
 } vocl_mig_context;
+
+/* this struct is used to record info of the dest proxy */
+typedef struct strVGPUMigInfo {
+	int migStatus;
+	int proxyRank;
+	int proxyIndex;
+} vgpu_mig_info;
 
 typedef struct strVOCLMigVGPU {
     cl_device_id deviceID;

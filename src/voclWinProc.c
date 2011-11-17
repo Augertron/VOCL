@@ -8,6 +8,8 @@
 #include "voclOpenclMacro.h"
 
 #define SERVICE_NAME_LEN 64
+
+/* max number of proxy number an app connects is 64 */
 #define DEFAULT_PROXY_NUM 64
 
 struct strVoclWinInfo {
@@ -73,6 +75,11 @@ void voclWinInfoFree(int proxyIndex)
 	MPIX_Mutex_destroy(voclLockers[proxyIndex]);
 	voclWinInfoPtr->proxyNum--;
 	return;
+}
+
+MPI_Comm voclGetWinComm(int proxyIndex)
+{
+	return voclWinInfoPtr->wins[proxyIndex].commWin;
 }
 
 void voclAddWinInfo(MPI_Comm comm, int proxyRank, int proxyIndex, char *serviceName)

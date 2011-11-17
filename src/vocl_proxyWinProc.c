@@ -62,6 +62,11 @@ void voclProxyCreateWin(MPI_Comm comm, int appIndex, int proxyIndexInApp)
 	voclProxyProxyIndexInApp[appIndex] = proxyIndexInApp;
 }
 
+MPI_Comm voclProxyGetWinComm(int appIndex)
+{
+	return voclProxyWinComm[appIndex];
+}
+
 MPI_Win *voclProxyGetWinPtr(int index)
 {
 	return &voclProxyWinPtr[index];

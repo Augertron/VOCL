@@ -503,6 +503,7 @@ int main(int argc, char *argv[])
 
     while (1) {
         /* wait for any msg from the master process */
+		printf("BeforewaitAny\n");
         MPI_Waitany(voclCommUsedSize, conMsgRequestForWait, &commIndex, &status);
         appRank = status.MPI_SOURCE;
         appIndex = commIndex;
@@ -514,8 +515,8 @@ int main(int argc, char *argv[])
         conMsgRequestForWait[commIndex] = conMsgRequest[conMsgRequestIndex[commIndex]];
 
         //debug-----------------------------
-        //printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
-        //      rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
+              rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
         //-------------------------------------
 
 		if (status.MPI_TAG == GET_PROXY_COMM_INFO) {
@@ -605,13 +606,14 @@ int main(int argc, char *argv[])
 			contextPtr = voclProxyGetContextPtr(tmpCreateContext.hContext);
 			tmpCreateContext.migStatus = contextPtr->migStatus;
 
+            MPI_Isend(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, appRank,
+                      CREATE_CONTEXT_FUNC, appComm[commIndex], curRequest);
+
 			for (i = 0; i < tmpCreateContext.num_devices; i++)
 			{
 				voclProxyAddVirtualGPU(appIndex, rankNo, devices[i]);
 				voclProxyAddContextToVGPU(appIndex, devices[i], contextPtr);
 			}
-            MPI_Isend(&tmpCreateContext, sizeof(tmpCreateContext), MPI_BYTE, appRank,
-                      CREATE_CONTEXT_FUNC, appComm[commIndex], curRequest);
 
             MPI_Wait(curRequest, curStatus);
             if (devices != NULL) {
@@ -964,6 +966,7 @@ int main(int argc, char *argv[])
 
 		else if (status.MPI_TAG == VOCL_MIG_LAST_MSG)
 		{
+printf("lastMsg\n");
 			/* barrier for starting mig unexecuted commands */
 			pthread_barrier_wait(&barrierMigOperations);
 
@@ -2051,7 +2054,6 @@ int main(int argc, char *argv[])
         /* issue it for later call of this function */
         MPI_Irecv(conMsgBuffer[index], MAX_CMSG_SIZE, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG,
                   appComm[commIndex], conMsgRequest + index);
-
     }
     free(curStatus);
     free(curRequest);

@@ -2,6 +2,9 @@
 #include "vocl_proxy.h"
 #include "vocl_proxyKernelArgProc.h"
 
+extern void voclProxySetMemWritten(cl_mem mem, int isWritten);
+extern void voclProxySetMemWriteCmdQueue(cl_mem mem, cl_command_queue cmdQueue);
+
 /* record number of objects accocated in the current proxy process */
 static int voclProxyObjCount = 0;
 
@@ -235,6 +238,8 @@ void mpiOpenCLEnqueueNDRangeKernel(struct strEnqueueNDRangeKernel *tmpEnqueueNDR
     cl_uint num_events_in_wait_list = tmpEnqueueNDRangeKernel->num_events_in_wait_list;
     cl_uint args_num = tmpEnqueueNDRangeKernel->args_num;
     cl_uint args_index;
+	cl_mem mem;
+
     /* call real opencl functions to set kernel arguments */
     for (args_index = 0; args_index < args_num; args_index++) {
         if (args_ptr[args_index].arg_null_flag == 1) {
@@ -248,6 +253,14 @@ void mpiOpenCLEnqueueNDRangeKernel(struct strEnqueueNDRangeKernel *tmpEnqueueNDR
                                       args_ptr[args_index].arg_size,
                                       (const void *) args_ptr[args_index].arg_value);
         }
+
+		/* set memory write flag */
+		if (args_ptr[args_index].isGlobalMemory == 1)
+		{
+			mem =  *((cl_mem *)args_ptr[args_index].arg_value);
+			voclProxySetMemWritten(mem, 1);
+			voclProxySetMemWriteCmdQueue(mem, hInCommand);
+		}
     }
 
     cl_event *event_ptr = NULL;
