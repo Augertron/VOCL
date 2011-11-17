@@ -127,10 +127,10 @@ void voclProxyUpdateKernelArgs(cl_kernel kernel, int argNum, kernel_args *args)
 	kernelMigStatus = kernelPtr->migStatus;
 
 	/* no migration is performed, return directly */
-	if (kernelMigStatus == 0)
-	{
-		return;
-	}
+//	if (kernelMigStatus == 0)
+//	{
+//		return;
+//	}
 
 	for (i = 0; i < argNum; i++)
 	{

@@ -281,6 +281,7 @@ void *proxyEnqueueThread(void *p)
     size_t *global_work_offset, *global_work_size, *local_work_size, paramOffset;
 	kernel_args *args_ptr;
 	int internalWaitFlag; 
+
 	struct timeval t1, t2;
 	float tmpTime;
 
@@ -324,16 +325,13 @@ void *proxyEnqueueThread(void *p)
 			/* release the locker */
 			voclProxyMigrationMutexUnlock(voclProxyMigAppIndex);
 			/* release the locker */
-printf("internalQ1\n");
 			pthread_mutex_unlock(&internalQueueMutex);
 			/* release the locker */
 
-printf("internalQ2\n");
 			/* wait for barrier for transfer commands */
 			pthread_barrier_wait(&barrierMigOperations);
 			/* release the locker */
 
-printf("internalQ3\n");
 			/* send unexecuted commands to destination proxy process */
 			gettimeofday(&t1, NULL);
 			voclProxyMigSendOperationsInCmdQueue(voclMigOrigProxyRank, voclMigDestProxyRank,

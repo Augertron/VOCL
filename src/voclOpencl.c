@@ -281,7 +281,7 @@ extern void voclMigrationMutexLock(int proxyIndex);
 extern void voclMigrationMutexUnlock(int proxyIndex);
 extern void voclMigIsProxyInMigration(int proxyIndex, int proxyRank,
         		MPI_Comm comm, MPI_Comm commData);
-
+extern void voclMigUpdateKernelArgs(kernel_info *kernelPtr);
 /*******************************************************************/
 /* for Opencl object count processing */
 static unsigned int *voclObjCountPtr = NULL;
@@ -1193,9 +1193,6 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 	vocl_device_id origDeviceID;
 	int origProxyIndex, destProxyIndex;
 
-	struct timeval t1, t2;
-	float tmpTime;
-
     /* check whether the slave process is created. If not, create one. */
     checkSlaveProc();
 
@@ -1223,11 +1220,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 												&proxyIndex, &proxyComm, &proxyCommData);
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
-	gettimeofday(&t1, NULL);
 	voclMigrationMutexLock(proxyIndex);
-	gettimeofday(&t2, NULL);
-	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
-	printf("lockTime = %.3f\n", tmpTime);
 	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
@@ -1236,7 +1229,6 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 	/* release the locker */
 	voclMigrationMutexUnlock(proxyIndex);
 
-printf("cmdQueueMigStatus = %d, vgpuMigStatus = %d\n", cmdQueueMigStatus, vgpuMigStatus);
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{
@@ -1313,14 +1305,11 @@ printf("cmdQueueMigStatus = %d, vgpuMigStatus = %d\n", cmdQueueMigStatus, vgpuMi
     bufferSize = VOCL_WRITE_BUFFER_SIZE;
     remainingSize = cb - bufferNum * bufferSize;
     for (i = 0; i <= bufferNum; i++) {
-printf("writeBuffer1\n");
         bufferIndex = getNextWriteBufferIndex(proxyIndex);
-printf("writeBuffer2\n");
         if (i == bufferNum) {
             bufferSize = remainingSize;
         }
 
-printf("writeBuffer3\n");
         MPI_Isend((void *) ((char *) ptr + i * VOCL_WRITE_BUFFER_SIZE), bufferSize, MPI_BYTE,
                   proxyRank, VOCL_WRITE_TAG + bufferIndex, proxyCommData,
                   //proxyRank, VOCL_WRITE_TAG, proxyCommData,
@@ -1520,6 +1509,9 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 		tmpEnqueueNDRangeKernel.command_queue =
 			voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 													&proxyIndex, &proxyComm, &proxyCommData);
+
+		/* update the arguments already set to the migrated gpu */
+		voclMigUpdateKernelArgs(kernelPtr);
 	}
 
     if (num_events_in_wait_list > 0) {

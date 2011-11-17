@@ -165,7 +165,6 @@ char voclGetMigrationStatus(int proxyIndex)
 			sizeof(struct strVoclWinInfo), MPI_BYTE, voclWinPtr[proxyIndex]);
 	MPI_Win_unlock(0, voclWinPtr[proxyIndex]);
 	free(winPtr);
-
 	if (migWin.preMigStatus < migWin.migrationStatus)
 	{
 		migWin.preMigStatus = migWin.migrationStatus;
