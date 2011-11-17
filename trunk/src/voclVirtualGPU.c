@@ -34,6 +34,7 @@ extern void voclMemSetMigrationStatus(vocl_mem mem, char status);
 extern void voclUpdateVOCLSampler(vocl_sampler voclSampler, cl_sampler newSampler, int proxyRank, int proxyIndex,
                            MPI_Comm proxyComm, MPI_Comm proxyCommData);
 extern void voclSamplerSetMigrationStatus(vocl_sampler sampler, char status);
+extern MPI_Comm voclGetWinComm(int proxyIndex);
 
 static vocl_gpu_str *voclVGPUPtr = NULL;
 
@@ -57,9 +58,13 @@ void voclAddVirtualGPU(int proxyRank, int proxyIndex, vocl_device_id deviceID)
 	memset(vgpuPtr->cmdQueuePtr, 0, sizeof(vocl_command_queue_str *) * vgpuPtr->cmdQueueNum);
 
 	vgpuPtr->migStatus = 0;
+	vgpuPtr->destMigInfo.migStatus = -1; /* no migration happened yet */
+	vgpuPtr->destMigInfo.proxyRank = -1;
+	vgpuPtr->destMigInfo.proxyIndex = -1;
 
 	vgpuPtr->next = voclVGPUPtr;
 	voclVGPUPtr = vgpuPtr;
+
 
 	return;
 }
@@ -115,6 +120,40 @@ vocl_gpu_str *voclGetVirtualGPUPtr(int proxyIndex, vocl_device_id deviceID)
     }
 
     return vgpuPtr;
+}
+
+void voclCreateMigWinVGPU(vocl_gpu_str *vgpuPtr)
+{
+	/* create a window between vocl vgpu and opencl vgou for rdma */
+	MPI_Win_create(&vgpuPtr->destMigInfo, sizeof(vgpu_mig_info), 1, 
+			MPI_INFO_NULL, voclGetWinComm(vgpuPtr->proxyIndex), &vgpuPtr->migWin);
+
+	return;
+}
+
+void voclCreateMigWin(int proxyIndex, vocl_device_id deviceID)
+{
+	vocl_gpu_str *vgpuPtr;
+	vgpuPtr = voclGetVirtualGPUPtr(proxyIndex, deviceID);
+	voclCreateMigWinVGPU(vgpuPtr);
+
+	return;
+}
+
+void voclFreeMigWinVGPU(vocl_gpu_str *vgpuPtr)
+{
+	MPI_Win_free(&vgpuPtr->migWin);
+
+	return;
+}
+
+void voclFreeMigWin(int proxyIndex, vocl_device_id deviceID)
+{
+	vocl_gpu_str *vgpuPtr;
+	vgpuPtr = voclGetVirtualGPUPtr(proxyIndex, deviceID);
+	voclFreeMigWinVGPU(vgpuPtr);
+
+	return;
 }
 
 void voclSetVGPUMigStatus(int proxyIndex, vocl_device_id deviceID, char migStatus)

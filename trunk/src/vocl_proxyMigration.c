@@ -704,12 +704,12 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 
 		/* finish data transfer for migration */
 		gettimeofday(&t1, NULL);
-		voclProxyMigSendDeviceMemoryData(vgpuPtr, destRankNo, comm, commData);
+//		voclProxyMigSendDeviceMemoryData(vgpuPtr, destRankNo, comm, commData);
 		gettimeofday(&t2, NULL);
 		tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
 		transferDataTime = tmpTime;
 
-		/* update the mapping information in the library size */
+		/* update the mapping information in the library side */
 		gettimeofday(&t1, NULL);
 		voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo, 0);
 		gettimeofday(&t2, NULL);
@@ -726,7 +726,7 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 			newVGPUPtr = voclProxyGetVirtualGPUPtr(vgpuPtr->appIndex, deviceID);
 			voclProxyMigSendRecvDeviceMemoryData(vgpuPtr, newVGPUPtr);
 
-			/* update the mapping information in the library size */
+			/* update the mapping information in the library side */
 			voclProxyUpdateMigStatus(vgpuPtr->appIndex, destRankNo, 1);
 		}
 		else {   } /* same device, no migration is needed */
@@ -812,6 +812,7 @@ void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo,
 					{
 						bufferSize = remainingSize;
 					}
+
 					bufferIndex = voclMigGetNextReadBufferIndex(appIndex);
 					migReadBufferInfoPtr = voclMigGetReadBufferPtr(appIndex, bufferIndex);
 					err = clEnqueueReadBuffer(memPtr[j]->cmdQueue,
@@ -822,6 +823,7 @@ void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo,
 											  migReadBufferInfoPtr->ptr,
 											  0, NULL, voclMigGetReadEventPtr(appIndex,
 																			  bufferIndex));
+
 					migReadBufferInfoPtr->size = bufferSize;
 					migReadBufferInfoPtr->offset = k * VOCL_MIG_BUF_SIZE;
 					migReadBufferInfoPtr->comm = migComm;

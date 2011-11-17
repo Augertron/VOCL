@@ -3,6 +3,8 @@
 #include "vocl_proxy.h"
 #include "vocl_proxyStructures.h"
 
+extern MPI_Comm voclProxyGetWinComm(int appIndex);
+
 static vocl_virtual_gpu *virtualGPUPtr = NULL;
 static cl_uint voclProxyDeviceNum = 0;
 static cl_device_id *voclProxyDeviceIDs = NULL;
@@ -82,6 +84,39 @@ vocl_virtual_gpu *voclProxyGetVirtualGPUPtr(int appIndex, cl_device_id deviceID)
 	}
 
 	return vgpuPtr;
+}
+
+void voclProxyCreateMigWinVGPU(vocl_virtual_gpu *vgpuPtr)
+{
+	/* create a window for RDMA between vocl vgpu and OpenCL vgpu */
+	MPI_Win_create(NULL, 0, 1, MPI_INFO_NULL, voclProxyGetWinComm(vgpuPtr->appIndex), &vgpuPtr->migWin);
+	
+	return;
+}
+
+void voclProxyCreateMigWin(int appIndex, cl_device_id deviceID)
+{
+	vocl_virtual_gpu *vgpuPtr;
+	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+	voclProxyCreateMigWinVGPU(vgpuPtr);
+
+	return;
+}
+
+void voclProxyFreeMigWinVGPU(vocl_virtual_gpu *vgpuPtr)
+{
+	MPI_Win_free(&vgpuPtr->migWin);
+
+	return;
+}
+
+void voclProxyFreeMigWin(int appIndex, cl_device_id deviceID)
+{
+	vocl_virtual_gpu *vgpuPtr;
+	vgpuPtr = voclProxyGetVirtualGPUPtr(appIndex, deviceID);
+	voclProxyFreeMigWinVGPU(vgpuPtr);
+
+	return;
 }
 
 void voclProxySetVGPUMigStatus(int appIndex, cl_device_id deviceID, char migStatus)

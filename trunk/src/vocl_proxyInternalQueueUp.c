@@ -2,6 +2,7 @@
 #include <CL/opencl.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/time.h>
 #include "vocl_proxy.h"
 #include "vocl_proxyInternalQueueUp.h"
 #include "vocl_proxyKernelArgProc.h"
@@ -58,6 +59,8 @@ extern void voclResetWriteEnqueueFlag(int rank);
 extern cl_int processAllWrites(int rank);
 extern cl_int processWriteBuffer(int rank, int curIndex, int bufferNum);
 extern void voclResetReadBufferCoveredFlag(int rank);
+extern void voclProxySetMemWritten(cl_mem mem, int isWritten);
+extern void voclProxySetMemWriteCmdQueue(cl_mem mem, cl_command_queue cmdQueue);
 
 extern int getNextReadBufferIndex(int rank);
 extern struct strReadBufferInfo *getReadBufferInfoPtr(int rank, int index);
@@ -278,6 +281,8 @@ void *proxyEnqueueThread(void *p)
     size_t *global_work_offset, *global_work_size, *local_work_size, paramOffset;
 	kernel_args *args_ptr;
 	int internalWaitFlag; 
+	struct timeval t1, t2;
+	float tmpTime;
 
 	voclProxyMigAppIndex = 0;
 	while (1)
@@ -290,8 +295,8 @@ void *proxyEnqueueThread(void *p)
 //		if (voclProxyGetInternalQueueKernelLaunchNum(appIndex) >= 4 && 
 //			voclProxyIsMigrated() == 0 &&
 //			rankNo == 0)
-		if (voclProxyGetMigrationCondition() == 1 && voclProxyIsMigrated() == 0) /* &&  rankNo == 0 &&
-			voclProxyGetInternalQueueKernelLaunchNum(appIndex) > voclProxyGetKernelNumThreshold() */
+		if (voclProxyGetMigrationCondition() == 1 && voclProxyIsMigrated() == 0 && /* &&  rankNo == 0 && */
+			voclProxyGetInternalQueueKernelLaunchNum(appIndex) > voclProxyGetKernelNumThreshold())
 		{
 			voclProxySetMigrated();
 			pthread_mutex_lock(&internalQueueMutex);
@@ -304,28 +309,40 @@ void *proxyEnqueueThread(void *p)
 
 			/* acquire the locker to prevent library from issuing more function calls */
 			voclProxyMigrationMutexLock(voclProxyMigAppIndex);
-
+				
+			gettimeofday(&t1, NULL);
 			/* make sure issued commands completed */
 			clFinish(voclProxyMigCmdQueue);
 			processAllWrites(voclProxyMigAppIndex);
 			processAllReads(voclProxyMigAppIndex);
+			gettimeofday(&t2, NULL);
+			tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+			printf("%.3f\n", tmpTime);
 
 			/* migration a vgpu */
 			voclProxyMigration(voclProxyMigAppIndex, voclProxyGetCmdQueueDeviceID(voclProxyMigCmdQueue));
-			
 			/* release the locker */
 			voclProxyMigrationMutexUnlock(voclProxyMigAppIndex);
-
+			/* release the locker */
+printf("internalQ1\n");
 			pthread_mutex_unlock(&internalQueueMutex);
+			/* release the locker */
 
+printf("internalQ2\n");
 			/* wait for barrier for transfer commands */
 			pthread_barrier_wait(&barrierMigOperations);
+			/* release the locker */
 
+printf("internalQ3\n");
 			/* send unexecuted commands to destination proxy process */
+			gettimeofday(&t1, NULL);
 			voclProxyMigSendOperationsInCmdQueue(voclMigOrigProxyRank, voclMigDestProxyRank,
 					voclMigOrigDeviceID, voclMigDestDeviceID,
 					voclMigDestComm, voclMigDestCommData, voclMigAppIndexOnOrigProxy,
 					voclMigAppIndexOnDestProxy);
+			gettimeofday(&t2, NULL);
+			tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+			printf("%.3f\n", tmpTime);
 			pthread_barrier_wait(&barrierMigOperations);
 		}
 
@@ -398,6 +415,12 @@ void *proxyEnqueueThread(void *p)
 				increaseWriteBufferCount(appIndex);
 			}
 			voclResetWriteEnqueueFlag(appIndex);
+
+			/* set memory migration state to be written */
+			voclProxySetMemWritten(tmpEnqueueWriteBuffer.buffer, 1);
+			/* combine command queue to memory */
+			voclProxySetMemWriteCmdQueue(tmpEnqueueWriteBuffer.buffer,
+										 tmpEnqueueWriteBuffer.command_queue);
 
 			requestNo = 0;
 			if (tmpEnqueueWriteBuffer.blocking_write == CL_TRUE) {
