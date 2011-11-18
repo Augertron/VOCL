@@ -1228,6 +1228,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 
 	/* release the locker */
 	voclMigrationMutexUnlock(proxyIndex);
+printf("writeGPUMem, cmdQueueMigStatus = %d, vgpuMigStatus = %d\n", cmdQueueMigStatus, vgpuMigStatus);
 
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
@@ -1260,6 +1261,7 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 			voclVOCLMemory2CLMemoryComm((vocl_mem) buffer, &proxyRank, &proxyIndex, &proxyComm,
 										&proxyCommData);
 	}
+
     /* local GPU, call native opencl function */
     if (voclIsOnLocalNode(proxyIndex) == VOCL_TRUE) {
         errCode = dlCLEnqueueWriteBuffer(tmpEnqueueWriteBuffer.command_queue,
@@ -1920,7 +1922,6 @@ cl_int clFinish(cl_command_queue command_queue)
     tmpFinish.command_queue =
         voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
                                                 &proxyIndex, &proxyComm, &proxyCommData);
-
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
@@ -1931,7 +1932,7 @@ cl_int clFinish(cl_command_queue command_queue)
 
 	/* release the locker */
 	voclMigrationMutexUnlock(proxyIndex);
-
+printf("clFinish\n");
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)
 	{

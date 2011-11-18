@@ -327,6 +327,7 @@ cl_int processAllWrites(int rank)
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_PROXY_WRITE_BUFFER_NUM;
+printf("index = %d\n", index);
         if (voclProxyWriteBufferPtr[rank].writeBufferInfo[index].isInUse == WRITE_RECV_DATA) {
             MPI_Wait(getWriteRequestPtr(rank, index), &tmpStatus);
             setWriteBufferFlag(rank, index, WRITE_RECV_COMPLED);

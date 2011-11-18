@@ -6,6 +6,7 @@
 #include "vocl_proxy_macro.h"
 
 #define VOCL_PROXY_CMDQUEUE_SIZE 1024000
+#define VOCL_PROXY_APP_MAX_CMD_NUM 512
 #define VOCL_CMDQUEUE_IN_EXECUTION 80
 #define VOCL_PROXY_CMD_AVABL 0
 #define VOCL_PROXY_CMD_INUSE 1
