@@ -131,7 +131,7 @@ vocl_internal_command_queue * voclProxyGetInternalQueueTail()
 	}
 
 	/* the internal queue is full. */
-	while (voclProxyCmdHead + voclProxyCmdNum <= voclProxyCmdTail)
+	while (voclProxyCmdTail >= voclProxyCmdHead + voclProxyCmdNum)
 	{
 		usleep(10);
 	}
@@ -211,7 +211,7 @@ void voclProxyUnlockItem(vocl_internal_command_queue *cmdPtr)
 	return;
 }
 
-void voclProxyInternalQueueReset()
+void voclProxyInternalQueueReset(int appIndex)
 {
 	int i;
 
@@ -223,7 +223,7 @@ void voclProxyInternalQueueReset()
 
 	voclProxyCmdHead = 0;
 	voclProxyCmdTail = 0;
-	voclProxyNumOfKernelsLaunched = 0;
+	voclProxyNumOfKernelsLaunched[appIndex] = 0;
 
 	return;
 }
@@ -231,6 +231,18 @@ void voclProxyInternalQueueReset()
 int voclProxyGetInternalQueueKernelLaunchNum(int appIndex)
 {
 	return voclProxyNumOfKernelsLaunched[appIndex];
+}
+
+void voclProxySetInternalQueueKernelLaunchNum(int appIndex, int num)
+{
+	voclProxyNumOfKernelsLaunched[appIndex] = num;
+	return;
+}
+
+void voclProxyIncreaseInternalQueueKernelLaunchNum(int appIndex, int num)
+{
+	voclProxyNumOfKernelsLaunched[appIndex] += num;
+	return;
 }
 
 /* get the num of operatoins queue up for a specific vgpu */
@@ -296,26 +308,27 @@ void *proxyEnqueueThread(void *p)
 //		if (voclProxyGetInternalQueueKernelLaunchNum(appIndex) >= 4 && 
 //			voclProxyIsMigrated() == 0 &&
 //			rankNo == 0)
+
 		if (voclProxyGetMigrationCondition() == 1 && voclProxyIsMigrated() == 0 && /* &&  rankNo == 0 && */
 			voclProxyGetInternalQueueKernelLaunchNum(appIndex) > voclProxyGetKernelNumThreshold())
 		{
 			voclProxySetMigrated();
-			pthread_mutex_lock(&internalQueueMutex);
+			//pthread_mutex_lock(&internalQueueMutex);
 
 			if (voclProxyGetForcedMigrationFlag() == 1)
 			{
 				voclProxyMigCmdQueue = voclProxyLastCmdQueueStored;
 				voclProxyMigAppIndex = voclProxyLastAppIndexStored;
 			}
-
+				
 			/* acquire the locker to prevent library from issuing more function calls */
 			voclProxyMigrationMutexLock(voclProxyMigAppIndex);
-				
+
 			gettimeofday(&t1, NULL);
 			/* make sure issued commands completed */
-			clFinish(voclProxyMigCmdQueue);
 			processAllWrites(voclProxyMigAppIndex);
 			processAllReads(voclProxyMigAppIndex);
+			clFinish(voclProxyMigCmdQueue);
 			gettimeofday(&t2, NULL);
 			tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
 			printf("%.3f\n", tmpTime);
@@ -325,7 +338,7 @@ void *proxyEnqueueThread(void *p)
 			/* release the locker */
 			voclProxyMigrationMutexUnlock(voclProxyMigAppIndex);
 			/* release the locker */
-			pthread_mutex_unlock(&internalQueueMutex);
+			//pthread_mutex_unlock(&internalQueueMutex);
 			/* release the locker */
 
 			/* wait for barrier for transfer commands */
@@ -334,10 +347,13 @@ void *proxyEnqueueThread(void *p)
 
 			/* send unexecuted commands to destination proxy process */
 			gettimeofday(&t1, NULL);
+			
 			voclProxyMigSendOperationsInCmdQueue(voclMigOrigProxyRank, voclMigDestProxyRank,
 					voclMigOrigDeviceID, voclMigDestDeviceID,
 					voclMigDestComm, voclMigDestCommData, voclMigAppIndexOnOrigProxy,
 					voclMigAppIndexOnDestProxy);
+			voclProxySetInternalQueueKernelLaunchNum(voclProxyMigAppIndex, 0);
+
 			gettimeofday(&t2, NULL);
 			tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
 			printf("%.3f\n", tmpTime);
@@ -366,6 +382,7 @@ void *proxyEnqueueThread(void *p)
 			voclProxyAppNum = appIndex * 2;
 		}
 
+printf("cmdTag = %d\n", cmdQueuePtr->msgTag);
 		if (cmdQueuePtr->msgTag == ENQUEUE_WRITE_BUFFER)
 		{
 			memcpy(&tmpEnqueueWriteBuffer, cmdQueuePtr->conMsgBuffer, sizeof(struct strEnqueueWriteBuffer));
@@ -543,16 +560,17 @@ void *proxyEnqueueThread(void *p)
 				MPI_Wait(curRequest, curStatus);
 			}
 
-			voclProxyNumOfKernelsLaunched[appIndex]++;
+			voclProxyIncreaseInternalQueueKernelLaunchNum(appIndex, 1);
+
 			/* if internal wait is needed, call clFinish */
-			if (voclProxyNumOfKernelsLaunched[appIndex] >= VOCL_CMDQUEUE_IN_EXECUTION)
+			if (voclProxyGetInternalQueueKernelLaunchNum(appIndex) >= VOCL_CMDQUEUE_IN_EXECUTION)
 			{
 				clFinish(tmpEnqueueNDRangeKernel.command_queue);
 
 				/* all kernels complete their computation */
 				voclProxyDecreaseKernelNumInCmdQueue(tmpEnqueueNDRangeKernel.command_queue, 
-						voclProxyNumOfKernelsLaunched[appIndex]);
-				voclProxyNumOfKernelsLaunched[appIndex] = 0;
+						voclProxyGetInternalQueueKernelLaunchNum(appIndex));
+				voclProxySetInternalQueueKernelLaunchNum(appIndex, 0);
 			}
 		}
 		else if (cmdQueuePtr->msgTag == ENQUEUE_READ_BUFFER)
@@ -630,7 +648,7 @@ void *proxyEnqueueThread(void *p)
 
 			/* all kernels complete their computation */
 			voclProxyResetKernelNumInCmdQueue(tmpFinish.command_queue);
-			voclProxyNumOfKernelsLaunched[appIndex] = 0;
+			voclProxySetInternalQueueKernelLaunchNum(appIndex, 0);
 
 			MPI_Isend(&tmpFinish, sizeof(tmpFinish), MPI_BYTE, appRank,
 					  FINISH_FUNC, appComm, curRequest);

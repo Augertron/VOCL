@@ -117,8 +117,8 @@ int getNextWriteBufferIndex(int proxyIndex)
     if (voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse == 1) {
 printf("beforeWait\n");
         MPI_Wait(getWriteRequestPtr(proxyIndex, index), &status);
-printf("afterWait\n");
         voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse = 0;
+printf("afterWait\n");
     }
 
     if (++voclWriteBufferPtr[proxyIndex].curWriteBufferIndex >= VOCL_WRITE_BUFFER_NUM) {
@@ -259,13 +259,15 @@ void processAllWrites(int proxyIndex)
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
         if (voclWriteBufferPtr[proxyIndex].voclWriteBufferInfo[index].isInUse == 1) {
+printf("index = %d\n", index);
             request[requestNo++] = *getWriteRequestPtr(proxyIndex, index);
         }
     }
-
+printf("inWaitall1\n");
     if (requestNo > 0) {
         MPI_Waitall(requestNo, request, status);
     }
+printf("inWaitall1\n");
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_WRITE_BUFFER_NUM;
