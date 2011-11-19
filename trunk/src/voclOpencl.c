@@ -241,11 +241,6 @@ extern struct strVOCLSampler *voclGetSamplerPtr(vocl_sampler sampler);
 extern int voclReleaseSampler(vocl_sampler sampler);
 extern void voclSamplerSetMigrationStatus(vocl_sampler sampler, char status);
 
-/* kernel number management */
-//void voclLibIncreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
-//void voclLibDecreaseKernelNumInCmdQueue(cl_command_queue cmdQueue, int kernelNum);
-//void voclLibResetKernelNumInCmdQueue(cl_command_queue cmdQueue);
-
 /* proxy process name process */
 extern int voclIsOnLocalNode(int index);
 extern void voclSetIndex2NodeMapping(int index, int node);
@@ -284,6 +279,11 @@ extern void voclConMsgMutexUnlock(int proxyIndex);
 extern void voclMigIsProxyInMigration(int proxyIndex, int proxyRank,
         		MPI_Comm comm, MPI_Comm commData);
 extern void voclMigUpdateKernelArgs(kernel_info *kernelPtr);
+
+extern void voclConMsgFlowInitialize();
+extern void voclConMsgFlowFinalize();
+extern void voclConMsgFlowControl(int proxyIndex, int proxyRank, MPI_Comm proxyComm);
+
 /*******************************************************************/
 /* for Opencl object count processing */
 static unsigned int *voclObjCountPtr = NULL;
@@ -394,6 +394,8 @@ void voclFinalize()
     voclMigWriteLocalBufferFinalize();
     voclMigReadLocalBufferFinalize();
     voclMigRWLocalBufferFinalize();
+
+	voclConMsgFlowFinalize();
 }
 
 void voclInitialize()
@@ -421,6 +423,8 @@ void voclInitialize()
     voclMigWriteLocalBufferInitializeAll();
     voclMigReadLocalBufferInitializeAll();
     voclMigRWLocalBufferInitialize();
+
+	voclConMsgFlowInitialize();
 
     return;
 }
@@ -527,6 +531,8 @@ static void checkSlaveProc()
 #endif
     }
 }
+
+
 
 /*--------------------VOCL API functions, countparts of OpenCL API functions ----------------*/
 cl_int
@@ -1223,14 +1229,14 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
-	voclConMsgMutexLock(proxyIndex);
+	//voclConMsgMutexLock(proxyIndex);
 	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 
 	/* release the locker */
-	voclConMsgMutexUnlock(proxyIndex);
+	//voclConMsgMutexUnlock(proxyIndex);
 	voclMigrationMutexUnlock(proxyIndex);
 printf("writeGPUMem, cmdQueueMigStatus = %d, vgpuMigStatus = %d\n", cmdQueueMigStatus, vgpuMigStatus);
 
@@ -1315,7 +1321,7 @@ printf("writeGPUMem, cmdQueueMigStatus = %d, vgpuMigStatus = %d\n", cmdQueueMigS
         if (i == bufferNum) {
             bufferSize = remainingSize;
         }
-
+	
         MPI_Isend((void *) ((char *) ptr + i * VOCL_WRITE_BUFFER_SIZE), bufferSize, MPI_BYTE,
                   proxyRank, VOCL_WRITE_TAG + bufferIndex, proxyCommData,
                   //proxyRank, VOCL_WRITE_TAG, proxyCommData,
@@ -1473,17 +1479,20 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
 		voclVOCLCommandQueue2CLCommandQueueComm((vocl_command_queue) command_queue, &proxyRank,
 												&proxyIndex, &proxyComm, &proxyCommData);
 
+	/* flow control of kernel launch */
+	//voclConMsgFlowControl(proxyIndex, proxyRank, proxyComm);
+
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
-	voclConMsgMutexLock(proxyIndex);
+	//voclConMsgMutexLock(proxyIndex);
 	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 
 	/* release the locker */
-	voclConMsgMutexUnlock(proxyIndex);
+	//voclConMsgMutexUnlock(proxyIndex);
 	voclMigrationMutexUnlock(proxyIndex);
 
 	/* only migration status of command queue is considered */
@@ -1701,14 +1710,14 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
-	voclConMsgMutexLock(proxyIndex);
+	//voclConMsgMutexLock(proxyIndex);
 	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 
 	/* release the locker */
-	voclConMsgMutexUnlock(proxyIndex);
+	//voclConMsgMutexUnlock(proxyIndex);
 	voclMigrationMutexUnlock(proxyIndex);
 
 	/* only migration status of command queue is considered */
@@ -1933,14 +1942,14 @@ cl_int clFinish(cl_command_queue command_queue)
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
-	voclConMsgMutexLock(proxyIndex);
+	//voclConMsgMutexLock(proxyIndex);
 	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
 
 	/* release the locker */
-	voclConMsgMutexUnlock(proxyIndex);
+	//voclConMsgMutexUnlock(proxyIndex);
 	voclMigrationMutexUnlock(proxyIndex);
 printf("clFinish\n");
 	/* only migration status of command queue is considered */
@@ -2382,14 +2391,14 @@ cl_int clFlush(cl_command_queue command_queue)
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
-	voclConMsgMutexLock(proxyIndex);
+	//voclConMsgMutexLock(proxyIndex);
 	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
 
 	/* release the locker */
-	voclConMsgMutexUnlock(proxyIndex);
+	//voclConMsgMutexUnlock(proxyIndex);
 	voclMigrationMutexUnlock(proxyIndex);
 
 	/* only migration status of command queue is considered */

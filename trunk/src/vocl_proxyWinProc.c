@@ -245,7 +245,7 @@ void voclProxyConMsgFlowControl(int commSize)
 				if (voclProxyConMsgLockerAcquired[i] == 0)
 				{
 					/* restrict app from issuing function calls */
-					voclProxyConMsgMutexLock(i);
+//					voclProxyConMsgMutexLock(i);
 					voclProxyConMsgLockerAcquired[i] = 1;
 printf("i = %d, lockerAcquired = %d\n", i, voclProxyConMsgLockerAcquired[i]);
 				}
@@ -255,7 +255,7 @@ printf("i = %d, lockerAcquired = %d\n", i, voclProxyConMsgLockerAcquired[i]);
 				if (voclProxyConMsgLockerAcquired[i] == 1)
 				{
 					/* restrict app from issuing function calls */
-					voclProxyConMsgMutexUnlock(i);
+//					voclProxyConMsgMutexUnlock(i);
 					voclProxyConMsgLockerAcquired[i] = 0;
 				}
 			}
