@@ -97,15 +97,9 @@ extern void voclProxyUpdateMigStatus(int appIndex, int destProxyIndex, int isOnS
 extern void voclProxySetMigStatus(int appIndex, char migStatus);
 extern void voclProxyUpdateKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
 
-extern void voclProxyMigrationMutexLock(int appIndex);
-extern void voclProxyMigrationMutexUnlock(int appIndex);
-
-extern int voclProxyGetInternalQueueOperationNum(int appIndex);
+extern int voclProxyGetInternalQueueTotalCommandNum(int appIndex);
 extern void voclProxyUnlockItem(vocl_internal_command_queue *cmdPtr);
-extern vocl_internal_command_queue * voclProxyGetInternalQueueHead();
-extern vocl_internal_command_queue * voclProxyGetInternalQueueTail();
 extern vocl_internal_command_queue * voclProxyMigGetAppCmds(int appIndex, int cmdIndex);
-
 
 void voclProxyMigSendDeviceMemoryData(vocl_virtual_gpu *vgpuPtr, int destRankNo, 
 			MPI_Comm migComm, MPI_Comm migCommData);
@@ -634,8 +628,6 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 	FILE *pfile;
 	//--------------------------------------------------
 
-	/* acquire the locker */
-	//voclProxyMigrationMutexLock(vgpuPtr->appIndex);
 	/* set in migration */
 	voclProxySetInMigrationStatus(1);
 
@@ -761,8 +753,6 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 			updateStatusTime,
 			relVGPUTime);
 
-	/* release the locker */
-	//voclProxyMigrationMutexUnlock(vgpuPtr->appIndex);
 	/* migration completed */
 	voclProxySetInMigrationStatus(0);
 
@@ -1150,7 +1140,7 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 	struct strEnqueueReadBuffer *memoryRead;
 	vocl_internal_command_queue *cmdPtr;
 	
-	totalOperationNum = voclProxyGetInternalQueueOperationNum(appIndex);
+	totalOperationNum = voclProxyGetInternalQueueTotalCommandNum(appIndex);
 	msgSize = totalOperationNum * sizeof(vocl_internal_command_queue) + 10000;
 
 	msgBuf = (char *)malloc(msgSize);
@@ -1165,7 +1155,6 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 		for (i = 0; i < totalOperationNum; i++)
 		{
 			/* current item is locked */
-			//cmdPtr = voclProxyGetInternalQueueHead();
 			cmdPtr = voclProxyMigGetAppCmds(appIndex, i);
 
 			/* for commands that are not related to the current application */
@@ -1239,7 +1228,6 @@ void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProxyRank,
 			for (i = 0; i < totalOperationNum; i++)
 			{
 				/* current item is locked */
-				//cmdPtr = voclProxyGetInternalQueueHead();
 				cmdPtr = voclProxyMigGetAppCmds(appIndex, i);
 
 				/* for commands that are not related to the current application */

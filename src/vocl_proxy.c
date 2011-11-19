@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <mpi.h>
 #include <memory.h>
 #include <CL/opencl.h>
@@ -294,6 +295,7 @@ extern void voclProxyWinFinalize();
 extern void voclProxyCreateWin(MPI_Comm comm, int appIndex, int proxyIndexInApp);
 extern void voclProxyFreeWin(int appIndex);
 extern void voclProxyPrintWinInfo();
+extern void voclProxyConMsgFlowControl(int commSize);
 
 /* migration functions */
 extern void voclMigWriteBufferInitializeAll();
@@ -342,7 +344,7 @@ extern cl_command_queue voclProxyMigCmdQueue;
 extern void voclProxyInternalQueueInit();
 extern void voclProxyInternalQueueFinalize();
 extern void voclProxyUnlockItem(vocl_internal_command_queue *cmdPtr);
-extern vocl_internal_command_queue * voclProxyGetInternalQueueTail();
+extern vocl_internal_command_queue * voclProxyGetInternalQueueTail(int appIndex);
 
 /* functions to manage objects allocated in the proxy process */
 extern void voclProxyObjCountInitialize();
@@ -351,7 +353,6 @@ extern void voclProxyObjCountIncrease();
 extern void voclProxyObjCountDecrease();
 
 //debug----------------------------------------------------
-extern int voclProxyGetInternalQueueOperationNum();
 extern int voclProxyGetInternalQueueKernelLaunchNum(int appIndex);
 extern void voclProxySetMigrationCondition(int condition);
 extern int voclProxyGetMigrationCondition();
@@ -513,9 +514,13 @@ int main(int argc, char *argv[])
         }
         conMsgRequestForWait[commIndex] = conMsgRequest[conMsgRequestIndex[commIndex]];
 
+		/* for app whose num of function calls in the internal queue is larger than */
+		/* some threshold, control the issue in the VOCL library */
+		//voclProxyConMsgFlowControl(voclCommUsedSize);
+
         //debug-----------------------------
-        //printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
-        //      rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
+        printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",
+              rankNo, voclTotalRequestNum, appIndex, index, status.MPI_TAG);
         //-------------------------------------
 
 		if (status.MPI_TAG == GET_PROXY_COMM_INFO) {
@@ -810,7 +815,7 @@ int main(int argc, char *argv[])
         }
 
         else if (status.MPI_TAG == ENQUEUE_WRITE_BUFFER) {
-			voclCmdQueuePtr = voclProxyGetInternalQueueTail();
+			voclCmdQueuePtr = voclProxyGetInternalQueueTail(appIndex);
 			voclCmdQueuePtr->msgTag = ENQUEUE_WRITE_BUFFER;
 			memcpy(voclCmdQueuePtr->conMsgBuffer, conMsgBuffer[index], sizeof(tmpEnqueueWriteBuffer));
 			voclCmdQueuePtr->appComm = appComm[commIndex];
@@ -981,7 +986,7 @@ printf("lastMsg\n");
 		}
 
         else if (status.MPI_TAG == ENQUEUE_ND_RANGE_KERNEL) {
-			voclCmdQueuePtr = voclProxyGetInternalQueueTail();
+			voclCmdQueuePtr = voclProxyGetInternalQueueTail(appIndex);
 			voclCmdQueuePtr->msgTag = ENQUEUE_ND_RANGE_KERNEL;
 			memcpy(voclCmdQueuePtr->conMsgBuffer, conMsgBuffer[index], sizeof(struct strEnqueueNDRangeKernel));
 			voclCmdQueuePtr->appComm = appComm[commIndex];
@@ -1141,7 +1146,7 @@ printf("lastMsg\n");
         }
 
         else if (status.MPI_TAG == ENQUEUE_READ_BUFFER) {
-			voclCmdQueuePtr = voclProxyGetInternalQueueTail();
+			voclCmdQueuePtr = voclProxyGetInternalQueueTail(appIndex);
 			voclCmdQueuePtr->msgTag = ENQUEUE_READ_BUFFER;
 			memcpy(voclCmdQueuePtr->conMsgBuffer, conMsgBuffer[index], sizeof(struct strEnqueueReadBuffer));
 			voclCmdQueuePtr->appComm = appComm[commIndex];
@@ -1249,7 +1254,7 @@ printf("lastMsg\n");
         }
 
         else if (status.MPI_TAG == FINISH_FUNC) {
-			voclCmdQueuePtr = voclProxyGetInternalQueueTail();
+			voclCmdQueuePtr = voclProxyGetInternalQueueTail(appIndex);
 			voclCmdQueuePtr->msgTag = FINISH_FUNC;
 			memcpy(voclCmdQueuePtr->conMsgBuffer, conMsgBuffer[index], sizeof(struct strFinish));
 			voclCmdQueuePtr->appComm = appComm[commIndex];
@@ -1453,7 +1458,7 @@ printf("lastMsg\n");
         }
 
         else if (status.MPI_TAG == FLUSH_FUNC) {
-			voclCmdQueuePtr = voclProxyGetInternalQueueTail();
+			voclCmdQueuePtr = voclProxyGetInternalQueueTail(appIndex);
 			voclCmdQueuePtr->msgTag = FLUSH_FUNC;
 			memcpy(voclCmdQueuePtr->conMsgBuffer, conMsgBuffer[index], sizeof(struct strFlush));
 			voclCmdQueuePtr->appComm = appComm[commIndex];
@@ -1960,7 +1965,7 @@ printf("lastMsg\n");
 				paramOffset += sizeof(vocl_internal_command_queue);
 
 				/* get buffer from internal queue */
-				voclCmdQueuePtr = voclProxyGetInternalQueueTail();
+				voclCmdQueuePtr = voclProxyGetInternalQueueTail(tmpMigQueueOperations.appIndexOnDestProxy);
 				voclCmdQueuePtr->msgTag = cmdPtr->msgTag;
 				voclCmdQueuePtr->appComm = appComm[tmpMigQueueOperations.appIndexOnDestProxy];
 				voclCmdQueuePtr->appCommData = appCommData[tmpMigQueueOperations.appIndexOnDestProxy];

@@ -1,13 +1,18 @@
 #include <stdio.h>
 #include <CL/opencl.h>
+#include <unistd.h>
 #include "mpi.h"
 #include "mpix.h"
 #include "vocl_proxy_macro.h"
 #include "vocl_proxyWinProc.h"
 
 extern int voclIsCommUsed(int appIndex);
+extern int voclProxyGetCommandNumInInternalQueue(int appIndex);
+
 static MPI_Win *voclProxyWinPtr = NULL;
-static MPIX_Mutex *voclProxyLockers = NULL;
+static MPIX_Mutex *voclProxyMigrationLockers = NULL;
+static MPIX_Mutex *voclProxyConMsgLockers = NULL;
+static int *voclProxyConMsgLockerAcquired = NULL;
 static MPI_Comm *voclProxyWinComm = NULL;
 static int *voclProxyProxyIndexInApp = NULL;
 static int voclProxyWinNum;
@@ -18,7 +23,9 @@ void voclProxyWinInitialize()
 	voclProxyWinNum = DEFAULT_APP_NUM;
 	voclProxyWinPtr = (MPI_Win *)malloc(sizeof(MPI_Win) * voclProxyWinNum);
 	voclProxyWinComm = (MPI_Comm *)malloc(sizeof(MPI_Comm) * voclProxyWinNum);
-	voclProxyLockers = (MPIX_Mutex *)malloc(sizeof(MPIX_Mutex) * voclProxyWinNum);
+	voclProxyMigrationLockers = (MPIX_Mutex *)malloc(sizeof(MPIX_Mutex) * voclProxyWinNum);
+	voclProxyConMsgLockers = (MPIX_Mutex *)malloc(sizeof(MPIX_Mutex) * voclProxyWinNum);
+	voclProxyConMsgLockerAcquired = (int *)malloc(sizeof(int) * voclProxyWinNum);
 	voclProxyProxyIndexInApp = (int *)malloc(sizeof(int) * voclProxyWinNum);
 
 	voclProxyWinNo = 0;
@@ -32,7 +39,9 @@ void voclProxyWinFinalize()
 	voclProxyWinNo = 0;
 	free(voclProxyWinPtr);
 	free(voclProxyWinComm);
-	free(voclProxyLockers);
+	free(voclProxyMigrationLockers);
+	free(voclProxyConMsgLockers);
+	free(voclProxyConMsgLockerAcquired);
 	free(voclProxyProxyIndexInApp);
 
 	return;
@@ -46,7 +55,9 @@ void voclProxyCreateWin(MPI_Comm comm, int appIndex, int proxyIndexInApp)
 		voclProxyWinNum = appIndex + DEFAULT_APP_NUM;
 		voclProxyWinPtr = (MPI_Win *)realloc(voclProxyWinPtr, sizeof(MPI_Win) * voclProxyWinNum);
 		voclProxyWinComm = (MPI_Comm *)realloc(voclProxyWinComm, sizeof(MPI_Comm) * voclProxyWinNum);
-		voclProxyLockers = (MPIX_Mutex *)realloc(voclProxyLockers, sizeof(MPIX_Mutex) * voclProxyWinNum);
+		voclProxyMigrationLockers = (MPIX_Mutex *)realloc(voclProxyMigrationLockers, sizeof(MPIX_Mutex) * voclProxyWinNum);
+		voclProxyConMsgLockers = (MPIX_Mutex *)realloc(voclProxyConMsgLockers, sizeof(MPIX_Mutex) * voclProxyWinNum);
+		voclProxyConMsgLockerAcquired = (int *)realloc(voclProxyConMsgLockerAcquired, sizeof(int) * voclProxyWinNum);
 		voclProxyProxyIndexInApp = (int *)realloc(voclProxyProxyIndexInApp, sizeof(int) * voclProxyWinNum);
 	}
 
@@ -54,8 +65,11 @@ void voclProxyCreateWin(MPI_Comm comm, int appIndex, int proxyIndexInApp)
 	MPI_Intercomm_merge(comm, 1, &winComm);
 	voclProxyWinComm[appIndex] = winComm;
 
-	voclProxyLockers[appIndex] = MPIX_Mutex_create(0, winComm);
-	//voclProxyLockers[appIndex] = MPIX_Mutex_create(1, winComm);
+	voclProxyMigrationLockers[appIndex] = MPIX_Mutex_create(0, winComm);
+	voclProxyConMsgLockers[appIndex] = MPIX_Mutex_create(0, winComm);
+
+	/* MPI mutex is not acquired */
+	voclProxyConMsgLockerAcquired[appIndex] = 0;
 
 	/* create the window, window home rank is 0 */
 	MPI_Win_create(NULL, 0, 1, MPI_INFO_NULL, winComm, &voclProxyWinPtr[appIndex]);
@@ -72,12 +86,43 @@ MPI_Win *voclProxyGetWinPtr(int index)
 	return &voclProxyWinPtr[index];
 }
 
+void voclProxyMigrationMutexLock(int appIndex)
+{
+	MPIX_Mutex_lock(voclProxyMigrationLockers[appIndex], 0, 0);
+	return;
+}
+
+void voclProxyMigrationMutexUnlock(int appIndex)
+{
+	MPIX_Mutex_unlock(voclProxyMigrationLockers[appIndex], 0, 0);
+	return;
+}
+
+void voclProxyConMsgMutexLock(int appIndex)
+{
+	MPIX_Mutex_lock(voclProxyConMsgLockers[appIndex], 0, 0);
+	return;
+}
+
+void voclProxyConMsgMutexUnlock(int appIndex)
+{
+	MPIX_Mutex_unlock(voclProxyConMsgLockers[appIndex], 0, 0);
+	return;
+}
+
 void voclProxyFreeWin(int appIndex)
 {
+	if (voclProxyConMsgLockerAcquired[appIndex] == 1)
+	{
+		voclProxyConMsgLockerAcquired[appIndex] = 0;
+		voclProxyMigrationMutexUnlock(appIndex);
+	}
+
 	/* free the merged MPI communicator */
 	MPI_Comm_free(&voclProxyWinComm[appIndex]);
 	MPI_Win_free(&voclProxyWinPtr[appIndex]);
-	MPIX_Mutex_destroy(voclProxyLockers[appIndex]);
+	MPIX_Mutex_destroy(voclProxyMigrationLockers[appIndex]);
+	MPIX_Mutex_destroy(voclProxyConMsgLockers[appIndex]);
 
 	return;
 }
@@ -108,20 +153,6 @@ void voclProxyPrintWinInfo()
 
 	free(winPtr);
 
-	return;
-}
-
-void voclProxyMigrationMutexLock(int appIndex)
-{
-	MPIX_Mutex_lock(voclProxyLockers[appIndex], 0, 0);
-	//MPIX_Mutex_lock(voclProxyLockers[appIndex], 0, 1);
-	return;
-}
-
-void voclProxyMigrationMutexUnlock(int appIndex)
-{
-	MPIX_Mutex_unlock(voclProxyLockers[appIndex], 0, 0);
-	//MPIX_Mutex_unlock(voclProxyLockers[appIndex], 0, 1);
 	return;
 }
 
@@ -184,4 +215,54 @@ void voclProxySetMigStatus(int appIndex, char migStatus)
 	
 	return;
 }
+
+int voclProxyGetConMsgLockerAcquiredFlag(int appIndex)
+{
+	return voclProxyConMsgLockerAcquired[appIndex];
+}
+
+void voclProxySetConMsgLockerAcquiredFlag(int appIndex, int flag)
+{
+	voclProxyConMsgLockerAcquired[appIndex] = flag;
+	return;
+}
+
+/* if the number of function calls in the queue is larger than */
+/* a threshold, restrict the command issue */
+void voclProxyConMsgFlowControl(int commSize)
+{
+	int i;
+	/* start from 1 since 0 is for communication across proxy process */
+	for (i = 1; i < commSize; i++)
+	{
+		/* app is available */
+		if (voclIsCommUsed(i) == 1)
+		{
+			/* number of commands in the queue is larger than threshold */
+			/* and the MPI mutex locker is not required yet */
+			if (voclProxyGetCommandNumInInternalQueue(i) >= VOCL_PROXY_APP_MAX_CMD_NUM)
+			{
+				if (voclProxyConMsgLockerAcquired[i] == 0)
+				{
+					/* restrict app from issuing function calls */
+					voclProxyConMsgMutexLock(i);
+					voclProxyConMsgLockerAcquired[i] = 1;
+printf("i = %d, lockerAcquired = %d\n", i, voclProxyConMsgLockerAcquired[i]);
+				}
+			}
+			else
+			{
+				if (voclProxyConMsgLockerAcquired[i] == 1)
+				{
+					/* restrict app from issuing function calls */
+					voclProxyConMsgMutexUnlock(i);
+					voclProxyConMsgLockerAcquired[i] = 0;
+				}
+			}
+		}
+	}
+
+	return;
+}
+
 

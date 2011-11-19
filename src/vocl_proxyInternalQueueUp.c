@@ -20,6 +20,7 @@ static int voclProxyCmdHead;
 static int voclProxyCmdTail;
 static int voclProxyAppNum = 100;
 static int *voclProxyNumOfKernelsLaunched = NULL;
+static int *voclProxyCommandNumInInternalQueue = NULL;
 int voclProxyThreadInternalTerminateFlag = 0;
 cl_command_queue voclProxyMigCmdQueue;
 int voclProxyMigAppIndex;
@@ -48,6 +49,9 @@ extern void voclProxyMigSendOperationsInCmdQueue(int origProxyRank, int destProx
 
 extern void voclProxyMigrationMutexLock(int appIndex);
 extern void voclProxyMigrationMutexUnlock(int appIndex);
+extern void voclProxySetConMsgLockerAcquiredFlag(int appIndex, int flag);
+extern int voclProxyGetConMsgLockerAcquiredFlag(int appIndex);
+extern void voclProxyConMsgMutexUnlock(int appIndex);
 
 extern void voclProxyStoreKernelArgs(cl_kernel kernel, int argNum, kernel_args *args);
 extern int getNextWriteBufferIndex(int rank);
@@ -102,7 +106,11 @@ void voclProxyInternalQueueInit()
 	voclProxyCmdHead = 0;
 	voclProxyCmdTail = 0;
 	voclProxyNumOfKernelsLaunched = (int *)malloc(sizeof(int) * voclProxyAppNum);
+	voclProxyCommandNumInInternalQueue = (int *)malloc(sizeof(int) * voclProxyAppNum);
+
 	memset(voclProxyNumOfKernelsLaunched, 0, sizeof(int) * voclProxyAppNum);
+	memset(voclProxyCommandNumInInternalQueue, 0, sizeof(int) * voclProxyAppNum);
+
 	voclProxyInternalQueue = (vocl_internal_command_queue *)malloc(sizeof(vocl_internal_command_queue) * voclProxyCmdNum);
 
 	for (i = 0; i < voclProxyCmdNum; i++)
@@ -116,8 +124,55 @@ void voclProxyInternalQueueInit()
 	return;
 }
 
+void voclProxyInternalQueueFinalize()
+{
+	int i;
+
+	for (i = 0; i < voclProxyCmdNum; i++)
+	{
+		voclProxyInternalQueue[i].status = VOCL_PROXY_CMD_AVABL;
+	}
+
+	free(voclProxyInternalQueue);
+
+	voclProxyCmdNum = 0;
+	voclProxyCmdHead = 0;
+	free(voclProxyNumOfKernelsLaunched);
+	free(voclProxyCommandNumInInternalQueue);
+	voclProxyCmdTail = 0;
+	voclProxyThreadInternalTerminateFlag = 1;
+
+	return;
+}
+
+int voclProxyGetCommandNumInInternalQueue(int appIndex)
+{
+	return voclProxyCommandNumInInternalQueue[appIndex];
+}
+
+void voclProxySetCommandNumInInternalQueue(int appIndex, int num)
+{
+	voclProxyCommandNumInInternalQueue[appIndex] = 0;
+}
+
+void voclProxyIncreaseCommandNumInInternalQueue(int appIndex, int num)
+{
+	pthread_mutex_lock(&internalQueueMutex);
+	voclProxyCommandNumInInternalQueue[appIndex] += num;
+	pthread_mutex_unlock(&internalQueueMutex);
+	return;
+}
+
+void voclProxyDecreaseCommandNumInInternalQueue(int appIndex, int num)
+{
+	pthread_mutex_lock(&internalQueueMutex);
+	voclProxyCommandNumInInternalQueue[appIndex] -= num;
+	pthread_mutex_unlock(&internalQueueMutex);
+	return;
+}
+
 /* for enqueue operation */
-vocl_internal_command_queue * voclProxyGetInternalQueueTail()
+vocl_internal_command_queue * voclProxyGetInternalQueueTail(int appIndex)
 {
 	int index;
 	/* goes back to see if there is available */
@@ -140,6 +195,10 @@ vocl_internal_command_queue * voclProxyGetInternalQueueTail()
 	voclProxyInternalQueue[index].status = VOCL_PROXY_CMD_INUSE;
 	pthread_mutex_lock(&voclProxyInternalQueue[index].lock);
 	voclProxyCmdTail++;
+
+	/* increase the num of commands for the app by 1 */
+	voclProxyIncreaseCommandNumInInternalQueue(appIndex, 1);
+
 	return &voclProxyInternalQueue[index];
 }
 
@@ -246,29 +305,9 @@ void voclProxyIncreaseInternalQueueKernelLaunchNum(int appIndex, int num)
 }
 
 /* get the num of operatoins queue up for a specific vgpu */
-int voclProxyGetInternalQueueOperationNum(int appIndex)
+int voclProxyGetInternalQueueTotalCommandNum(int appIndex)
 {
 	return voclProxyCmdTail - voclProxyCmdHead;
-}
-
-void voclProxyInternalQueueFinalize()
-{
-	int i;
-
-	for (i = 0; i < voclProxyCmdNum; i++)
-	{
-		voclProxyInternalQueue[i].status = VOCL_PROXY_CMD_AVABL;
-	}
-
-	free(voclProxyInternalQueue);
-
-	voclProxyCmdNum = 0;
-	voclProxyCmdHead = 0;
-	free(voclProxyNumOfKernelsLaunched);
-	voclProxyCmdTail = 0;
-	voclProxyThreadInternalTerminateFlag = 1;
-
-	return;
 }
 
 void *proxyEnqueueThread(void *p)
@@ -313,7 +352,6 @@ void *proxyEnqueueThread(void *p)
 			voclProxyGetInternalQueueKernelLaunchNum(appIndex) > voclProxyGetKernelNumThreshold())
 		{
 			voclProxySetMigrated();
-			//pthread_mutex_lock(&internalQueueMutex);
 
 			if (voclProxyGetForcedMigrationFlag() == 1)
 			{
@@ -337,9 +375,6 @@ void *proxyEnqueueThread(void *p)
 			voclProxyMigration(voclProxyMigAppIndex, voclProxyGetCmdQueueDeviceID(voclProxyMigCmdQueue));
 			/* release the locker */
 			voclProxyMigrationMutexUnlock(voclProxyMigAppIndex);
-			/* release the locker */
-			//pthread_mutex_unlock(&internalQueueMutex);
-			/* release the locker */
 
 			/* wait for barrier for transfer commands */
 			pthread_barrier_wait(&barrierMigOperations);
@@ -349,10 +384,11 @@ void *proxyEnqueueThread(void *p)
 			gettimeofday(&t1, NULL);
 			
 			voclProxyMigSendOperationsInCmdQueue(voclMigOrigProxyRank, voclMigDestProxyRank,
-					voclMigOrigDeviceID, voclMigDestDeviceID,
-					voclMigDestComm, voclMigDestCommData, voclMigAppIndexOnOrigProxy,
-					voclMigAppIndexOnDestProxy);
+						voclMigOrigDeviceID, voclMigDestDeviceID,
+						voclMigDestComm, voclMigDestCommData, voclMigAppIndexOnOrigProxy,
+						voclMigAppIndexOnDestProxy);
 			voclProxySetInternalQueueKernelLaunchNum(voclProxyMigAppIndex, 0);
+			voclProxySetCommandNumInInternalQueue(voclProxyMigAppIndex, 0);
 
 			gettimeofday(&t2, NULL);
 			tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
@@ -373,12 +409,26 @@ void *proxyEnqueueThread(void *p)
 		appIndex = cmdQueuePtr->appIndex;
 		voclProxyLastAppIndexStored = appIndex;
 
+		/* decrease the num of commands for the app by 1 */
+		voclProxyDecreaseCommandNumInInternalQueue(appIndex, 1);
+		
+		/* if the num of commands in internal queue is less than threshold */
+		/* and conMsg locker is acquired, relase the control message locker */
+		if (voclProxyGetCommandNumInInternalQueue(appIndex) < VOCL_PROXY_APP_MAX_CMD_NUM &&
+			voclProxyGetConMsgLockerAcquiredFlag(appIndex) == 1)
+		{
+			voclProxyConMsgMutexUnlock(appIndex);
+			voclProxySetConMsgLockerAcquiredFlag(appIndex, 0);
+		}
+
 		/* if the number of app process is larger than voclProxyAppNum */
 		/* reallocate memory */
 		if (appIndex >= voclProxyAppNum)
 		{
 			voclProxyNumOfKernelsLaunched = (int *)realloc(voclProxyNumOfKernelsLaunched, sizeof(int) * 2 * appIndex);
+			voclProxyCommandNumInInternalQueue = (int *)realloc(voclProxyCommandNumInInternalQueue, sizeof(int) * 2 * appIndex);
 			memset(&voclProxyNumOfKernelsLaunched[voclProxyAppNum], 0, sizeof(int) * (2 * appIndex - voclProxyAppNum));
+			memset(&voclProxyCommandNumInInternalQueue[voclProxyAppNum], 0, sizeof(int) * (2 * appIndex - voclProxyAppNum));
 			voclProxyAppNum = appIndex * 2;
 		}
 
