@@ -279,6 +279,8 @@ extern void voclPrintWinInfo();
 
 extern void voclMigrationMutexLock(int proxyIndex);
 extern void voclMigrationMutexUnlock(int proxyIndex);
+extern void voclConMsgMutexLock(int proxyIndex);
+extern void voclConMsgMutexUnlock(int proxyIndex);
 extern void voclMigIsProxyInMigration(int proxyIndex, int proxyRank,
         		MPI_Comm comm, MPI_Comm commData);
 extern void voclMigUpdateKernelArgs(kernel_info *kernelPtr);
@@ -1221,12 +1223,14 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
+	voclConMsgMutexLock(proxyIndex);
 	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 
 	/* release the locker */
+	voclConMsgMutexUnlock(proxyIndex);
 	voclMigrationMutexUnlock(proxyIndex);
 printf("writeGPUMem, cmdQueueMigStatus = %d, vgpuMigStatus = %d\n", cmdQueueMigStatus, vgpuMigStatus);
 
@@ -1472,12 +1476,14 @@ clEnqueueNDRangeKernel(cl_command_queue command_queue,
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
+	voclConMsgMutexLock(proxyIndex);
 	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 
 	/* release the locker */
+	voclConMsgMutexUnlock(proxyIndex);
 	voclMigrationMutexUnlock(proxyIndex);
 
 	/* only migration status of command queue is considered */
@@ -1695,12 +1701,14 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
+	voclConMsgMutexLock(proxyIndex);
 	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 
 	/* release the locker */
+	voclConMsgMutexUnlock(proxyIndex);
 	voclMigrationMutexUnlock(proxyIndex);
 
 	/* only migration status of command queue is considered */
@@ -1925,12 +1933,14 @@ cl_int clFinish(cl_command_queue command_queue)
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
+	voclConMsgMutexLock(proxyIndex);
 	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
 
 	/* release the locker */
+	voclConMsgMutexUnlock(proxyIndex);
 	voclMigrationMutexUnlock(proxyIndex);
 printf("clFinish\n");
 	/* only migration status of command queue is considered */
@@ -2372,12 +2382,14 @@ cl_int clFlush(cl_command_queue command_queue)
     /* acquire the locker to make sure no */
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
+	voclConMsgMutexLock(proxyIndex);
 	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
 
 	/* release the locker */
+	voclConMsgMutexUnlock(proxyIndex);
 	voclMigrationMutexUnlock(proxyIndex);
 
 	/* only migration status of command queue is considered */

@@ -36,7 +36,8 @@ typedef struct strVoclWinInfoAll {
 static vocl_wins *voclWinInfoPtr = NULL;
 static MPI_Win *voclWinPtr = NULL;
 static int *voclWinMapPtr = NULL;
-static MPIX_Mutex *voclLockers = NULL;
+static MPIX_Mutex *voclMigrationLockers = NULL;
+static MPIX_Mutex *voclConMsgLockers = NULL;
 static int totalVoclWinInfoNum;
 static int voclWinInfoNo;
 
@@ -51,7 +52,8 @@ void voclWinInfoInitialize()
 	memset(voclWinInfoPtr, 0, sizeof(vocl_wins));
 	voclWinPtr = (MPI_Win *)malloc(sizeof(MPI_Win) * totalVoclWinInfoNum);
 	voclWinMapPtr = (int *)malloc(sizeof(int) * totalVoclWinInfoNum);
-	voclLockers = (MPIX_Mutex *)malloc(sizeof(MPIX_Mutex) * totalVoclWinInfoNum);
+	voclMigrationLockers = (MPIX_Mutex *)malloc(sizeof(MPIX_Mutex) * totalVoclWinInfoNum);
+	voclConMsgLockers = (MPIX_Mutex *)malloc(sizeof(MPIX_Mutex) * totalVoclWinInfoNum);
 
 	return;
 }
@@ -63,7 +65,8 @@ void voclWinInfoFinalize()
 	free(voclWinInfoPtr);
 	free(voclWinPtr);
 	free(voclWinMapPtr);
-	free(voclLockers);
+	free(voclMigrationLockers);
+	free(voclConMsgLockers);
 
 	return;
 }
@@ -72,7 +75,8 @@ void voclWinInfoFree(int proxyIndex)
 {
 	MPI_Comm_free(&voclWinInfoPtr->wins[proxyIndex].commWin);
 	MPI_Win_free(&voclWinPtr[proxyIndex]);
-	MPIX_Mutex_destroy(voclLockers[proxyIndex]);
+	MPIX_Mutex_destroy(voclMigrationLockers[proxyIndex]);
+	MPIX_Mutex_destroy(voclConMsgLockers[proxyIndex]);
 	voclWinInfoPtr->proxyNum--;
 	return;
 }
@@ -121,7 +125,8 @@ void voclAddWinInfo(MPI_Comm comm, int proxyRank, int proxyIndex, char *serviceN
 	voclWinInfoPtr->wins[proxyIndex].destProxyRank = -1;
 
 	/* create the locker in the lib size */
-	voclLockers[proxyIndex] = MPIX_Mutex_create(1, winComm);
+	voclMigrationLockers[proxyIndex] = MPIX_Mutex_create(1, winComm);
+	voclConMsgLockers[proxyIndex] = MPIX_Mutex_create(1, winComm);
 
 	voclWinInfoPtr->proxyNum++;
 
@@ -221,12 +226,25 @@ int voclGetMigrationDestProxyIndex(int proxyIndex)
 
 void voclMigrationMutexLock(int proxyIndex)
 {
-	MPIX_Mutex_lock(voclLockers[proxyIndex], 0, 0);
+	MPIX_Mutex_lock(voclMigrationLockers[proxyIndex], 0, 0);
 	return;
 }
 
 void voclMigrationMutexUnlock(int proxyIndex)
 {
-	MPIX_Mutex_unlock(voclLockers[proxyIndex], 0, 0);
+	MPIX_Mutex_unlock(voclMigrationLockers[proxyIndex], 0, 0);
 	return;
 }
+
+void voclConMsgMutexLock(int proxyIndex)
+{
+	MPIX_Mutex_lock(voclConMsgLockers[proxyIndex], 0, 0);
+	return;
+}
+
+void voclConMsgMutexUnlock(int proxyIndex)
+{
+	MPIX_Mutex_unlock(voclConMsgLockers[proxyIndex], 0, 0);
+	return;
+}
+
