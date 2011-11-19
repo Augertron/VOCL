@@ -57,6 +57,8 @@ extern "C" {
 #define VOCL_MIG_UPDATE -100
 #define VOCL_MIG_NOUPDATE -101
 
+#define VOCL_NUM_KERNELS_PER_CHECK  100
+
 /* for api function identification */
 #define GET_PROXY_COMM_INFO         9
 #define GET_PLATFORM_ID_FUNC        10

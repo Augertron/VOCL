@@ -1,7 +1,9 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <CL/opencl.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sched.h>
 #include <sys/time.h>
 #include "vocl_proxy.h"
 #include "vocl_proxyInternalQueueUp.h"
@@ -312,8 +314,12 @@ int voclProxyGetInternalQueueTotalCommandNum(int appIndex)
 
 void *proxyEnqueueThread(void *p)
 {
-	vocl_internal_command_queue *cmdQueuePtr;
+	cpu_set_t set;
+    CPU_ZERO(&set);
+    CPU_SET(9, &set);
+    sched_setaffinity(0, sizeof(set), &set);
 
+	vocl_internal_command_queue *cmdQueuePtr;
 	cl_event *event_wait_list;
 	cl_uint num_events_in_wait_list;
 	int requestNo, bufferNum, bufferIndex, i;

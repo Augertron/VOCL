@@ -1989,22 +1989,23 @@ printf("lastMsg\n");
 
 		else if (status.MPI_TAG == VOCL_CHK_PROYX_INMIG)
 		{
-			pthread_mutex_lock(&internalQueueMutex);
-			isInMigration = voclProxyGetIsInMigration();
-			MPI_Send(&isInMigration, sizeof(int), MPI_BYTE, appRank, 
-					 VOCL_CHK_PROYX_INMIG, appComm[commIndex]);
-			if (isInMigration == 1)
-			{
-				do 
-				{
-					isInMigration = voclProxyGetIsInMigration();
-				}
-				while (isInMigration == 1);
-
-				MPI_Send(NULL, 0, MPI_BYTE, appRank, 
-					 	 VOCL_CHK_PROYX_INMIG, appComm[commIndex]);
-			}
-			pthread_mutex_unlock(&internalQueueMutex);
+//			pthread_mutex_lock(&internalQueueMutex);
+//			isInMigration = voclProxyGetIsInMigration();
+//			MPI_Send(&isInMigration, sizeof(int), MPI_BYTE, appRank, 
+//					 VOCL_CHK_PROYX_INMIG, appComm[commIndex]);
+//			if (isInMigration == 1)
+//			{
+//				do 
+//				{
+//					isInMigration = voclProxyGetIsInMigration();
+//				}
+//				while (isInMigration == 1);
+//
+//				MPI_Send(NULL, 0, MPI_BYTE, appRank, 
+//					 	 VOCL_CHK_PROYX_INMIG, appComm[commIndex]);
+//			}
+//			pthread_mutex_unlock(&internalQueueMutex);
+			MPI_Send(NULL, 0, MPI_BYTE, appRank, VOCL_CHK_PROYX_INMIG, appComm[commIndex]);
 		}
 
         else if (status.MPI_TAG == FORCED_MIGRATION) {

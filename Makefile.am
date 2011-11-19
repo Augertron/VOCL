@@ -30,7 +30,8 @@ libvocl_la_SOURCES = $(top_srcdir)/src/voclOpencl.c \
 					 $(top_srcdir)/src/voclMigration.c \
 					 $(top_srcdir)/src/voclMigBufferProc.c \
 					 $(top_srcdir)/src/voclLoadBalance.c \
-					 $(top_srcdir)/src/voclWinProc.c
+					 $(top_srcdir)/src/voclWinProc.c \
+					 $(top_srcdir)/src/voclFlowControl.c
 
 bin_PROGRAMS = vocl_proxy bandwidth matrixmult_sp matrixmult_dp nbody_sp nbody_dp swat matrixtrans_sp matrixtrans_dp
 

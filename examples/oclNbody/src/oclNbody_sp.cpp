@@ -333,10 +333,10 @@ int main(int argc, char **argv)
         InitNbody(cdDevices[index], cxContexts[i], cqCommandQueues[i], numBodies, p, q,
                   bUsePBO, bDouble, i);
         ResetSim(nbody[i], numBodies, NBODY_CONFIG_SHELL, bUsePBO, i);
-        copyDataH2D(nbody[i], i);
-        nbody[i]->synchronizeThreads();
         // Compare to host, profile and write out file for regression analysis
         if (disableCPU == 0) {
+			copyDataH2D(nbody[i], i);
+			nbody[i]->synchronizeThreads();
             shrLog("Running oclNbody Results Comparison...\n\n");
             CompareResults(numBodies, i);
         }
@@ -346,6 +346,7 @@ int main(int argc, char **argv)
     timerStart();
     gettimeofday(&t1, NULL);
     for (iterNo = 0; iterNo < numIterations; iterNo++) {
+printf("iterNo = %d\n", iterNo);
         for (i = 0; i < deviceNumUsed; i++) {
             copyDataH2D(nbody[i], i);
         }
