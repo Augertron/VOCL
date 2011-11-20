@@ -1987,25 +1987,10 @@ printf("lastMsg\n");
 			MPI_Wait(curRequest, curStatus);
 		}
 
-		else if (status.MPI_TAG == VOCL_CHK_PROYX_INMIG)
+		
+		else if (status.MPI_TAG == VOCL_CONMSG_FLOW_CONTROL)
 		{
-//			pthread_mutex_lock(&internalQueueMutex);
-//			isInMigration = voclProxyGetIsInMigration();
-//			MPI_Send(&isInMigration, sizeof(int), MPI_BYTE, appRank, 
-//					 VOCL_CHK_PROYX_INMIG, appComm[commIndex]);
-//			if (isInMigration == 1)
-//			{
-//				do 
-//				{
-//					isInMigration = voclProxyGetIsInMigration();
-//				}
-//				while (isInMigration == 1);
-//
-//				MPI_Send(NULL, 0, MPI_BYTE, appRank, 
-//					 	 VOCL_CHK_PROYX_INMIG, appComm[commIndex]);
-//			}
-//			pthread_mutex_unlock(&internalQueueMutex);
-			MPI_Send(NULL, 0, MPI_BYTE, appRank, VOCL_CHK_PROYX_INMIG, appComm[commIndex]);
+			MPI_Send(NULL, 0, MPI_BYTE, appRank, VOCL_CONMSG_FLOW_CONTROL, appComm[commIndex]);
 		}
 
         else if (status.MPI_TAG == FORCED_MIGRATION) {
