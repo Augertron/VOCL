@@ -26,7 +26,7 @@ void voclConMsgFlowControl(int proxyIndex, int proxyRank, MPI_Comm proxyComm)
 {
 	MPI_Status status;
 
-	if (voclNumOfKernelPerCheck[proxyIndex] > VOCL_NUM_KERNELS_PER_CHECK)
+	if (voclNumOfKernelPerCheck[proxyIndex] >= VOCL_NUM_KERNELS_PER_CHECK)
 	{
 		MPI_Send(NULL, 0, MPI_BYTE, proxyRank, VOCL_CONMSG_FLOW_CONTROL, proxyComm);
 		MPI_Recv(NULL, 0, MPI_BYTE, proxyRank, VOCL_CONMSG_FLOW_CONTROL, proxyComm, &status);

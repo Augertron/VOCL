@@ -734,7 +734,7 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 	relVGPUTime = tmpTime;
 
 	pfile = fopen("migTime.txt", "at");
-	fprintf(pfile, "%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n",
+	fprintf(pfile, "%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\t",
 			queryLoadTime,
 			findTargetGPU,
 			packMsgTime,

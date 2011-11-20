@@ -333,7 +333,8 @@ void *proxyEnqueueThread(void *p)
 	int internalWaitFlag; 
 
 	struct timeval t1, t2;
-	float tmpTime;
+	float waitForCompTime, sendCmdTime;
+	FILE *pfile;
 
 	voclProxyMigAppIndex = 0;
 	while (1)
@@ -348,7 +349,7 @@ void *proxyEnqueueThread(void *p)
 //			rankNo == 0)
 
 		if (voclProxyGetMigrationCondition() == 1 && voclProxyIsMigrated() == 0 && /* &&  rankNo == 0 && */
-			voclProxyGetInternalQueueKernelLaunchNum(appIndex) > voclProxyGetKernelNumThreshold())
+			voclProxyGetInternalQueueKernelLaunchNum(appIndex) >= voclProxyGetKernelNumThreshold())
 		{
 			voclProxySetMigrated();
 
@@ -367,8 +368,8 @@ void *proxyEnqueueThread(void *p)
 			processAllReads(voclProxyMigAppIndex);
 			clFinish(voclProxyMigCmdQueue);
 			gettimeofday(&t2, NULL);
-			tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
-			printf("%.3f\n", tmpTime);
+			waitForCompTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+			printf("%.3f\n", waitForCompTime);
 
 			/* migration a vgpu */
 			voclProxyMigration(voclProxyMigAppIndex, voclProxyGetCmdQueueDeviceID(voclProxyMigCmdQueue));
@@ -390,8 +391,15 @@ void *proxyEnqueueThread(void *p)
 			voclProxySetCommandNumInInternalQueue(voclProxyMigAppIndex, 0);
 
 			gettimeofday(&t2, NULL);
-			tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
-			printf("%.3f\n", tmpTime);
+			sendCmdTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
+			printf("%.3f\n", sendCmdTime);
+
+	pfile = fopen("migTime.txt", "at");
+	fprintf(pfile, "%.3f\t%.3f\n",
+			waitForCompTime,
+			sendCmdTime);
+	fclose(pfile);
+
 			pthread_barrier_wait(&barrierMigOperations);
 		}
 
@@ -410,7 +418,7 @@ void *proxyEnqueueThread(void *p)
 
 		/* decrease the num of commands for the app by 1 */
 		voclProxyDecreaseCommandNumInInternalQueue(appIndex, 1);
-		
+printf("msgTag = %d\n", cmdQueuePtr->msgTag);		
 		/* if the num of commands in internal queue is less than threshold */
 		/* and conMsg locker is acquired, relase the control message locker */
 		if (voclProxyGetCommandNumInInternalQueue(appIndex) < VOCL_PROXY_APP_MAX_CMD_NUM &&
