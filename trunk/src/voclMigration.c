@@ -121,35 +121,6 @@ void voclMigSendLastMsgToOrigProxy(int origProxyIndex, int origProxyRank,
 	return;
 }
 
-/* this function will block the execution of the vocl */
-/* lib till migration is completed on the proxy process */
-/* the target proxy process is in migration */
-void voclMigIsProxyInMigration(int proxyIndex, int proxyRank, 
-		MPI_Comm comm, MPI_Comm commData)
-{
-	MPI_Request request[3];
-	MPI_Status status[3];
-	int requestNo;
-	int isInMigration;
-
-	/*send a null message to the proxy process to the proxy 
-	to check whether migration is being performed */
-	requestNo = 0;
-	MPI_Isend(NULL, 0, MPI_BYTE, proxyRank, VOCL_CHK_PROYX_INMIG, comm, request+(requestNo++));
-	MPI_Irecv(&isInMigration, sizeof(int), MPI_BYTE, proxyRank, VOCL_CHK_PROYX_INMIG, 
-			  comm, request+(requestNo++));
-	MPI_Waitall(requestNo, request, status);
-	
-	/* if proxy is in migration, wait until migration is completed */
-	if (isInMigration == 1)
-	{
-		MPI_Irecv(NULL, 0, MPI_BYTE, proxyRank, VOCL_CHK_PROYX_INMIG, comm, request);
-		MPI_Wait(request, status);
-	}
-
-	return;
-}
-
 void voclMigUpdateKernelArgs(kernel_info *kernelPtr)
 {
 	cl_uint i, argIndex, argNum;

@@ -116,7 +116,7 @@ extern "C" {
 #define FORCED_MIGRATION            62
 #define LB_GET_KERNEL_NUM           63
 #define PROGRAM_END                 64
-#define VOCL_CHK_PROYX_INMIG		65
+#define VOCL_CONMSG_FLOW_CONTROL	65
 
 #define CMSG_NUM                    64
 #define DATAMSG_NUM                 100

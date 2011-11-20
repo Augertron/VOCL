@@ -276,8 +276,6 @@ extern void voclMigrationMutexLock(int proxyIndex);
 extern void voclMigrationMutexUnlock(int proxyIndex);
 extern void voclConMsgMutexLock(int proxyIndex);
 extern void voclConMsgMutexUnlock(int proxyIndex);
-extern void voclMigIsProxyInMigration(int proxyIndex, int proxyRank,
-        		MPI_Comm comm, MPI_Comm commData);
 extern void voclMigUpdateKernelArgs(kernel_info *kernelPtr);
 
 extern void voclConMsgFlowInitialize();
@@ -1230,7 +1228,6 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
 	voclConMsgMutexLock(proxyIndex);
-	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
@@ -1709,7 +1706,6 @@ clEnqueueReadBuffer(cl_command_queue command_queue,
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
 	voclConMsgMutexLock(proxyIndex);
-	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_command_queue)command_queue);
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
@@ -1941,7 +1937,6 @@ cl_int clFinish(cl_command_queue command_queue)
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
 	voclConMsgMutexLock(proxyIndex);
-	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
@@ -2390,7 +2385,6 @@ cl_int clFlush(cl_command_queue command_queue)
 	/* migration happened on the proxy */
 	voclMigrationMutexLock(proxyIndex);
 	voclConMsgMutexLock(proxyIndex);
-	//voclMigIsProxyInMigration(proxyIndex, proxyRank, proxyComm, proxyCommData);
 
 	vgpuMigStatus = voclGetMigrationStatus(proxyIndex);
 	cmdQueueMigStatus = voclCommandQueueGetMigrationStatus((vocl_kernel) command_queue);
