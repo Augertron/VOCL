@@ -516,7 +516,7 @@ int main(int argc, char *argv[])
 
 		/* for app whose num of function calls in the internal queue is larger than */
 		/* some threshold, control the issue in the VOCL library */
-		//voclProxyConMsgFlowControl(voclCommUsedSize);
+		voclProxyConMsgFlowControl(voclCommUsedSize);
 
         //debug-----------------------------
         printf("rank = %d, requestNum = %d, appIndex = %d, index = %d, tag = %d\n",

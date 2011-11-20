@@ -314,10 +314,10 @@ int voclProxyGetInternalQueueTotalCommandNum(int appIndex)
 
 void *proxyEnqueueThread(void *p)
 {
-	cpu_set_t set;
-    CPU_ZERO(&set);
-    CPU_SET(9, &set);
-    sched_setaffinity(0, sizeof(set), &set);
+//	cpu_set_t set;
+//    CPU_ZERO(&set);
+//    CPU_SET(9, &set);
+//    sched_setaffinity(0, sizeof(set), &set);
 
 	vocl_internal_command_queue *cmdQueuePtr;
 	cl_event *event_wait_list;
