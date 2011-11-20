@@ -13,32 +13,12 @@ extern pthread_barrier_t barrier;
 extern int helperThreadOperFlag;
 extern int voclProxyAppIndex;
 
-/*MPI request for control messages, the latter part is shared*/
-/*by the Write data request */
-//extern MPI_Request *conMsgRequest;
-
 /*from read buffer pool */
-//extern int curReadBufferIndex;
-//extern int readDataRequestNum;
 extern struct voclReadBufferInfo *voclReadBufferPtr;
 extern struct strReadBufferInfo *getReadBufferInfoPtr(int rank, int index);
 extern struct voclReadBufferInfo *getVOCLReadBufferInfoPtr(int rank);
 extern void setReadBufferFlag(int rank, int index, int flag);
 extern int readSendToLocal(int rank, int index);
-
-/*------------------------------------------------ */
-/* functions and variables defined in this file */
-/*------------------------------------------------*/
-
-/*
-int writeDataRequestNum = 0;
-//int totalRequestNum;
-int allWritesAreEnqueuedFlag = 0;
-int allReadBuffersAreCovered = 0;
-
-static int curWriteBufferIndex;
-static struct strWriteBufferInfo writeBufferInfo[VOCL_PROXY_WRITE_BUFFER_NUM];
-*/
 
 static struct voclWriteBufferInfo *voclProxyWriteBufferPtr = NULL;
 static int voclProxyWriteSupportAppNum;
@@ -345,7 +325,6 @@ cl_int processAllWrites(int rank)
 
     voclProxyWriteBufferPtr[rank].curWriteBufferIndex = 0;
     voclProxyWriteBufferPtr[rank].writeDataRequestNum = 0;
-    //voclProxyWriteBufferPtr[rank].totalRequestNum = CMSG_NUM;
     voclProxyWriteBufferPtr[rank].allReadBuffersAreCovered = 1;
 
     return err;
@@ -462,3 +441,4 @@ void sendReadyReadBufferToLocal(int rank)
         0;
     pthread_barrier_wait(&barrier);
 }
+
