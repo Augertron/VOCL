@@ -1238,7 +1238,6 @@ clEnqueueWriteBuffer(cl_command_queue command_queue,
 	/* release the locker */
 	voclConMsgMutexUnlock(proxyIndex);
 	voclMigrationMutexUnlock(proxyIndex);
-printf("writeGPUMem, cmdQueueMigStatus = %d, vgpuMigStatus = %d\n", cmdQueueMigStatus, vgpuMigStatus);
 
 	/* only migration status of command queue is considered */
 	if (cmdQueueMigStatus < vgpuMigStatus)

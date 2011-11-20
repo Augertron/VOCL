@@ -327,7 +327,6 @@ cl_int processAllWrites(int rank)
 
     for (i = startIndex; i < endIndex; i++) {
         index = i % VOCL_PROXY_WRITE_BUFFER_NUM;
-printf("index = %d\n", index);
         if (voclProxyWriteBufferPtr[rank].writeBufferInfo[index].isInUse == WRITE_RECV_DATA) {
             MPI_Wait(getWriteRequestPtr(rank, index), &tmpStatus);
             setWriteBufferFlag(rank, index, WRITE_RECV_COMPLED);
@@ -411,14 +410,6 @@ cl_int enqueuePreviousWrites(int rank)
         index = i % VOCL_PROXY_WRITE_BUFFER_NUM;
 
         if (voclProxyWriteBufferPtr[rank].writeBufferInfo[index].isInUse == WRITE_RECV_DATA) {
-            //if (getPreviousFlag == 0) {
-            //    /* process all previous read buffer */
-            //    if (voclProxyWriteBufferPtr[rank].allReadBuffersAreCovered == 0) {
-            //        getAllPreviousReadBuffers(rank, index);
-            //    }
-            //    getPreviousFlag = 1;
-            //}
-
             MPI_Wait(getWriteRequestPtr(rank, index), &tmpStatus);
             err = writeToGPUMemory(rank, index);
             setWriteBufferFlag(rank, index, WRITE_GPU_MEM);
