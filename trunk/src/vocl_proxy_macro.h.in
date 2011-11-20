@@ -71,7 +71,7 @@ typedef char CON_MSG_BUFFER[MAX_CMSG_SIZE];
 #define SERVICE_NAME_LEN            64
 #define DEFAULT_PROXY_NUM           64
 #define DEFAULT_APP_NUM             20
-#define VOCL_PROXY_APP_MAX_CMD_NUM  128
+#define VOCL_PROXY_APP_MAX_CMD_NUM  256
 
 #define GET_PLATFORM_ID_FUNC1	    10000
 #define GET_DEVICE_ID_FUNC1         10001

@@ -728,7 +728,7 @@ cl_int voclProxyMigrationOneVGPU(vocl_virtual_gpu *vgpuPtr, int *destProxyRank,
 	/* After data transfer and kernel launch are migrated, this function */
 	/* will be called to release the virtual GPU on the original proxy */
 	gettimeofday(&t1, NULL);
-	//voclProxyMigReleaseVirtualGPU(vgpuPtr);
+	voclProxyMigReleaseVirtualGPU(vgpuPtr);
 	gettimeofday(&t2, NULL);
 	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
 	relVGPUTime = tmpTime;
