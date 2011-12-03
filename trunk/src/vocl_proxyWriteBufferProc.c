@@ -300,6 +300,7 @@ cl_int processAllWrites(int rank)
         startIndex += VOCL_PROXY_WRITE_BUFFER_NUM;
         endIndex += VOCL_PROXY_WRITE_BUFFER_NUM;
     }
+
     pthread_barrier_wait(&barrier);
     helperThreadOperFlag = GPU_MEM_WRITE;
     /* used in the helper thread */

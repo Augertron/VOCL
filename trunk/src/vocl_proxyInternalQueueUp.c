@@ -418,7 +418,6 @@ void *proxyEnqueueThread(void *p)
 
 		/* decrease the num of commands for the app by 1 */
 		voclProxyDecreaseCommandNumInInternalQueue(appIndex, 1);
-printf("msgTag = %d\n", cmdQueuePtr->msgTag);		
 		/* if the num of commands in internal queue is less than threshold */
 		/* and conMsg locker is acquired, relase the control message locker */
 		if (voclProxyGetCommandNumInInternalQueue(appIndex) < VOCL_PROXY_APP_MAX_CMD_NUM &&
@@ -468,7 +467,6 @@ printf("msgTag = %d\n", cmdQueuePtr->msgTag);
 				writeBufferInfoPtr = getWriteBufferInfoPtr(appIndex, bufferIndex);
 				MPI_Irecv(writeBufferInfoPtr->dataPtr, bufferSize, MPI_BYTE, appRank,
 						  VOCL_PROXY_WRITE_TAG + bufferIndex, appCommData,
-						  //VOCL_PROXY_WRITE_TAG, appCommData,
 						  getWriteRequestPtr(appIndex, bufferIndex));
 
 				/* save information for writing to GPU memory */
