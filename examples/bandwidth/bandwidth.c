@@ -12,6 +12,8 @@
 #define MAX_BUFF_NUM 60
 #define MAX_NUM 200
 
+cl_bool blockFlag = CL_TRUE;
+
 #define CHECK_ERR(err, str) \
 	if (err != CL_SUCCESS)  \
 	{ \
@@ -158,7 +160,7 @@ int main(int argc, char **argv)
 	{
 		for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
 		{
-			err = clEnqueueWriteBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], CL_FALSE, 0, 
+			err = clEnqueueWriteBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], blockFlag, 0, 
 								   buffSize,
 								   hostMem[i], 0, NULL, NULL);
 			CHECK_ERR(err, "Write buffer error!");
@@ -177,7 +179,7 @@ int main(int argc, char **argv)
 	{
 		for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
 		{
-			err = clEnqueueWriteBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], CL_FALSE, 0, 
+			err = clEnqueueWriteBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], blockFlag, 0, 
 								   buffSize,
 								   hostMem[i], 0, NULL, NULL);
 			CHECK_ERR(err, "Write buffer error!");
@@ -201,7 +203,7 @@ int main(int argc, char **argv)
 	{
 		for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
 		{
-			err = clEnqueueReadBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], CL_FALSE, 0,
+			err = clEnqueueReadBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], blockFlag, 0,
 							buffSize,
 							hostMem[i], 0, 0, 0);
 			CHECK_ERR(err, "Enqueue read buffer error");
@@ -220,7 +222,7 @@ int main(int argc, char **argv)
 	{
 		for (deviceIndex = 0; deviceIndex < usedDeviceNum; deviceIndex++)
 		{
-			err = clEnqueueReadBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], CL_FALSE, 0,
+			err = clEnqueueReadBuffer(hCmdQueues[deviceIndex], deviceMems[i+buffNum*deviceIndex], blockFlag, 0,
 							buffSize,
 							hostMem[i], 0, 0, 0);
 			CHECK_ERR(err, "Enqueue read buffer error");
