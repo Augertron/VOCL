@@ -12,7 +12,7 @@
 #define MAX_BUFF_NUM 60
 #define MAX_NUM 200
 
-cl_bool blockFlag = CL_TRUE;
+cl_bool blockFlag = CL_FALSE;
 
 #define CHECK_ERR(err, str) \
 	if (err != CL_SUCCESS)  \

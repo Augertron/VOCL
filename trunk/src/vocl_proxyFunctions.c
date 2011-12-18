@@ -347,6 +347,7 @@ void mpiOpenCLGetProgramBuildInfo(struct strGetProgramBuildInfo *tmpGetProgramBu
     if (tmpGetProgramBuildInfo->param_value_size_ret == 1) {
         value_size_ptr = &tmpGetProgramBuildInfo->param_value_size_ret;
     }
+
     errcode = clGetProgramBuildInfo(program,
                                     device,
                                     param_name, param_value_size, param_value, value_size_ptr);
