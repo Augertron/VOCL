@@ -259,3 +259,15 @@ __kernel void trace_back2(__global char *str_npathflagp,
 	return;
 }
 
+__kernel void setZeroSwat(__global char *a,
+                      int arraySize)
+{
+    int index = get_global_id(0);
+    if (index < arraySize)
+    {
+        a[index] = 0;
+    }
+
+	return;
+}
+
