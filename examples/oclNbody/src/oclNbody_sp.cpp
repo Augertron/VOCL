@@ -42,7 +42,7 @@ static int iGraphicsWinPosX = 0;        // GLUT Window X location
 static int iGraphicsWinPosY = 0;        // GLUT Window Y location
 static int iGraphicsWinWidth = 1024;    // GLUT Window width
 static int iGraphicsWinHeight = 768;    // GL Window height
-static GLint iVsyncState;       // state var to cache startup Vsync setting
+//static GLint iVsyncState;       // state var to cache startup Vsync setting
 static int flopsPerInteraction = 20;
 
 // Struct defintion for Nbody demo physical parameters

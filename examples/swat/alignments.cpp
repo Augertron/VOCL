@@ -46,7 +46,7 @@ int preProcessing(int rowNum,
 			nOffset = 1;
 		}
 
-		if ((rowNum = columnNum) && (launchNo == rowNum - 1))
+		if ((rowNum == columnNum) && (launchNo == rowNum - 1))
 		{
 			tempDiffPos = ((threadPerLaunch + coalescedOffset - 2) / coalescedOffset) * coalescedOffset;
 		}
