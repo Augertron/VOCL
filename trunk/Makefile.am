@@ -33,7 +33,10 @@ libvocl_la_SOURCES = $(top_srcdir)/src/voclOpencl.c \
 					 $(top_srcdir)/src/voclWinProc.c \
 					 $(top_srcdir)/src/voclFlowControl.c
 
-bin_PROGRAMS = vocl_proxy bandwidth matrixmult_sp matrixmult_dp nbody_sp nbody_dp swat matrixtrans_sp matrixtrans_dp
+bin_PROGRAMS = vocl_proxy sendForcedMigMsg bandwidth matrixmult_sp matrixmult_dp nbody_sp nbody_dp swat matrixtrans_sp matrixtrans_dp
+
+sendForcedMigMsg_SOURCES = $(top_srcdir)/tools/forcedMig/forceMigProxyProc.c \
+					 $(top_srcdir)/tools/forcedMig/voclForcedMig.c
 
 vocl_proxy_SOURCES = $(top_srcdir)/src/vocl_proxy.c \
 					 $(top_srcdir)/src/vocl_proxyFunctions.c \
