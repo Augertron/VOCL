@@ -1,0 +1,253 @@
+
+***************** matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb45
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[1019][0] = 1567232.000000
+c[1020][0] = 1568256.000000
+c[1021][0] = 1569280.000000
+c[1022][0] = 1570304.000000
+c[1023][0] = 1571328.000000
+TimeInfo:
+getPlatform = 2626.317
+getDeviceID = 0.020
+createContext = 252.153
+createCommandQueue = 0.055
+createProgramWithSource = 0.030
+buildProgram = 42.553
+readMatrix = 10.248
+createBuffer = 0.032
+createKernel = 0.085
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 180.431
+enqueueReadBuffer = 0.000
+releaseKernel=0.028
+releaseMemObj=0.882
+releaseProgram=0.386
+releaseCmdQueue=0.077
+releaseContext=0.000
+printMatrix = 0.058
+totalTime = 3113.355
+******iter =20$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb45
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[1019][0] = 1567232.000000
+c[1020][0] = 1568256.000000
+c[1021][0] = 1569280.000000
+c[1022][0] = 1570304.000000
+c[1023][0] = 1571328.000000
+TimeInfo:
+getPlatform = 2615.732
+getDeviceID = 0.020
+createContext = 251.801
+createCommandQueue = 0.068
+createProgramWithSource = 0.030
+buildProgram = 40.656
+readMatrix = 10.180
+createBuffer = 0.031
+createKernel = 0.082
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 179.413
+enqueueReadBuffer = 0.000
+releaseKernel=0.027
+releaseMemObj=0.878
+releaseProgram=0.369
+releaseCmdQueue=0.082
+releaseContext=0.000
+printMatrix = 0.058
+totalTime = 3099.427
+******iter =20$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb45
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[2043][0] = 6280192.000000
+c[2044][0] = 6282240.000000
+c[2045][0] = 6284288.000000
+c[2046][0] = 6286336.000000
+c[2047][0] = 6288384.000000
+TimeInfo:
+getPlatform = 2604.704
+getDeviceID = 0.020
+createContext = 254.625
+createCommandQueue = 0.066
+createProgramWithSource = 0.029
+buildProgram = 42.842
+readMatrix = 41.396
+createBuffer = 0.042
+createKernel = 0.082
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 1931.670
+enqueueReadBuffer = 0.000
+releaseKernel=0.028
+releaseMemObj=3.461
+releaseProgram=0.367
+releaseCmdQueue=0.021
+releaseContext=0.000
+printMatrix = 0.056
+totalTime = 4879.410
+******iter =20$  matrix = 3072 * 3072 *****************
+np = 1
+libHostName = bb45
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[3067][0] = 14138880.000000
+c[3068][0] = 14141952.000000
+c[3069][0] = 14145024.000000
+c[3070][0] = 14148096.000000
+c[3071][0] = 14151168.000000
+TimeInfo:
+getPlatform = 2617.360
+getDeviceID = 0.019
+createContext = 252.881
+createCommandQueue = 0.063
+createProgramWithSource = 0.030
+buildProgram = 42.856
+readMatrix = 92.689
+createBuffer = 0.061
+createKernel = 0.084
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 6632.509
+enqueueReadBuffer = 0.000
+releaseKernel=0.028
+releaseMemObj=7.767
+releaseProgram=0.367
+releaseCmdQueue=0.021
+releaseContext=0.000
+printMatrix = 0.057
+totalTime = 9646.793
+******iter =20$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb45
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[4091][0] = 25142750.000000
+c[4092][0] = 25146844.000000
+c[4093][0] = 25150940.000000
+c[4094][0] = 25155036.000000
+c[4095][0] = 25159134.000000
+TimeInfo:
+getPlatform = 2619.166
+getDeviceID = 0.018
+createContext = 253.163
+createCommandQueue = 0.062
+createProgramWithSource = 0.026
+buildProgram = 41.992
+readMatrix = 164.552
+createBuffer = 0.085
+createKernel = 0.083
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 15909.054
+enqueueReadBuffer = 0.000
+releaseKernel=0.026
+releaseMemObj=13.823
+releaseProgram=0.386
+releaseCmdQueue=0.022
+releaseContext=0.000
+printMatrix = 0.058
+totalTime = 19002.515
+******iter =20$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb45
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[5115][0] = 39292184.000000
+c[5116][0] = 39297308.000000
+c[5117][0] = 39302432.000000
+c[5118][0] = 39307548.000000
+c[5119][0] = 39312664.000000
+TimeInfo:
+getPlatform = 2627.681
+getDeviceID = 0.018
+createContext = 260.746
+createCommandQueue = 0.062
+createProgramWithSource = 0.035
+buildProgram = 40.502
+readMatrix = 255.103
+createBuffer = 0.143
+createKernel = 0.082
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 31358.389
+enqueueReadBuffer = 0.000
+releaseKernel=0.027
+releaseMemObj=21.633
+releaseProgram=0.387
+releaseCmdQueue=0.021
+releaseContext=0.000
+printMatrix = 0.055
+totalTime = 34564.884
+******iter =20$  matrix = 6144 * 6144 *****************
+np = 1
+libHostName = bb45
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[6139][0] = 56587392.000000
+c[6140][0] = 56593540.000000
+c[6141][0] = 56599680.000000
+c[6142][0] = 56605828.000000
+c[6143][0] = 56611968.000000
+TimeInfo:
+getPlatform = 2620.420
+getDeviceID = 0.019
+createContext = 252.337
+createCommandQueue = 0.066
+createProgramWithSource = 0.030
+buildProgram = 43.122
+readMatrix = 369.707
+createBuffer = 0.138
+createKernel = 0.084
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 53846.045
+enqueueReadBuffer = 0.000
+releaseKernel=0.029
+releaseMemObj=31.354
+releaseProgram=0.368
+releaseCmdQueue=0.021
+releaseContext=0.000
+printMatrix = 0.057
+totalTime = 57163.798

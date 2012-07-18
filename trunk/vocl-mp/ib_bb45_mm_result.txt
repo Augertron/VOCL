@@ -1,0 +1,439 @@
+
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[1019][0] = 1567232.000000
+c[1020][0] = 1568256.000000
+c[1021][0] = 1569280.000000
+c[1022][0] = 1570304.000000
+c[1023][0] = 1571328.000000
+TimeInfo:
+getPlatform = 933.263
+getDeviceID = 0.048
+createContext = 62.624
+createCommandQueue = 0.081
+createProgramWithSource = 0.115
+buildProgram = 15.539
+readMatrix = 10.169
+createBuffer = 0.078
+createKernel = 0.143
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 28.393
+enqueueReadBuffer = 0.000
+releaseKernel=0.065
+releaseMemObj=0.409
+releaseProgram=0.102
+releaseCmdQueue=0.022
+releaseContext=0.000
+printMatrix = 0.050
+totalTime = 1051.101
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[2043][0] = 6280192.000000
+c[2044][0] = 6282240.000000
+c[2045][0] = 6284288.000000
+c[2046][0] = 6286336.000000
+c[2047][0] = 6288384.000000
+TimeInfo:
+getPlatform = 1327.656
+getDeviceID = 0.035
+createContext = 87.313
+createCommandQueue = 0.057
+createProgramWithSource = 0.073
+buildProgram = 4.001
+readMatrix = 40.957
+createBuffer = 0.103
+createKernel = 0.094
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 160.521
+enqueueReadBuffer = 0.000
+releaseKernel=0.073
+releaseMemObj=0.424
+releaseProgram=0.111
+releaseCmdQueue=0.029
+releaseContext=0.000
+printMatrix = 0.049
+totalTime = 1621.497
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[3067][0] = 14138880.000000
+c[3068][0] = 14141952.000000
+c[3069][0] = 14145024.000000
+c[3070][0] = 14148096.000000
+c[3071][0] = 14151168.000000
+TimeInfo:
+getPlatform = 938.578
+getDeviceID = 0.054
+createContext = 43.676
+createCommandQueue = 0.080
+createProgramWithSource = 0.085
+buildProgram = 4.024
+readMatrix = 91.650
+createBuffer = 0.101
+createKernel = 0.094
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 453.958
+enqueueReadBuffer = 0.000
+releaseKernel=0.074
+releaseMemObj=0.529
+releaseProgram=0.095
+releaseCmdQueue=0.026
+releaseContext=0.000
+printMatrix = 0.049
+totalTime = 1533.073
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[4091][0] = 25142750.000000
+c[4092][0] = 25146844.000000
+c[4093][0] = 25150940.000000
+c[4094][0] = 25155036.000000
+c[4095][0] = 25159134.000000
+TimeInfo:
+getPlatform = 979.905
+getDeviceID = 0.044
+createContext = 58.121
+createCommandQueue = 0.075
+createProgramWithSource = 0.086
+buildProgram = 3.362
+readMatrix = 163.235
+createBuffer = 0.103
+createKernel = 0.156
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 968.861
+enqueueReadBuffer = 0.000
+releaseKernel=0.035
+releaseMemObj=0.508
+releaseProgram=0.099
+releaseCmdQueue=0.028
+releaseContext=0.000
+printMatrix = 0.052
+totalTime = 2174.669
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[5115][0] = 39292184.000000
+c[5116][0] = 39297308.000000
+c[5117][0] = 39302432.000000
+c[5118][0] = 39307548.000000
+c[5119][0] = 39312664.000000
+TimeInfo:
+getPlatform = 979.444
+getDeviceID = 0.031
+createContext = 67.860
+createCommandQueue = 0.120
+createProgramWithSource = 0.095
+buildProgram = 2.082
+readMatrix = 254.702
+createBuffer = 0.094
+createKernel = 0.114
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 1776.438
+enqueueReadBuffer = 0.000
+releaseKernel=0.035
+releaseMemObj=0.585
+releaseProgram=0.097
+releaseCmdQueue=0.025
+releaseContext=0.000
+printMatrix = 0.048
+totalTime = 3081.771
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[6139][0] = 56587392.000000
+c[6140][0] = 56593540.000000
+c[6141][0] = 56599680.000000
+c[6142][0] = 56605828.000000
+c[6143][0] = 56611968.000000
+TimeInfo:
+getPlatform = 976.796
+getDeviceID = 0.049
+createContext = 44.862
+createCommandQueue = 0.051
+createProgramWithSource = 0.080
+buildProgram = 2.853
+readMatrix = 365.053
+createBuffer = 0.132
+createKernel = 0.109
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 3369.486
+enqueueReadBuffer = 0.000
+releaseKernel=0.041
+releaseMemObj=0.655
+releaseProgram=0.080
+releaseCmdQueue=0.049
+releaseContext=0.000
+printMatrix = 0.048
+totalTime = 4760.342
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[1019][0] = 1567232.000000
+c[1020][0] = 1568256.000000
+c[1021][0] = 1569280.000000
+c[1022][0] = 1570304.000000
+c[1023][0] = 1571328.000000
+TimeInfo:
+getPlatform = 931.252
+getDeviceID = 0.034
+createContext = 61.833
+createCommandQueue = 0.088
+createProgramWithSource = 0.074
+buildProgram = 42.032
+readMatrix = 10.205
+createBuffer = 0.086
+createKernel = 0.081
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 30.282
+enqueueReadBuffer = 0.000
+releaseKernel=0.032
+releaseMemObj=0.402
+releaseProgram=0.094
+releaseCmdQueue=0.023
+releaseContext=0.000
+printMatrix = 0.048
+totalTime = 1076.567
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[2043][0] = 6280192.000000
+c[2044][0] = 6282240.000000
+c[2045][0] = 6284288.000000
+c[2046][0] = 6286336.000000
+c[2047][0] = 6288384.000000
+TimeInfo:
+getPlatform = 980.002
+getDeviceID = 0.101
+createContext = 41.083
+createCommandQueue = 0.078
+createProgramWithSource = 0.054
+buildProgram = 3.939
+readMatrix = 40.776
+createBuffer = 0.083
+createKernel = 0.118
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 162.587
+enqueueReadBuffer = 0.000
+releaseKernel=0.041
+releaseMemObj=0.437
+releaseProgram=0.094
+releaseCmdQueue=0.027
+releaseContext=0.000
+printMatrix = 0.050
+totalTime = 1229.470
+np = 1
+libHostName = bb45
+device 1 is used...
+np = 1
+libHostName = bb45
+device 1 is used...
+
+Ctrl-C caught... cleaning up processes
+np = 1
+Ctrl-C caught... cleaning up processes
+np = 1
+Ctrl-C caught... cleaning up processes
+np = 1
+Ctrl-C caught... cleaning up processes
+np = 1
+Ctrl-C caught... cleaning up processes
+np = 1
+Ctrl-C caught... cleaning up processes
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[1019][0] = 1567232.000000
+c[1020][0] = 1568256.000000
+c[1021][0] = 1569280.000000
+c[1022][0] = 1570304.000000
+c[1023][0] = 1571328.000000
+TimeInfo:
+getPlatform = 932.066
+getDeviceID = 0.071
+createContext = 41.421
+createCommandQueue = 0.082
+createProgramWithSource = 0.086
+buildProgram = 23.034
+readMatrix = 10.164
+createBuffer = 0.084
+createKernel = 0.094
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 30.413
+enqueueReadBuffer = 0.000
+releaseKernel=0.029
+releaseMemObj=0.417
+releaseProgram=0.110
+releaseCmdQueue=0.022
+releaseContext=0.000
+printMatrix = 0.048
+totalTime = 1038.141
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[2043][0] = 6280192.000000
+c[2044][0] = 6282240.000000
+c[2045][0] = 6284288.000000
+c[2046][0] = 6286336.000000
+c[2047][0] = 6288384.000000
+TimeInfo:
+getPlatform = 979.889
+getDeviceID = 0.030
+createContext = 82.291
+createCommandQueue = 0.080
+createProgramWithSource = 0.129
+buildProgram = 1.948
+readMatrix = 40.982
+createBuffer = 0.096
+createKernel = 0.072
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 160.480
+enqueueReadBuffer = 0.000
+releaseKernel=0.068
+releaseMemObj=0.422
+releaseProgram=0.102
+releaseCmdQueue=0.032
+releaseContext=0.000
+printMatrix = 0.052
+totalTime = 1266.672
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[3067][0] = 14138880.000000
+c[3068][0] = 14141952.000000
+c[3069][0] = 14145024.000000
+c[3070][0] = 14148096.000000
+c[3071][0] = 14151168.000000
+TimeInfo:
+getPlatform = 981.124
+getDeviceID = 0.058
+createContext = 41.400
+createCommandQueue = 0.090
+createProgramWithSource = 0.088
+buildProgram = 1.956
+readMatrix = 91.948
+createBuffer = 0.058
+createKernel = 0.078
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 433.851
+enqueueReadBuffer = 0.000
+releaseKernel=0.106
+releaseMemObj=0.458
+releaseProgram=0.094
+releaseCmdQueue=0.029
+releaseContext=0.000
+printMatrix = 0.050
+totalTime = 1551.389
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[4091][0] = 25142750.000000
+c[4092][0] = 25146844.000000
+c[4093][0] = 25150940.000000
+c[4094][0] = 25155036.000000
+c[4095][0] = 25159134.000000
+TimeInfo:
+getPlatform = 981.922
+getDeviceID = 0.120
+createContext = 43.454
+createCommandQueue = 0.081
+createProgramWithSource = 0.116
+buildProgram = 1.900
+readMatrix = 162.408
+createBuffer = 0.059
+createKernel = 0.071
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 937.460
+enqueueReadBuffer = 0.000
+releaseKernel=0.048
+releaseMemObj=0.523
+releaseProgram=0.105
+releaseCmdQueue=0.032
+releaseContext=0.000
+printMatrix = 0.051
+totalTime = 2128.351
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[5115][0] = 39292184.000000
+c[5116][0] = 39297308.000000
+c[5117][0] = 39302432.000000
+c[5118][0] = 39307548.000000
+c[5119][0] = 39312664.000000
+TimeInfo:
+getPlatform = 980.969
+getDeviceID = 0.040
+createContext = 44.380
+createCommandQueue = 0.105
+createProgramWithSource = 0.101
+buildProgram = 1.770
+readMatrix = 254.613
+createBuffer = 0.096
+createKernel = 0.083
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 1774.090
+enqueueReadBuffer = 0.000
+releaseKernel=0.082
+releaseMemObj=0.595
+releaseProgram=0.115
+releaseCmdQueue=0.033
+releaseContext=0.000
+printMatrix = 0.051
+totalTime = 3057.122
+np = 1
+libHostName = bb45
+device 1 is used...
+
+c[6139][0] = 56587392.000000
+c[6140][0] = 56593540.000000
+c[6141][0] = 56599680.000000
+c[6142][0] = 56605828.000000
+c[6143][0] = 56611968.000000
+TimeInfo:
+getPlatform = 981.032
+getDeviceID = 0.024
+createContext = 72.167
+createCommandQueue = 0.041
+createProgramWithSource = 0.080
+buildProgram = 1.862
+readMatrix = 365.245
+createBuffer = 0.085
+createKernel = 0.113
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 3425.073
+enqueueReadBuffer = 0.000
+releaseKernel=0.049
+releaseMemObj=0.647
+releaseProgram=0.082
+releaseCmdQueue=0.035
+releaseContext=0.000
+printMatrix = 0.052
+totalTime = 4846.587
