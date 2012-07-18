@@ -1,0 +1,187 @@
+
+np = 1
+libHostName = bb45
+device 1 is used...
+
+clFinish
+c[1019][0] = 1567232.000000
+c[1020][0] = 1568256.000000
+c[1021][0] = 1569280.000000
+c[1022][0] = 1570304.000000
+c[1023][0] = 1571328.000000
+TimeInfo:
+getPlatform = 926.847
+getDeviceID = 0.059
+createContext = 68.612
+createCommandQueue = 0.066
+createProgramWithSource = 0.099
+buildProgram = 19.623
+readMatrix = 9.837
+createBuffer = 0.124
+createKernel = 0.099
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 25.081
+enqueueReadBuffer = 0.000
+releaseKernel=0.056
+releaseMemObj=0.488
+releaseProgram=0.063
+releaseCmdQueue=0.015
+releaseContext=0.000
+printMatrix = 0.034
+totalTime = 1051.103
+np = 1
+libHostName = bb45
+device 1 is used...
+
+clFinish
+c[2043][0] = 6280192.000000
+c[2044][0] = 6282240.000000
+c[2045][0] = 6284288.000000
+c[2046][0] = 6286336.000000
+c[2047][0] = 6288384.000000
+TimeInfo:
+getPlatform = 980.568
+getDeviceID = 0.023
+createContext = 67.682
+createCommandQueue = 0.082
+createProgramWithSource = 0.120
+buildProgram = 1.857
+readMatrix = 40.604
+createBuffer = 0.111
+createKernel = 0.096
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 148.775
+enqueueReadBuffer = 0.000
+releaseKernel=0.061
+releaseMemObj=0.623
+releaseProgram=0.084
+releaseCmdQueue=0.038
+releaseContext=0.000
+printMatrix = 0.035
+totalTime = 1240.759
+np = 1
+libHostName = bb45
+device 1 is used...
+
+clFinish
+c[3067][0] = 14138880.000000
+c[3068][0] = 14141952.000000
+c[3069][0] = 14145024.000000
+c[3070][0] = 14148096.000000
+c[3071][0] = 14151168.000000
+TimeInfo:
+getPlatform = 979.396
+getDeviceID = 0.030
+createContext = 67.115
+createCommandQueue = 0.084
+createProgramWithSource = 0.097
+buildProgram = 2.110
+readMatrix = 92.637
+createBuffer = 0.133
+createKernel = 0.099
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 423.431
+enqueueReadBuffer = 0.000
+releaseKernel=0.054
+releaseMemObj=0.637
+releaseProgram=0.067
+releaseCmdQueue=0.059
+releaseContext=0.000
+printMatrix = 0.035
+totalTime = 1565.984
+np = 1
+libHostName = bb45
+device 1 is used...
+
+clFinish
+c[4091][0] = 25142750.000000
+c[4092][0] = 25146844.000000
+c[4093][0] = 25150940.000000
+c[4094][0] = 25155036.000000
+c[4095][0] = 25159134.000000
+TimeInfo:
+getPlatform = 979.388
+getDeviceID = 0.033
+createContext = 42.604
+createCommandQueue = 0.066
+createProgramWithSource = 0.139
+buildProgram = 6.828
+readMatrix = 163.414
+createBuffer = 0.107
+createKernel = 0.076
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 953.636
+enqueueReadBuffer = 0.000
+releaseKernel=0.038
+releaseMemObj=0.592
+releaseProgram=0.103
+releaseCmdQueue=0.033
+releaseContext=0.000
+printMatrix = 0.035
+totalTime = 2147.092
+np = 1
+libHostName = bb45
+device 1 is used...
+
+clFinish
+c[5115][0] = 39292184.000000
+c[5116][0] = 39297308.000000
+c[5117][0] = 39302432.000000
+c[5118][0] = 39307548.000000
+c[5119][0] = 39312664.000000
+TimeInfo:
+getPlatform = 978.041
+getDeviceID = 0.021
+createContext = 48.811
+createCommandQueue = 0.073
+createProgramWithSource = 0.115
+buildProgram = 9.577
+readMatrix = 255.588
+createBuffer = 0.156
+createKernel = 0.080
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 1781.803
+enqueueReadBuffer = 0.000
+releaseKernel=0.108
+releaseMemObj=0.826
+releaseProgram=0.090
+releaseCmdQueue=0.054
+releaseContext=0.000
+printMatrix = 0.034
+totalTime = 3075.377
+np = 1
+libHostName = bb45
+device 1 is used...
+
+clFinish
+c[6139][0] = 56587392.000000
+c[6140][0] = 56593540.000000
+c[6141][0] = 56599680.000000
+c[6142][0] = 56605828.000000
+c[6143][0] = 56611968.000000
+TimeInfo:
+getPlatform = 980.679
+getDeviceID = 0.064
+createContext = 44.045
+createCommandQueue = 0.068
+createProgramWithSource = 0.086
+buildProgram = 1.987
+readMatrix = 367.689
+createBuffer = 0.125
+createKernel = 0.095
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 3237.925
+enqueueReadBuffer = 0.000
+releaseKernel=0.063
+releaseMemObj=0.866
+releaseProgram=0.119
+releaseCmdQueue=0.035
+releaseContext=0.000
+printMatrix = 0.034
+totalTime = 4633.880

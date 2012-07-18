@@ -1,0 +1,199 @@
+
+***************** sw = 1  iteration = 100****************
+np = 1
+libHostName = bb47
+cpuid = 1
+Virtual GPU 1 is used...
+
+============================================================
+Sequence pair 0:
+Max alignment score (on device) is 2798.5
+openPenalty = 5.0, extensionPenalty = 0.5
+Input sequence size, querySize: 1024, subSequenceSize: 1024
+Max position, seq1 = 1024, seq2 = 1022
+TimeInfo:
+getPlatform = 2602.067
+getDeviceID = 0.008
+createContext = 58.763
+createCommandQueue = 0.020
+createProgramWithSource = 0.029
+buildProgram = 20.930
+readMatrix = 0.000
+createBuffer = 0.210
+createKernel = 0.141
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 39.178
+enqueueReadBuffer = 0.000
+releaseKernel=0.007
+releaseMemObj=1.055
+releaseProgram=0.026
+releaseCmdQueue=0.005
+releaseContext=41.961
+printMatrix = 0.000
+totalTime = 2764.400
+***************** sw = 2  iteration = 100****************
+np = 1
+libHostName = bb47
+cpuid = 1
+Virtual GPU 1 is used...
+
+============================================================
+Sequence pair 0:
+Max alignment score (on device) is 5727.0
+openPenalty = 5.0, extensionPenalty = 0.5
+Input sequence size, querySize: 2048, subSequenceSize: 2048
+Max position, seq1 = 2045, seq2 = 2047
+TimeInfo:
+getPlatform = 2606.338
+getDeviceID = 0.007
+createContext = 57.927
+createCommandQueue = 0.021
+createProgramWithSource = 0.028
+buildProgram = 1.747
+readMatrix = 0.000
+createBuffer = 0.209
+createKernel = 0.111
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 78.625
+enqueueReadBuffer = 0.000
+releaseKernel=0.007
+releaseMemObj=1.064
+releaseProgram=0.025
+releaseCmdQueue=0.005
+releaseContext=42.278
+printMatrix = 0.000
+totalTime = 2788.392
+***************** sw = 3  iteration = 60****************
+np = 1
+libHostName = bb47
+cpuid = 1
+Virtual GPU 1 is used...
+
+============================================================
+Sequence pair 0:
+Max alignment score (on device) is 8429.5
+openPenalty = 5.0, extensionPenalty = 0.5
+Input sequence size, querySize: 3072, subSequenceSize: 3072
+Max position, seq1 = 3069, seq2 = 3070
+TimeInfo:
+getPlatform = 2600.391
+getDeviceID = 0.008
+createContext = 58.199
+createCommandQueue = 0.021
+createProgramWithSource = 0.029
+buildProgram = 1.962
+readMatrix = 0.000
+createBuffer = 0.211
+createKernel = 0.112
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 119.635
+enqueueReadBuffer = 0.000
+releaseKernel=0.007
+releaseMemObj=1.108
+releaseProgram=0.037
+releaseCmdQueue=0.006
+releaseContext=42.385
+printMatrix = 0.000
+totalTime = 2824.111
+***************** sw = 4  iteration = 50****************
+np = 1
+libHostName = bb47
+cpuid = 1
+Virtual GPU 1 is used...
+
+============================================================
+Sequence pair 0:
+Max alignment score (on device) is 11360.5
+openPenalty = 5.0, extensionPenalty = 0.5
+Input sequence size, querySize: 4096, subSequenceSize: 4096
+Max position, seq1 = 4093, seq2 = 4092
+TimeInfo:
+getPlatform = 2596.822
+getDeviceID = 0.008
+createContext = 58.387
+createCommandQueue = 0.021
+createProgramWithSource = 0.027
+buildProgram = 1.867
+readMatrix = 0.000
+createBuffer = 0.210
+createKernel = 0.112
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 162.242
+enqueueReadBuffer = 0.000
+releaseKernel=0.007
+releaseMemObj=1.064
+releaseProgram=0.028
+releaseCmdQueue=0.006
+releaseContext=42.965
+printMatrix = 0.000
+totalTime = 2863.766
+***************** sw = 5  iteration = 40****************
+np = 1
+libHostName = bb47
+cpuid = 1
+Virtual GPU 1 is used...
+
+============================================================
+Sequence pair 0:
+Max alignment score (on device) is 14073.5
+openPenalty = 5.0, extensionPenalty = 0.5
+Input sequence size, querySize: 5120, subSequenceSize: 5120
+Max position, seq1 = 5113, seq2 = 5120
+TimeInfo:
+getPlatform = 2602.196
+getDeviceID = 0.007
+createContext = 58.454
+createCommandQueue = 0.020
+createProgramWithSource = 0.033
+buildProgram = 1.890
+readMatrix = 0.000
+createBuffer = 0.207
+createKernel = 0.111
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 206.888
+enqueueReadBuffer = 0.000
+releaseKernel=0.007
+releaseMemObj=1.062
+releaseProgram=0.028
+releaseCmdQueue=0.005
+releaseContext=42.102
+printMatrix = 0.000
+totalTime = 2913.010
+***************** sw = 6  iteration = 40****************
+np = 1
+libHostName = bb47
+cpuid = 1
+Virtual GPU 1 is used...
+
+============================================================
+Sequence pair 0:
+Max alignment score (on device) is 17036.0
+openPenalty = 5.0, extensionPenalty = 0.5
+Input sequence size, querySize: 6144, subSequenceSize: 6144
+Max position, seq1 = 6143, seq2 = 6139
+TimeInfo:
+getPlatform = 2597.741
+getDeviceID = 0.007
+createContext = 58.634
+createCommandQueue = 0.020
+createProgramWithSource = 0.029
+buildProgram = 1.862
+readMatrix = 0.000
+createBuffer = 0.207
+createKernel = 0.112
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 253.641
+enqueueReadBuffer = 0.000
+releaseKernel=0.007
+releaseMemObj=1.065
+releaseProgram=0.029
+releaseCmdQueue=0.005
+releaseContext=42.519
+printMatrix = 0.000
+totalTime = 2955.878

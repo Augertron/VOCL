@@ -1,0 +1,723 @@
+******iter =10$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 1
+i=0, deviceNums=0
+totalDeviceNum of CPU is 0
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 1
+i=0, deviceNums=0
+totalDeviceNum of CPU is 0
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 3072 * 3072 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 1
+i=0, deviceNums=0
+totalDeviceNum of CPU is 0
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 1
+i=0, deviceNums=0
+totalDeviceNum of CPU is 0
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 1
+i=0, deviceNums=0
+totalDeviceNum of CPU is 0
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 6144 * 6144 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 1
+i=0, deviceNums=0
+totalDeviceNum of CPU is 0
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 3072 * 3072 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 6144 * 6144 *****************
+Ctrl-C caught... cleaning up processes
+******iter =10$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 3072 * 3072 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 6144 * 6144 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 3072 * 3072 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 6144 * 6144 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 3072 * 3072 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 6144 * 6144 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 3072 * 3072 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 6144 * 6144 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 3072 * 3072 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 6144 * 6144 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 3072 * 3072 *****************
+******iter =10$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb48
+Ctrl-C caught... cleaning up processes
+******iter =10$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb48
+Ctrl-C caught... cleaning up processes
+******iter =10$  matrix = 6144 * 6144 *****************
+np = 1
+libHostName = bb48
+Ctrl-C caught... cleaning up processes
+******iter =10$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 3072 * 3072 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 6144 * 6144 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =1$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =1$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================

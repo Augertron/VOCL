@@ -1,0 +1,307 @@
+#ifndef __VOCL_STRUCTURES_H__
+#define __VOCL_STRUCTURES_H__
+
+#include <CL/opencl.h>
+#include <mpi.h>
+#include "voclOpenclMacro.h"
+
+typedef @vocl_platform_id@ vocl_platform_id;
+typedef @vocl_device_id@ vocl_device_id;
+typedef @vocl_context@ vocl_context;
+typedef @vocl_command_queue@ vocl_command_queue;
+typedef @vocl_mem@ vocl_mem;
+typedef @vocl_program@ vocl_program;
+typedef @vocl_kernel@ vocl_kernel;
+typedef @vocl_event@ vocl_event;
+typedef @vocl_sampler@ vocl_sampler;
+
+
+/* default num for buffer pool for each proxy */
+/* but the program can automatically double */
+/* the size as required */
+#define VOCL_BUFF_NUM        200
+#define VOCL_EVENT_NULL -1
+
+/* vocl structure for opencl resources management */
+typedef struct strVOCLPlatformID {
+    cl_platform_id clPlatformID;
+    vocl_platform_id voclPlatformID;
+    int proxyRank;
+    int proxyIndex;
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
+    struct strVOCLPlatformID *next;
+} vocl_platform_id_str;
+
+typedef struct strVOCLDeviceID {
+    vocl_device_id voclDeviceID;
+    cl_device_id clDeviceID;
+    int proxyRank;
+    int proxyIndex;
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
+
+    struct strVOCLDeviceID *next;
+} vocl_device_id_str;
+
+typedef struct strVOCLCommandQueue {
+    vocl_command_queue voclCommandQueue;
+    cl_command_queue clCommandQueue;
+    int proxyRank;
+    int proxyIndex;
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
+    vocl_device_id deviceID;
+
+    /* properties used for migration */
+    cl_command_queue_properties properties;
+    vocl_context context;
+
+	/* command queue state */
+	char migrationStatus;
+	char padding[3];
+
+    struct strVOCLCommandQueue *next;
+} vocl_command_queue_str;
+
+typedef struct strVOCLMemory {
+    vocl_mem voclMemory;
+    cl_mem clMemory;
+    int proxyRank;
+    int proxyIndex;
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
+
+    /* used for migration */
+	char migrationStatus;
+	char padding[3];
+    cl_mem_flags flags;    /* indicate whether a kernel argument is device memory */
+    size_t size;
+    int isWritten;              /* 1: not written, 1, written, incomplete, 2 written, completed */
+	void *hostPtr;
+    vocl_context context;
+
+    struct strVOCLMemory *next;
+} vocl_mem_str;
+
+typedef struct strVOCLKernel {
+    vocl_kernel voclKernel;
+    cl_kernel clKernel;
+    int proxyRank;
+    int proxyIndex;
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
+
+    /*used for migration */
+	char migrationStatus;
+	char padding[3];
+    char *kernelName;
+    vocl_program program;
+    vocl_context context;
+
+    struct strVOCLKernel *next;
+} vocl_kernel_str;
+
+typedef struct strVOCLProgram {
+    vocl_program voclProgram;
+    cl_program clProgram;
+    int proxyRank;
+    int proxyIndex;
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
+    /* to store source code for migration */
+	char migrationStatus;
+	char padding[3];
+    char *voclSourceString;
+    size_t sourceSize;
+    char *buildOptions;
+    vocl_context context;
+
+	cl_uint kernelNum, kernelNo;
+	vocl_kernel_str **kernelPtr;
+
+    struct strVOCLProgram *next;
+} vocl_program_str;
+
+typedef struct strVOCLEvent {
+    vocl_event voclEvent;
+    cl_event clEvent;
+    int proxyRank;
+    int proxyIndex;
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
+    struct strVOCLEvent *next;
+} vocl_event_str;
+
+typedef struct strVOCLSampler {
+    vocl_sampler voclSampler;
+    cl_sampler clSampler;
+    int proxyRank;
+    int proxyIndex;
+	char migrationStatus;
+	char padding[3];
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
+    struct strVOCLSampler *next;
+} vocl_sampler_str;
+
+typedef struct strVOCLContext {
+    vocl_context voclContext;
+    cl_context clContext;
+
+	cl_uint deviceNum;
+	vocl_device_id *voclDevices;
+
+    int proxyRank;
+    int proxyIndex;
+	char migrationStatus;
+	char padding[3];
+    MPI_Comm proxyComm;
+    MPI_Comm proxyCommData;
+
+	cl_uint cmdQueueNum, cmdQueueNo;
+	vocl_command_queue_str **cmdQueuePtr;
+
+	cl_uint memNum, memNo;
+	vocl_mem_str **memPtr;
+
+	cl_uint programNum, programNo;
+	vocl_program_str **programPtr;
+
+	cl_uint samplerNum, samplerNo;
+	vocl_sampler_str **samplerPtr;
+
+    struct strVOCLContext *next;
+} vocl_context_str;
+
+typedef struct strVGPUMigInfo {
+	int migStatus;
+	int proxyRank;
+	int proxyIndex;
+} vgpu_mig_info;
+
+typedef struct strVOCLGPU {
+	int proxyIndex;
+	int proxyRank;
+	vocl_device_id deviceID;
+
+	cl_uint contextNum, contextNo;
+	vocl_context_str **contextPtr;
+
+	cl_uint cmdQueueNum, cmdQueueNo;
+	vocl_command_queue_str **cmdQueuePtr;
+
+	char migStatus;
+	char padding[3];
+
+	MPI_Win migWin;
+	vgpu_mig_info destMigInfo;
+
+	struct strVOCLGPU *next;
+} vocl_gpu_str;
+
+
+/* vocl structures used for update virtual gpu info */
+typedef struct strVOCLMigMem {
+	cl_mem mem;
+	char migStatus;
+	char padding[3];
+} vocl_mig_mem;
+
+typedef struct strVOCLMigCommandQueue {
+	cl_command_queue command_queue;
+	char migStatus;
+	char padding[3];
+} vocl_mig_command_queue;
+
+typedef struct strVOCLMigSampler {
+	cl_sampler sampler;
+	char migStatus;
+	char padding[3];
+} vocl_mig_sampler;
+
+typedef struct strVOCLMigKernel {
+	cl_kernel kernel;
+	char migStatus;
+	char padding[3];
+} vocl_mig_kernel;
+
+typedef struct strVOCLMigProgram {
+	cl_program program;
+	char migStatus;
+	char padding[3];
+
+	cl_uint kernelNo;
+	cl_kernel *kernelPtr;
+} vocl_mig_program;
+
+typedef struct strVOCLMigContext {
+	cl_context context;
+	char migStatus;
+	char padding[3];
+
+	cl_uint programNo;
+	cl_program *programPtr;
+
+	cl_uint memNo;
+	cl_mem *memPtr;
+
+	cl_uint cmdQueueNo;
+	cl_command_queue *cmdQueuePtr;
+
+	cl_uint samplerNo;
+	cl_sampler *samplerPtr;
+} vocl_mig_context;
+
+typedef struct strVOCLMigVGPU {
+	cl_device_id deviceID;
+	int proxyIndex, proxyRank;
+	char migStatus;
+	char padding[3];
+
+	cl_uint contextNo;
+	cl_context *contextPtr;
+} vocl_mig_vgpu;
+
+
+/* structures used for buffer pool */
+/* some info is added for data send/recv reissue */
+struct strReadBufferInfo {
+    int isInUse;
+    vocl_event event;
+    int bufferNum;
+    MPI_Request request;
+	void *ptr;
+	size_t size;
+	int tag;
+};
+
+struct voclReadBuffer {
+    int readDataRequestNum;
+    int curReadBufferIndex;
+    struct strReadBufferInfo voclReadBufferInfo[VOCL_READ_BUFFER_NUM];
+};
+
+struct strWriteBufferInfo {
+    int isInUse;
+    vocl_event event;
+    int bufferNum;
+    MPI_Request request;
+	void *ptr;
+	size_t size;
+	int tag;
+};
+
+struct voclWriteBuffer {
+    int writeDataRequestNum;
+    int curWriteBufferIndex;
+    struct strWriteBufferInfo voclWriteBufferInfo[VOCL_WRITE_BUFFER_NUM];
+};
+
+struct strDeviceKernelNums {
+	int deviceNum;
+	cl_device_id deviceIDs[MAX_DEVICE_NUM_PER_NODE];
+	int kernelNums[MAX_DEVICE_NUM_PER_NODE];
+};
+
+#endif

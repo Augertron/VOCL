@@ -1,0 +1,341 @@
+******iter =1$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =1$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=2
+i=1, deviceNums=0
+totalDeviceNum of CPU is 2
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =1$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+OK
+i=0, deviceNums=2
+i=1, deviceNums=0
+totalDeviceNum of CPU is 2
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 256
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =1$  matrix = 1024 * 1024 *****************
+******iter =1$  matrix = 1024 * 1024 *****************
+******iter =1$  matrix = 1024 * 1024 *****************
+******iter =10$  matrix = 1024 * 1024 *****************
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 65280
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 2048 * 2048 *****************
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 65280
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 3072 * 3072 *****************
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 65280
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 4096 * 4096 *****************
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 65280
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 5120 * 5120 *****************
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 65280
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 6144 * 6144 *****************
+
+=====================================================================================
+=   BAD TERMINATION OF ONE OF YOUR APPLICATION PROCESSES
+=   EXIT CODE: 65280
+=   CLEANING UP REMAINING PROCESSES
+=   YOU CAN IGNORE THE BELOW CLEANUP MESSAGES
+=====================================================================================
+******iter =10$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[1019][0] = 1567232.000000
+c[1020][0] = 1568256.000000
+c[1021][0] = 1569280.000000
+c[1022][0] = 1570304.000000
+c[1023][0] = 1571328.000000
+TimeInfo:
+getPlatform = 2612.389
+getDeviceID = 0.018
+createContext = 251.007
+createCommandQueue = 0.064
+createProgramWithSource = 0.031
+buildProgram = 40.134
+readMatrix = 10.143
+createBuffer = 0.032
+createKernel = 0.084
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 161.994
+enqueueReadBuffer = 0.000
+releaseKernel=0.027
+releaseMemObj=0.876
+releaseProgram=0.382
+releaseCmdQueue=0.080
+releaseContext=0.000
+printMatrix = 0.061
+totalTime = 3077.322
+******iter =10$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[2043][0] = 6280192.000000
+c[2044][0] = 6282240.000000
+c[2045][0] = 6284288.000000
+c[2046][0] = 6286336.000000
+c[2047][0] = 6288384.000000
+TimeInfo:
+getPlatform = 2616.441
+getDeviceID = 0.019
+createContext = 253.987
+createCommandQueue = 0.063
+createProgramWithSource = 0.030
+buildProgram = 40.932
+readMatrix = 40.974
+createBuffer = 0.040
+createKernel = 0.083
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 1952.546
+enqueueReadBuffer = 0.000
+releaseKernel=0.027
+releaseMemObj=3.471
+releaseProgram=0.386
+releaseCmdQueue=0.021
+releaseContext=0.000
+printMatrix = 0.064
+totalTime = 4909.084
+******iter =10$  matrix = 3072 * 3072 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[3067][0] = 14138880.000000
+c[3068][0] = 14141952.000000
+c[3069][0] = 14145024.000000
+c[3070][0] = 14148096.000000
+c[3071][0] = 14151168.000000
+TimeInfo:
+getPlatform = 2596.822
+getDeviceID = 0.018
+createContext = 252.312
+createCommandQueue = 0.089
+createProgramWithSource = 0.030
+buildProgram = 40.224
+readMatrix = 91.779
+createBuffer = 0.059
+createKernel = 0.084
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 6523.838
+enqueueReadBuffer = 0.000
+releaseKernel=0.029
+releaseMemObj=7.750
+releaseProgram=0.374
+releaseCmdQueue=0.021
+releaseContext=0.000
+printMatrix = 0.064
+totalTime = 9513.493
+******iter =10$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[4091][0] = 25142750.000000
+c[4092][0] = 25146844.000000
+c[4093][0] = 25150940.000000
+c[4094][0] = 25155036.000000
+c[4095][0] = 25159134.000000
+TimeInfo:
+getPlatform = 2602.015
+getDeviceID = 0.019
+createContext = 251.231
+createCommandQueue = 0.070
+createProgramWithSource = 0.031
+buildProgram = 40.052
+readMatrix = 163.127
+createBuffer = 0.086
+createKernel = 0.084
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 16107.652
+enqueueReadBuffer = 0.000
+releaseKernel=0.029
+releaseMemObj=13.836
+releaseProgram=0.364
+releaseCmdQueue=0.021
+releaseContext=0.000
+printMatrix = 0.063
+totalTime = 19178.681
+******iter =10$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[5115][0] = 39292184.000000
+c[5116][0] = 39297308.000000
+c[5117][0] = 39302432.000000
+c[5118][0] = 39307548.000000
+c[5119][0] = 39312664.000000
+TimeInfo:
+getPlatform = 2615.273
+getDeviceID = 0.018
+createContext = 259.793
+createCommandQueue = 0.084
+createProgramWithSource = 0.031
+buildProgram = 39.826
+readMatrix = 257.164
+createBuffer = 0.138
+createKernel = 0.084
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 30198.779
+enqueueReadBuffer = 0.000
+releaseKernel=0.029
+releaseMemObj=21.729
+releaseProgram=0.363
+releaseCmdQueue=0.019
+releaseContext=0.000
+printMatrix = 0.061
+totalTime = 33393.391
+******iter =10$  matrix = 6144 * 6144 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+c[6139][0] = 56587392.000000
+c[6140][0] = 56593540.000000
+c[6141][0] = 56599680.000000
+c[6142][0] = 56605828.000000
+c[6143][0] = 56611968.000000
+TimeInfo:
+getPlatform = 2614.485
+getDeviceID = 0.019
+createContext = 250.757
+createCommandQueue = 0.063
+createProgramWithSource = 0.030
+buildProgram = 40.464
+readMatrix = 367.432
+createBuffer = 0.134
+createKernel = 0.084
+enqueueWriteBuffer = 0.000
+setKernelArg = 0.000
+kernelExecution = 55371.749
+enqueueReadBuffer = 0.000
+releaseKernel=0.027
+releaseMemObj=31.138
+releaseProgram=0.376
+releaseCmdQueue=0.020
+releaseContext=0.000
+printMatrix = 0.066
+totalTime = 58676.844
+******iter =10$  matrix = 1024 * 1024 *****************
+np = 1
+libHostName = bb48
+totalPlatform Num of PlatformIDs is 2
+i=0, deviceNums=0
+i=1, deviceNums=1
+totalDeviceNum of CPU is 1
+Device #0 name = Intel(R) Xeon(R) CPU           E5430  @ 2.66GHz
+device 0 is used...
+
+Ctrl-C caught... cleaning up processes
+******iter =10$  matrix = 2048 * 2048 *****************
+np = 1
+libHostName = bb48
+Ctrl-C caught... cleaning up processes
+******iter =10$  matrix = 3072 * 3072 *****************
+np = 1
+libHostName = bb48
+Ctrl-C caught... cleaning up processes
+******iter =10$  matrix = 4096 * 4096 *****************
+np = 1
+libHostName = bb48
+Ctrl-C caught... cleaning up processes
+******iter =10$  matrix = 5120 * 5120 *****************
+np = 1
+libHostName = bb48
+Ctrl-C caught... cleaning up processes
+******iter =10$  matrix = 6144 * 6144 *****************
+np = 1
+libHostName = bb48
+Ctrl-C caught... cleaning up processes
