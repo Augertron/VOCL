@@ -1,1 +1,0 @@
-transpose_gold_sp.o: examples/matrixtrans/transpose_gold_sp.cpp

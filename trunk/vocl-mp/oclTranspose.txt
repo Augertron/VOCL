@@ -1,8 +1,0 @@
-./vocl_lib/bin/matrixtrans_sp Starting...
-
-cpuid = 1
-Device 0 is used ...
-
-
-Processing a 6144 by 6144 matrix of floats for 120 iterations
-
