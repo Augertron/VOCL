@@ -1,8 +1,0 @@
-./matrixtrans_sp Starting...
-
-cpuid = 1
-Device 0 is used ...
-
-
-Processing a 1024 by 1024 matrix of floats for 100 iterations
-
